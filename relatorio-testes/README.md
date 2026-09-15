@@ -7,9 +7,10 @@ fotos numa pasta do Google Drive.
 
 Ficheiros:
 
-- `Index.html` — frontend (formulário + câmara + compressão de imagem).
+- `index.html` — frontend (formulário + câmara + compressão de imagem).
 - `Code.gs` — backend em Google Apps Script (`doPost` grava no Drive e
-  envia o e-mail; `doGet` opcionalmente serve o próprio `Index.html`).
+  envia o e-mail; `doGet` opcionalmente serve o próprio `index.html`,
+  desde que o ficheiro HTML no projeto do Apps Script se chame `Index`).
 
 ## Passo 1 — Criar a pasta no Google Drive
 
@@ -24,7 +25,7 @@ Ficheiros:
    ficheiro `Code.gs` deste repositório.
 3. Substitua a constante `FOLDER_ID` pelo ID copiado no Passo 1.
 4. Crie um novo ficheiro HTML (menu **+** → **HTML**) chamado `Index`
-   e cole o conteúdo do ficheiro `Index.html` deste repositório.
+   e cole o conteúdo do ficheiro `index.html` deste repositório.
 
 ## Passo 3 — Publicar como Aplicação Web
 
@@ -45,19 +46,25 @@ Há duas formas de usar a aplicação:
 ### Opção A — servida pelo próprio Apps Script (mais simples)
 
 Não precisa de fazer nada: abra diretamente o URL `/exec` copiado no
-Passo 3 no telemóvel. O `doGet` do `Code.gs` já serve o `Index.html`, e
+Passo 3 no telemóvel. O `doGet` do `Code.gs` já serve o `index.html`, e
 como o formulário deteta que está a correr dentro do Apps Script, envia
 os dados para o mesmo URL. Evita problemas de CORS.
 
-### Opção B — alojar o `Index.html` noutro sítio (GitHub Pages, Netlify, etc.)
+### Opção B — alojar o `index.html` noutro sítio (GitHub Pages, Netlify, etc.)
 
-1. Abra o `Index.html` e edite a constante `APPS_SCRIPT_URL` no topo do
-   `<script>`, colando o URL `/exec` copiado no Passo 3.
-2. Publique o `Index.html` no serviço de alojamento à sua escolha.
+Este repositório já está preparado para o GitHub Pages: a versão publicada
+fica em `https://<utilizador>.github.io/<repositório>/relatorio-testes/`
+(a raiz do site apenas redireciona para lá).
 
-> Evite abrir o `Index.html` diretamente como ficheiro local
+1. Abra o ficheiro `relatorio-testes/index.html` no repositório e edite a
+   constante `APPS_SCRIPT_URL` no topo do `<script>`, colando o URL
+   `/exec` copiado no Passo 3.
+2. Faça commit/push dessa alteração — o GitHub Pages atualiza
+   automaticamente em 1–2 minutos.
+
+> Evite abrir o `index.html` diretamente como ficheiro local
 > (`file://...`) — alguns navegadores bloqueiam o `fetch` por CORS
-> nesse modo. Use a Opção A ou aloje o ficheiro num servidor.
+> nesse modo. Use a Opção A ou aloje o ficheiro num servidor (Opção B).
 
 ## Passo 5 — Testar
 
