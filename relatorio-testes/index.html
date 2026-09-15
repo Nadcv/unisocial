@@ -188,6 +188,36 @@
     color: var(--texto-suave);
     margin-top: 8px;
   }
+  select {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+  }
+  .duas-colunas {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .duas-colunas > div {
+    flex: 1 1 160px;
+  }
+  .linha-esquema {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+  }
+  .linha-esquema input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+  .select-esquema {
+    margin-bottom: 10px;
+  }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -209,6 +239,31 @@
       <label class="campo-label" for="emails">E-mail(s) dos destinatários</label>
       <input type="text" id="emails" name="emails" placeholder="exemplo1@empresa.com, exemplo2@empresa.com" autocomplete="off" required />
       <div class="ajuda">Separe vários e-mails por vírgula.</div>
+
+      <div style="height:14px"></div>
+
+      <div class="duas-colunas">
+        <div>
+          <label class="campo-label" for="grupo">Grupo da máquina</label>
+          <select id="grupo">
+            <option value="">Selecione...</option>
+            <option value="30">30</option>
+            <option value="46">46</option>
+            <option value="67">67</option>
+            <option value="68">68</option>
+            <option value="107">107</option>
+            <option value="108">108</option>
+          </select>
+        </div>
+        <div>
+          <label class="campo-label" for="tipoValvula">Tipo de válvula</label>
+          <select id="tipoValvula">
+            <option value="">Selecione...</option>
+            <option value="Mecanica">Mecânica</option>
+            <option value="Eletronica">Eletrónica</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <div class="card" id="categorias-container">
@@ -239,30 +294,56 @@
   }
 
   var CATEGORIAS = [
-    { chave: 'responsavel',    rotulo: 'Fotografia do responsável' },
-    { chave: 'eletrico',       rotulo: 'Teste elétrico' },
-    { chave: 'pressao',        rotulo: 'Pressão' },
-    { chave: 'especificacao',  rotulo: 'Especificação da máquina' },
-    { chave: 'controlador',    rotulo: 'Controlador do compressor' },
-    { chave: 'deposito',       rotulo: 'Depósito de refrigeração' },
-    { chave: 'vacuo',          rotulo: 'Teste de vácuo' }
+    { chave: 'responsavel',     rotulo: 'Fotografia do responsável', esquema: false },
+    { chave: 'eletrico',        rotulo: 'Teste elétrico', esquema: false },
+    { chave: 'pressao',         rotulo: 'Pressão', esquema: false },
+    { chave: 'especificacao',   rotulo: 'Especificação da máquina', esquema: false },
+    { chave: 'controlador',     rotulo: 'Controlador do compressor', esquema: false },
+    { chave: 'deposito',        rotulo: 'Depósito de refrigeração', esquema: false },
+    { chave: 'vacuo',           rotulo: 'Teste de vácuo', esquema: false },
+    { chave: 'esquemaEletrico', rotulo: 'Esquema elétrico', esquema: true },
+    { chave: 'esquemaFrio',     rotulo: 'Esquema de frio', esquema: true },
+    { chave: 'ventilador',      rotulo: 'Ventilador', esquema: false }
   ];
 
   // Guarda os ficheiros já comprimidos (base64) por categoria.
   var fotosPorCategoria = {};
   CATEGORIAS.forEach(function (c) { fotosPorCategoria[c.chave] = []; });
 
+  // Para as categorias de esquema: id do ficheiro do Drive escolhido da
+  // biblioteca (em vez de tirar foto nova), e se um esquema novo deve
+  // ser guardado na biblioteca para reutilizar depois.
+  var esquemaExistente = {};
+  var guardarEsquema = {};
+
+  var campoGrupo = document.getElementById('grupo');
+  var campoTipoValvula = document.getElementById('tipoValvula');
+
   var container = document.getElementById('categorias-container');
 
   CATEGORIAS.forEach(function (cat) {
     var bloco = document.createElement('div');
     bloco.className = 'categoria';
+
+    var extraEsquema = '';
+    if (cat.esquema) {
+      extraEsquema =
+        '<div class="linha-esquema">' +
+          '<input type="checkbox" id="naoTenho-' + cat.chave + '" data-chave-esquema="' + cat.chave + '" />' +
+          '<label for="naoTenho-' + cat.chave + '">Não tenho o esquema desta máquina — usar um já guardado</label>' +
+        '</div>' +
+        '<select class="select-esquema" id="listaEsquemas-' + cat.chave + '" data-chave-lista="' + cat.chave + '" hidden>' +
+          '<option value="">A carregar...</option>' +
+        '</select>';
+    }
+
     bloco.innerHTML =
       '<div class="categoria-titulo">' +
         '<span>' + cat.rotulo + '</span>' +
         '<span class="contagem" id="contagem-' + cat.chave + '">0 foto(s)</span>' +
       '</div>' +
-      '<div class="botoes-foto">' +
+      extraEsquema +
+      '<div class="botoes-foto" id="botoes-' + cat.chave + '">' +
         '<label class="botao-foto">📷 Tirar foto' +
           '<input type="file" accept="image/*" capture="environment" data-chave="' + cat.chave + '" />' +
         '</label>' +
@@ -276,6 +357,18 @@
 
   container.addEventListener('change', function (ev) {
     var input = ev.target;
+
+    if (input.tagName === 'INPUT' && input.type === 'checkbox' && input.dataset.chaveEsquema) {
+      aoAlterarNaoTenho(input.dataset.chaveEsquema, input.checked);
+      return;
+    }
+
+    if (input.tagName === 'SELECT' && input.dataset.chaveLista) {
+      esquemaExistente[input.dataset.chaveLista] = input.value || null;
+      atualizarContagem(input.dataset.chaveLista);
+      return;
+    }
+
     if (input.tagName !== 'INPUT' || input.type !== 'file') return;
     var chave = input.dataset.chave;
     var ficheiros = Array.prototype.slice.call(input.files || []);
@@ -294,10 +387,96 @@
       atualizarContagem(chave);
       esconderEstado();
       input.value = '';
+      perguntarSeGuardaEsquema(chave);
     }).catch(function (erro) {
       mostrarEstado('Erro ao processar imagem: ' + erro.message, 'erro');
     });
   });
+
+  function perguntarSeGuardaEsquema(chave) {
+    var categoria = CATEGORIAS.filter(function (c) { return c.chave === chave; })[0];
+    if (!categoria || !categoria.esquema) return;
+    if (guardarEsquema[chave]) return;
+
+    var grupo = campoGrupo.value;
+    var tipoValvula = campoTipoValvula.value;
+    if (!grupo || !tipoValvula) return;
+
+    var quer = window.confirm('Guardar este esquema para reutilizar depois no Grupo ' + grupo + ' (' + tipoValvula + ')?');
+    guardarEsquema[chave] = quer === true;
+  }
+
+  function aoAlterarNaoTenho(chave, marcado) {
+    var botoes = document.getElementById('botoes-' + chave);
+    var lista = document.getElementById('listaEsquemas-' + chave);
+
+    if (marcado) {
+      botoes.hidden = true;
+      lista.hidden = false;
+      fotosPorCategoria[chave] = [];
+      document.getElementById('previews-' + chave).innerHTML = '';
+      carregarListaEsquemas(chave);
+    } else {
+      botoes.hidden = false;
+      lista.hidden = true;
+      esquemaExistente[chave] = null;
+    }
+    atualizarContagem(chave);
+  }
+
+  function carregarListaEsquemas(chave) {
+    var lista = document.getElementById('listaEsquemas-' + chave);
+    var grupo = campoGrupo.value;
+    var tipoValvula = campoTipoValvula.value;
+
+    if (!grupo || !tipoValvula) {
+      lista.innerHTML = '<option value="">Selecione primeiro o Grupo e o Tipo de válvula</option>';
+      return;
+    }
+
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      lista.innerHTML = '<option value="">Configuração do URL em falta</option>';
+      return;
+    }
+
+    lista.innerHTML = '<option value="">A carregar...</option>';
+
+    var url = APPS_SCRIPT_URL +
+      '?action=listarEsquemas' +
+      '&categoria=' + encodeURIComponent(chave) +
+      '&grupo=' + encodeURIComponent(grupo) +
+      '&tipoValvula=' + encodeURIComponent(tipoValvula);
+
+    var promessaLista = fetch(url);
+
+    function aoReceberListaResposta(resposta) {
+      return resposta.json();
+    }
+
+    function aoProcessarLista(dados) {
+      if (dados.status !== 'ok') {
+        lista.innerHTML = '<option value="">Erro ao carregar lista</option>';
+        return;
+      }
+      if (!dados.itens || !dados.itens.length) {
+        lista.innerHTML = '<option value="">Nenhum esquema guardado para este Grupo/Tipo</option>';
+        return;
+      }
+      var opcoes = '<option value="">Escolha um esquema guardado...</option>';
+      dados.itens.forEach(function (item) {
+        opcoes = opcoes + '<option value="' + item.id + '">' + item.nome + '</option>';
+      });
+      lista.innerHTML = opcoes;
+    }
+
+    function aoFalharLista() {
+      lista.innerHTML = '<option value="">Erro de ligação ao carregar lista</option>';
+    }
+
+    var promessaListaJson = promessaLista.then(aoReceberListaResposta);
+    promessaListaJson.then(aoProcessarLista);
+    promessaListaJson.catch(aoFalharLista);
+  }
 
   function adicionarPreview(chave, base64, indice) {
     var previews = document.getElementById('previews-' + chave);
@@ -319,6 +498,7 @@
   function atualizarContagem(chave) {
     var el = document.getElementById('contagem-' + chave);
     var n = fotosPorCategoria[chave].length;
+    if (esquemaExistente[chave]) n = 1;
     el.textContent = n + (n === 1 ? ' foto' : ' fotos');
   }
 
@@ -374,24 +554,38 @@
 
     var serial = document.getElementById('serial').value.trim();
     var emails = document.getElementById('emails').value.trim();
+    var grupo = campoGrupo.value;
+    var tipoValvula = campoTipoValvula.value;
 
     if (!serial) { mostrarEstado('Indique o número de série.', 'erro'); return; }
     if (!emails) { mostrarEstado('Indique pelo menos um e-mail.', 'erro'); return; }
+    if (!grupo) { mostrarEstado('Selecione o Grupo da máquina.', 'erro'); return; }
+    if (!tipoValvula) { mostrarEstado('Selecione o Tipo de válvula.', 'erro'); return; }
 
     var totalFotos = CATEGORIAS.reduce(function (soma, c) {
-      return soma + fotosPorCategoria[c.chave].length;
+      var conta = fotosPorCategoria[c.chave].length;
+      if (esquemaExistente[c.chave]) conta = conta + 1;
+      return soma + conta;
     }, 0);
     if (totalFotos === 0) {
       mostrarEstado('Tire ou selecione pelo menos uma fotografia.', 'erro');
       return;
     }
 
-    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('COLE_AQUI') !== -1) {
-      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do <script> com o URL /exec da Aplicação Web.', 'erro');
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
       return;
     }
 
-    var payload = { serial: serial, emails: emails, fotos: fotosPorCategoria };
+    var payload = {
+      serial: serial,
+      emails: emails,
+      grupo: grupo,
+      tipoValvula: tipoValvula,
+      fotos: fotosPorCategoria,
+      esquemasExistentes: esquemaExistente,
+      guardarEsquema: guardarEsquema
+    };
 
     botaoEnviar.disabled = true;
     botaoEnviar.textContent = 'A enviar...';
@@ -433,9 +627,18 @@
   function limparFormulario() {
     document.getElementById('serial').value = '';
     document.getElementById('emails').value = '';
+    campoGrupo.value = '';
+    campoTipoValvula.value = '';
     CATEGORIAS.forEach(function (c) {
       fotosPorCategoria[c.chave] = [];
       document.getElementById('previews-' + c.chave).innerHTML = '';
+      if (c.esquema) {
+        esquemaExistente[c.chave] = null;
+        guardarEsquema[c.chave] = false;
+        var checkbox = document.getElementById('naoTenho-' + c.chave);
+        if (checkbox) checkbox.checked = false;
+        aoAlterarNaoTenho(c.chave, false);
+      }
       atualizarContagem(c.chave);
     });
   }
