@@ -224,17 +224,17 @@
 <script>
 (function () {
   // ---------------------------------------------------------------------
-  // Quando esta página é servida pelo próprio Apps Script (doGet), o
-  // Code.gs injeta automaticamente o URL da implantação abaixo, via
-  // "<?= appsScriptUrl ?>" (scriptlet do HtmlService) — não é preciso
-  // copiar/colar nada à mão nesse caso.
+  // Quando esta pagina e servida pelo proprio Apps Script (doGet), o
+  // Code.gs injeta automaticamente o URL da implantacao abaixo, atraves
+  // de um scriptlet do HtmlService colocado logo a seguir a este bloco
+  // de comentarios. Nao e preciso copiar/colar nada a mao nesse caso.
   //
-  // Quando esta página é aberta fora do Apps Script (ex.: GitHub Pages),
-  // esse scriptlet não é avaliado, por isso usamos o URL fixo abaixo
+  // Quando esta pagina e aberta fora do Apps Script (ex.: GitHub Pages),
+  // esse scriptlet nao e avaliado, por isso usamos o URL fixo abaixo
   // como reserva.
   // ---------------------------------------------------------------------
   var APPS_SCRIPT_URL = '<?= appsScriptUrl ?>';
-  if (APPS_SCRIPT_URL.indexOf('<?') !== -1) {
+  if (APPS_SCRIPT_URL.indexOf('https://') !== 0) {
     APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzr21uXDhe2XzKzNdJQc80Pv6asRbTUg9rav0XByiZIQaNEWPITjV6RaSmlpWq3Z9N4/exec';
   }
 
