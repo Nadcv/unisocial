@@ -39,10 +39,15 @@ function doGet(e) {
     return listarEsquemasSalvos(e.parameter);
   }
 
+  var tipoParametro = e && e.parameter ? e.parameter.tipo : '';
+  var tipoRelatorio = tipoParametro === 'ciclos' ? 'ciclos' : 'testes';
+  var tituloPagina = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
+
   var template = HtmlService.createTemplateFromFile('Index');
   template.appsScriptUrl = ScriptApp.getService().getUrl();
+  template.tipoRelatorio = tipoRelatorio;
   var saida = template.evaluate();
-  saida.setTitle('Relatorio de Testes');
+  saida.setTitle(tituloPagina);
   saida.addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
   return saida;
 }
@@ -62,6 +67,11 @@ function doPost(e) {
     var fotos = dados.fotos || {};
     var esquemasExistentes = dados.esquemasExistentes || {};
     var guardarEsquema = dados.guardarEsquema || {};
+    var descricoesEsquema = dados.descricoesEsquema || {};
+    var observacoes = (dados.observacoes || '').toString().trim();
+    var tipoRelatorio = dados.tipoRelatorio === 'ciclos' ? 'ciclos' : 'testes';
+    var nomeRelatorio = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
+    var prefixoPasta = tipoRelatorio === 'ciclos' ? 'CICLO_' : 'SN_';
 
     if (!serial) {
       throw new Error('Numero de serie em falta.');
@@ -81,7 +91,7 @@ function doPost(e) {
     var folder = DriveApp.getFolderById(FOLDER_ID);
 
     var timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyyMMdd_HHmmss');
-    var nomeSubpasta = 'SN_' + sanitizeNome(serial) + '_Grupo' + sanitizeNome(grupo) + '_' + timestamp;
+    var nomeSubpasta = prefixoPasta + sanitizeNome(serial) + '_Grupo' + sanitizeNome(grupo) + '_' + timestamp;
     var subfolder = folder.createFolder(nomeSubpasta);
 
     var anexos = [];
@@ -135,17 +145,24 @@ function doPost(e) {
       throw new Error('O total de anexos (' + totalMB + ' MB) excede o limite de ~25 MB do Gmail. Reduza o numero ou o tamanho das fotos.');
     }
 
-    var corpo = 'Relatorio de testes da maquina.';
+    var corpo = nomeRelatorio + ' da maquina.';
     corpo = corpo + '\n\n';
     corpo = corpo + 'Numero de serie: ' + serial + '\n';
     corpo = corpo + 'Grupo: ' + grupo + '\n';
     corpo = corpo + 'Tipo de valvula: ' + tipoValvula + '\n';
-    corpo = corpo + 'Total de fotografias em anexo: ' + totalFotos + '\n\n';
-    corpo = corpo + 'Este e-mail foi gerado automaticamente pela aplicacao de recolha de fotos de testes.';
+    corpo = corpo + 'Total de fotografias em anexo: ' + totalFotos + '\n';
+    corpo = corpo + montarTextoDescricoesEsquema(descricoesEsquema);
+    corpo = corpo + '\n';
+
+    if (observacoes) {
+      corpo = corpo + '\nObservacoes:\n' + observacoes + '\n';
+    }
+
+    corpo = corpo + '\nEste e-mail foi gerado automaticamente pela aplicacao de recolha de fotos de testes.';
 
     MailApp.sendEmail({
       to: emails,
-      subject: 'Relatorio de Testes - S/N: ' + serial + ' - Grupo ' + grupo,
+      subject: nomeRelatorio + ' - S/N: ' + serial + ' - Grupo ' + grupo,
       body: corpo,
       attachments: anexos
     });
@@ -158,6 +175,22 @@ function doPost(e) {
   var saida = ContentService.createTextOutput(JSON.stringify(resposta));
   saida.setMimeType(ContentService.MimeType.JSON);
   return saida;
+}
+
+/**
+ * Constroi o texto com as descricoes dos esquemas (sugeridas pela Aralab),
+ * uma linha por categoria de esquema que tenha descricao preenchida.
+ */
+function montarTextoDescricoesEsquema(descricoesEsquema) {
+  var texto = '';
+  for (var i = 0; i < CATEGORIAS_ESQUEMA.length; i++) {
+    var chave = CATEGORIAS_ESQUEMA[i];
+    var descricao = (descricoesEsquema[chave] || '').toString().trim();
+    if (descricao) {
+      texto = texto + '\n' + CATEGORIAS[chave] + ' - Descricao: ' + descricao;
+    }
+  }
+  return texto;
 }
 
 function ehCategoriaEsquema(chave) {

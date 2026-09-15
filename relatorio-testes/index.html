@@ -218,14 +218,37 @@
   .select-esquema {
     margin-bottom: 10px;
   }
+  textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 90px;
+  }
+  .descricao-esquema {
+    margin-bottom: 10px;
+  }
+  .link-alternar {
+    display: inline-block;
+    margin-top: 8px;
+    color: #fff;
+    font-size: 0.8rem;
+    text-decoration: underline;
+    opacity: 0.9;
+  }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Relatório de Testes da Máquina</h1>
+  <h1 id="tituloPagina">Relatório de Testes da Máquina</h1>
   <p>Preencha os dados, tire as fotografias e envie</p>
+  <a href="#" class="link-alternar" id="linkAlternar">Ver formulário de Ciclos</a>
 </header>
 
 <main>
@@ -270,6 +293,11 @@
       <!-- categorias inseridas via JavaScript -->
     </div>
 
+    <div class="card">
+      <label class="campo-label" for="observacoes">Observações</label>
+      <textarea id="observacoes" name="observacoes" placeholder="Notas adicionais sobre a máquina ou o teste..."></textarea>
+    </div>
+
     <button type="submit" class="botao-enviar" id="botao-enviar">Enviar</button>
     <div class="estado" id="estado"></div>
     <div class="rodape-ajuda">As fotos são comprimidas automaticamente antes do envio para caberem no limite de anexos do Gmail (~25 MB no total).</div>
@@ -291,6 +319,30 @@
   var APPS_SCRIPT_URL = '<?= appsScriptUrl ?>';
   if (APPS_SCRIPT_URL.indexOf('https://') !== 0) {
     APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyzPF5Yn1DPuEqnazOLHeMRbcud_jCwcu8qhyyjZekOTqLqwxvqe87HJ_p3UePnTo5P8A/exec';
+  }
+
+  // ---------------------------------------------------------------------
+  // Quando servida pelo Apps Script, o tipo de relatorio (testes/ciclos)
+  // vem preenchido pelo servidor consoante o parametro ?tipo= do URL.
+  // Fora do Apps Script (ex.: GitHub Pages) lemos o mesmo parametro
+  // diretamente do URL da pagina.
+  // ---------------------------------------------------------------------
+  var TIPO_RELATORIO_SERVIDOR = '<?= tipoRelatorio ?>';
+  var TIPO_RELATORIO = TIPO_RELATORIO_SERVIDOR === 'ciclos' ? 'ciclos' : 'testes';
+  if (TIPO_RELATORIO_SERVIDOR.indexOf('<') !== -1) {
+    var parametrosUrl = new URLSearchParams(window.location.search);
+    TIPO_RELATORIO = parametrosUrl.get('tipo') === 'ciclos' ? 'ciclos' : 'testes';
+  }
+
+  var tituloPagina = document.getElementById('tituloPagina');
+  var linkAlternar = document.getElementById('linkAlternar');
+
+  if (TIPO_RELATORIO === 'ciclos') {
+    tituloPagina.textContent = 'Relatório de Ciclos da Máquina';
+    linkAlternar.textContent = 'Ver formulário de Testes';
+    linkAlternar.href = '?tipo=testes';
+  } else {
+    linkAlternar.href = '?tipo=ciclos';
   }
 
   var CATEGORIAS = [
@@ -328,6 +380,10 @@
     var extraEsquema = '';
     if (cat.esquema) {
       extraEsquema =
+        '<div class="descricao-esquema">' +
+          '<label class="campo-label" for="descricao-' + cat.chave + '">Descrição do esquema (sugerida pela Aralab)</label>' +
+          '<input type="text" id="descricao-' + cat.chave + '" data-chave-descricao="' + cat.chave + '" placeholder="Ex.: Esquema V2 - revisão 2023" />' +
+        '</div>' +
         '<div class="linha-esquema">' +
           '<input type="checkbox" id="naoTenho-' + cat.chave + '" data-chave-esquema="' + cat.chave + '" />' +
           '<label for="naoTenho-' + cat.chave + '">Não tenho o esquema desta máquina — usar um já guardado</label>' +
@@ -577,11 +633,22 @@
       return;
     }
 
+    var observacoes = document.getElementById('observacoes').value.trim();
+    var descricoesEsquema = {};
+    CATEGORIAS.forEach(function (c) {
+      if (!c.esquema) return;
+      var campo = document.getElementById('descricao-' + c.chave);
+      descricoesEsquema[c.chave] = campo ? campo.value.trim() : '';
+    });
+
     var payload = {
       serial: serial,
       emails: emails,
       grupo: grupo,
       tipoValvula: tipoValvula,
+      tipoRelatorio: TIPO_RELATORIO,
+      observacoes: observacoes,
+      descricoesEsquema: descricoesEsquema,
       fotos: fotosPorCategoria,
       esquemasExistentes: esquemaExistente,
       guardarEsquema: guardarEsquema
@@ -627,6 +694,7 @@
   function limparFormulario() {
     document.getElementById('serial').value = '';
     document.getElementById('emails').value = '';
+    document.getElementById('observacoes').value = '';
     campoGrupo.value = '';
     campoTipoValvula.value = '';
     CATEGORIAS.forEach(function (c) {
@@ -637,6 +705,8 @@
         guardarEsquema[c.chave] = false;
         var checkbox = document.getElementById('naoTenho-' + c.chave);
         if (checkbox) checkbox.checked = false;
+        var campoDescricao = document.getElementById('descricao-' + c.chave);
+        if (campoDescricao) campoDescricao.value = '';
         aoAlterarNaoTenho(c.chave, false);
       }
       atualizarContagem(c.chave);
