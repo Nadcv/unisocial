@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Relatório de Testes</title>
+<style>
+  :root {
+    --azul: #1a73e8;
+    --azul-escuro: #0d47a1;
+    --verde: #188038;
+    --vermelho: #c5221f;
+    --cinza-fundo: #f4f6f8;
+    --cinza-borda: #d7dce1;
+    --texto: #1f2937;
+    --texto-suave: #5f6b7a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--cinza-fundo);
+    color: var(--texto);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  header {
+    background: linear-gradient(135deg, var(--azul), var(--azul-escuro));
+    color: #fff;
+    padding: 20px 16px 24px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0 0 4px;
+    font-size: 1.3rem;
+  }
+  header p {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.9;
+  }
+  main {
+    max-width: 640px;
+    margin: -14px auto 0;
+    padding: 0 12px 40px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  label.campo-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: var(--texto);
+  }
+  input[type="text"], input[type="email"] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+  }
+  input[type="text"]:focus, input[type="email"]:focus {
+    outline: none;
+    border-color: var(--azul);
+    background: #fff;
+  }
+  .ajuda {
+    font-size: 0.78rem;
+    color: var(--texto-suave);
+    margin-top: 4px;
+  }
+  .categoria {
+    border: 1px solid var(--cinza-borda);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .categoria-titulo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin-bottom: 10px;
+  }
+  .contagem {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--texto-suave);
+    background: var(--cinza-fundo);
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .botoes-foto {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .botao-foto {
+    flex: 1 1 auto;
+    min-width: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--azul);
+    color: var(--azul);
+    background: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+  }
+  .botao-foto:active { background: #e8f0fe; }
+  .botao-foto input { display: none; }
+  .previews {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .thumb {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--cinza-borda);
+  }
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .thumb button {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    border: none;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .botao-enviar {
+    width: 100%;
+    padding: 16px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    background: var(--verde);
+    color: #fff;
+    cursor: pointer;
+  }
+  .botao-enviar:disabled {
+    background: #9aa5b1;
+    cursor: not-allowed;
+  }
+  .estado {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    display: none;
+  }
+  .estado.mostrar { display: block; }
+  .estado.sucesso { background: #e6f4ea; color: var(--verde); border: 1px solid #b7e1c1; }
+  .estado.erro { background: #fce8e6; color: var(--vermelho); border: 1px solid #f6bab6; }
+  .estado.info { background: #e8f0fe; color: var(--azul-escuro); border: 1px solid #c6dafc; }
+  .rodape-ajuda {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--texto-suave);
+    margin-top: 8px;
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Relatório de Testes da Máquina</h1>
+  <p>Preencha os dados, tire as fotografias e envie</p>
+</header>
+
+<main>
+  <form id="formulario">
+    <div class="card">
+      <label class="campo-label" for="serial">Número de série da máquina</label>
+      <input type="text" id="serial" name="serial" placeholder="Ex.: SN-123456" autocomplete="off" required />
+
+      <div style="height:14px"></div>
+
+      <label class="campo-label" for="emails">E-mail(s) dos destinatários</label>
+      <input type="text" id="emails" name="emails" placeholder="exemplo1@empresa.com, exemplo2@empresa.com" autocomplete="off" required />
+      <div class="ajuda">Separe vários e-mails por vírgula.</div>
+    </div>
+
+    <div class="card" id="categorias-container">
+      <!-- categorias inseridas via JavaScript -->
+    </div>
+
+    <button type="submit" class="botao-enviar" id="botao-enviar">Enviar</button>
+    <div class="estado" id="estado"></div>
+    <div class="rodape-ajuda">As fotos são comprimidas automaticamente antes do envio para caberem no limite de anexos do Gmail (~25 MB no total).</div>
+  </form>
+</main>
+
+<script>
+(function () {
+  // ---------------------------------------------------------------------
+  // CONFIGURAÇÃO: cole aqui o URL da Aplicação Web do Apps Script
+  // (termina em /exec). Se este ficheiro estiver a ser servido pelo
+  // próprio Apps Script (doGet), pode deixar em branco: nesse caso
+  // o formulário envia para o próprio URL da página.
+  // ---------------------------------------------------------------------
+  var APPS_SCRIPT_URL = 'COLE_AQUI_O_URL_DA_APLICACAO_WEB_TERMINADO_EM_/exec';
+
+  var CATEGORIAS = [
+    { chave: 'responsavel',    rotulo: 'Fotografia do responsável' },
+    { chave: 'eletrico',       rotulo: 'Teste elétrico' },
+    { chave: 'pressao',        rotulo: 'Pressão' },
+    { chave: 'especificacao',  rotulo: 'Especificação da máquina' },
+    { chave: 'controlador',    rotulo: 'Controlador do compressor' },
+    { chave: 'deposito',       rotulo: 'Depósito de refrigeração' },
+    { chave: 'vacuo',          rotulo: 'Teste de vácuo' }
+  ];
+
+  // Guarda os ficheiros já comprimidos (base64) por categoria.
+  var fotosPorCategoria = {};
+  CATEGORIAS.forEach(function (c) { fotosPorCategoria[c.chave] = []; });
+
+  var container = document.getElementById('categorias-container');
+
+  CATEGORIAS.forEach(function (cat) {
+    var bloco = document.createElement('div');
+    bloco.className = 'categoria';
+    bloco.innerHTML =
+      '<div class="categoria-titulo">' +
+        '<span>' + cat.rotulo + '</span>' +
+        '<span class="contagem" id="contagem-' + cat.chave + '">0 foto(s)</span>' +
+      '</div>' +
+      '<div class="botoes-foto">' +
+        '<label class="botao-foto">📷 Tirar foto' +
+          '<input type="file" accept="image/*" capture="environment" data-chave="' + cat.chave + '" />' +
+        '</label>' +
+        '<label class="botao-foto">🖼️ Galeria' +
+          '<input type="file" accept="image/*" multiple data-chave="' + cat.chave + '" />' +
+        '</label>' +
+      '</div>' +
+      '<div class="previews" id="previews-' + cat.chave + '"></div>';
+    container.appendChild(bloco);
+  });
+
+  container.addEventListener('change', function (ev) {
+    var input = ev.target;
+    if (input.tagName !== 'INPUT' || input.type !== 'file') return;
+    var chave = input.dataset.chave;
+    var ficheiros = Array.prototype.slice.call(input.files || []);
+    if (!ficheiros.length) return;
+
+    mostrarEstado('A processar fotografias...', 'info');
+
+    var promessas = ficheiros.map(function (ficheiro) {
+      return comprimirImagem(ficheiro).then(function (base64) {
+        var indice = fotosPorCategoria[chave].push(base64) - 1;
+        adicionarPreview(chave, base64, indice);
+      });
+    });
+
+    Promise.all(promessas).then(function () {
+      atualizarContagem(chave);
+      esconderEstado();
+      input.value = '';
+    }).catch(function (erro) {
+      mostrarEstado('Erro ao processar imagem: ' + erro.message, 'erro');
+    });
+  });
+
+  function adicionarPreview(chave, base64, indice) {
+    var previews = document.getElementById('previews-' + chave);
+    var thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    thumb.innerHTML = '<img src="' + base64 + '" alt="" />' +
+      '<button type="button" aria-label="Remover">✕</button>';
+
+    thumb.querySelector('button').addEventListener('click', function () {
+      var pos = fotosPorCategoria[chave].indexOf(base64);
+      if (pos > -1) fotosPorCategoria[chave].splice(pos, 1);
+      thumb.remove();
+      atualizarContagem(chave);
+    });
+
+    previews.appendChild(thumb);
+  }
+
+  function atualizarContagem(chave) {
+    var el = document.getElementById('contagem-' + chave);
+    var n = fotosPorCategoria[chave].length;
+    el.textContent = n + (n === 1 ? ' foto' : ' fotos');
+  }
+
+  /**
+   * Redimensiona a imagem para no máximo 1600px no lado maior e
+   * reconverte para JPEG com qualidade 0.8, devolvendo uma string
+   * "data:image/jpeg;base64,....".
+   */
+  function comprimirImagem(ficheiro, tamanhoMaximo, qualidade) {
+    tamanhoMaximo = tamanhoMaximo || 1600;
+    qualidade = qualidade || 0.8;
+
+    return new Promise(function (resolve, reject) {
+      var leitor = new FileReader();
+      leitor.onerror = function () { reject(new Error('Falha ao ler o ficheiro.')); };
+      leitor.onload = function () {
+        var imagem = new Image();
+        imagem.onerror = function () { reject(new Error('Falha ao carregar a imagem.')); };
+        imagem.onload = function () {
+          var largura = imagem.width;
+          var altura = imagem.height;
+          var maior = Math.max(largura, altura);
+
+          if (maior > tamanhoMaximo) {
+            var escala = tamanhoMaximo / maior;
+            largura = Math.round(largura * escala);
+            altura = Math.round(altura * escala);
+          }
+
+          var canvas = document.createElement('canvas');
+          canvas.width = largura;
+          canvas.height = altura;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(imagem, 0, 0, largura, altura);
+
+          try {
+            resolve(canvas.toDataURL('image/jpeg', qualidade));
+          } catch (e) {
+            resolve(leitor.result);
+          }
+        };
+        imagem.src = leitor.result;
+      };
+      leitor.readAsDataURL(ficheiro);
+    });
+  }
+
+  var formulario = document.getElementById('formulario');
+  var botaoEnviar = document.getElementById('botao-enviar');
+
+  formulario.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+
+    var serial = document.getElementById('serial').value.trim();
+    var emails = document.getElementById('emails').value.trim();
+
+    if (!serial) { mostrarEstado('Indique o número de série.', 'erro'); return; }
+    if (!emails) { mostrarEstado('Indique pelo menos um e-mail.', 'erro'); return; }
+
+    var totalFotos = CATEGORIAS.reduce(function (soma, c) {
+      return soma + fotosPorCategoria[c.chave].length;
+    }, 0);
+    if (totalFotos === 0) {
+      mostrarEstado('Tire ou selecione pelo menos uma fotografia.', 'erro');
+      return;
+    }
+
+    var url = APPS_SCRIPT_URL && APPS_SCRIPT_URL.indexOf('COLE_AQUI') === -1
+      ? APPS_SCRIPT_URL
+      : window.location.href.split('?')[0];
+
+    var payload = { serial: serial, emails: emails, fotos: fotosPorCategoria };
+
+    botaoEnviar.disabled = true;
+    botaoEnviar.textContent = 'A enviar...';
+    mostrarEstado('A enviar fotografias, aguarde...', 'info');
+
+    // Nota: propositadamente sem definir Content-Type para evitar
+    // pedido de preflight CORS; o Apps Script lê e.postData.contents.
+    fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
+      .then(function (resposta) { return resposta.json(); })
+      .then(function (dados) {
+        if (dados.status === 'ok') {
+          mostrarEstado('Enviado com sucesso! (' + dados.fotos + ' foto(s))', 'sucesso');
+          limparFormulario();
+        } else {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+        }
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      })
+      .finally(function () {
+        botaoEnviar.disabled = false;
+        botaoEnviar.textContent = 'Enviar';
+      });
+  });
+
+  function limparFormulario() {
+    document.getElementById('serial').value = '';
+    document.getElementById('emails').value = '';
+    CATEGORIAS.forEach(function (c) {
+      fotosPorCategoria[c.chave] = [];
+      document.getElementById('previews-' + c.chave).innerHTML = '';
+      atualizarContagem(c.chave);
+    });
+  }
+
+  function mostrarEstado(texto, tipo) {
+    var el = document.getElementById('estado');
+    el.textContent = texto;
+    el.className = 'estado mostrar ' + tipo;
+  }
+  function esconderEstado() {
+    var el = document.getElementById('estado');
+    el.className = 'estado';
+  }
+})();
+</script>
+</body>
+</html>
