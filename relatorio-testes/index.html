@@ -232,13 +232,28 @@
   .descricao-esquema {
     margin-bottom: 10px;
   }
-  .link-alternar {
-    display: inline-block;
-    margin-top: 8px;
+  .abas {
+    display: inline-flex;
+    margin-top: 12px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 999px;
+    padding: 4px;
+  }
+  .aba {
+    border: none;
+    background: transparent;
     color: #fff;
-    font-size: 0.8rem;
-    text-decoration: underline;
-    opacity: 0.9;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    opacity: 0.8;
+  }
+  .aba-ativa {
+    background: #fff;
+    color: var(--azul-escuro);
+    opacity: 1;
   }
   [hidden] { display: none !important; }
 </style>
@@ -248,7 +263,10 @@
 <header>
   <h1 id="tituloPagina">Relatório de Testes da Máquina</h1>
   <p>Preencha os dados, tire as fotografias e envie</p>
-  <a href="#" class="link-alternar" id="linkAlternar">Ver formulário de Ciclos</a>
+  <div class="abas">
+    <button type="button" class="aba aba-ativa" id="abaTestes">Testes</button>
+    <button type="button" class="aba" id="abaCiclos">Ciclos</button>
+  </div>
 </header>
 
 <main>
@@ -335,15 +353,32 @@
   }
 
   var tituloPagina = document.getElementById('tituloPagina');
-  var linkAlternar = document.getElementById('linkAlternar');
+  var abaTestes = document.getElementById('abaTestes');
+  var abaCiclos = document.getElementById('abaCiclos');
 
-  if (TIPO_RELATORIO === 'ciclos') {
-    tituloPagina.textContent = 'Relatório de Ciclos da Máquina';
-    linkAlternar.textContent = 'Ver formulário de Testes';
-    linkAlternar.href = '?tipo=testes';
-  } else {
-    linkAlternar.href = '?tipo=ciclos';
+  function atualizarAbaAtiva() {
+    if (TIPO_RELATORIO === 'ciclos') {
+      tituloPagina.textContent = 'Relatório de Ciclos da Máquina';
+      abaCiclos.className = 'aba aba-ativa';
+      abaTestes.className = 'aba';
+    } else {
+      tituloPagina.textContent = 'Relatório de Testes da Máquina';
+      abaTestes.className = 'aba aba-ativa';
+      abaCiclos.className = 'aba';
+    }
   }
+
+  abaTestes.addEventListener('click', function () {
+    TIPO_RELATORIO = 'testes';
+    atualizarAbaAtiva();
+  });
+
+  abaCiclos.addEventListener('click', function () {
+    TIPO_RELATORIO = 'ciclos';
+    atualizarAbaAtiva();
+  });
+
+  atualizarAbaAtiva();
 
   var CATEGORIAS = [
     { chave: 'responsavel',     rotulo: 'Fotografia do responsável', esquema: false },
