@@ -11,7 +11,7 @@
  *     (o ID é a parte final do URL da pasta, depois de /folders/)
  */
 
-var FOLDER_ID = 'COLOQUE_AQUI_O_ID_DA_PASTA_DO_DRIVE';
+var FOLDER_ID = '18H0wf27uzxFdDqdTOQ2f-9P6-zjwbGqO';
 
 // Nomes das categorias de fotos aceites, e respetivos rótulos usados no e-mail/nome de ficheiro.
 var CATEGORIAS = {
