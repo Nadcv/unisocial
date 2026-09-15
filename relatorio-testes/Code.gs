@@ -25,7 +25,11 @@ var CATEGORIAS = {
 };
 
 function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile('Index')
+  var template = HtmlService.createTemplateFromFile('Index');
+  // Preenche o URL da própria implantação automaticamente, para não ser
+  // preciso copiar/colar o URL /exec à mão dentro do ficheiro Index.
+  template.appsScriptUrl = ScriptApp.getService().getUrl();
+  return template.evaluate()
     .setTitle('Relatório de Testes')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
 }
