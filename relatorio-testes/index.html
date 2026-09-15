@@ -399,26 +399,35 @@
 
     // Nota: propositadamente sem definir Content-Type para evitar
     // pedido de preflight CORS; o Apps Script lê e.postData.contents.
-    fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    })
-      .then(function (resposta) { return resposta.json(); })
-      .then(function (dados) {
-        if (dados.status === 'ok') {
-          mostrarEstado('Enviado com sucesso! (' + dados.fotos + ' foto(s))', 'sucesso');
-          limparFormulario();
-        } else {
-          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
-        }
-      })
-      .catch(function (erro) {
-        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
-      })
-      .finally(function () {
-        botaoEnviar.disabled = false;
-        botaoEnviar.textContent = 'Enviar';
-      });
+    var opcoesPedido = { method: 'POST', body: JSON.stringify(payload) };
+    var promessaFetch = fetch(APPS_SCRIPT_URL, opcoesPedido);
+
+    function aoTerminar() {
+      botaoEnviar.disabled = false;
+      botaoEnviar.textContent = 'Enviar';
+    }
+
+    function aoReceberResposta(resposta) {
+      return resposta.json();
+    }
+
+    function aoReceberDados(dados) {
+      if (dados.status === 'ok') {
+        mostrarEstado('Enviado com sucesso! (' + dados.fotos + ' foto(s))', 'sucesso');
+        limparFormulario();
+      } else {
+        mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+      }
+    }
+
+    function aoFalhar(erro) {
+      mostrarEstado('Erro de rede/ligacao: ' + erro.message, 'erro');
+    }
+
+    var promessaJson = promessaFetch.then(aoReceberResposta);
+    var promessaFinal = promessaJson.then(aoReceberDados);
+    promessaFinal.catch(aoFalhar);
+    promessaFinal.finally(aoTerminar);
   });
 
   function limparFormulario() {

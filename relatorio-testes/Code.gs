@@ -26,12 +26,11 @@ var CATEGORIAS = {
 
 function doGet(e) {
   var template = HtmlService.createTemplateFromFile('Index');
-  // Preenche o URL da própria implantação automaticamente, para não ser
-  // preciso copiar/colar o URL /exec à mão dentro do ficheiro Index.
   template.appsScriptUrl = ScriptApp.getService().getUrl();
-  return template.evaluate()
-    .setTitle('Relatório de Testes')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
+  var saida = template.evaluate();
+  saida.setTitle('Relatorio de Testes');
+  saida.addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
+  return saida;
 }
 
 function doPost(e) {
@@ -47,66 +46,63 @@ function doPost(e) {
     var fotos = dados.fotos || {};
 
     if (!serial) {
-      throw new Error('Número de série em falta.');
+      throw new Error('Numero de serie em falta.');
     }
     if (!emailsInput) {
-      throw new Error('Pelo menos um e-mail de destinatário é obrigatório.');
+      throw new Error('Pelo menos um e-mail de destinatario e obrigatorio.');
     }
 
-    var emails = emailsInput
-      .split(',')
-      .map(function (s) { return s.trim(); })
-      .filter(function (s) { return s.length > 0; })
-      .join(',');
+    var emails = limparListaEmails(emailsInput);
 
     var folder = DriveApp.getFolderById(FOLDER_ID);
 
-    // Subpasta por envio: "S/N - <serial> - <timestamp>"
     var timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyyMMdd_HHmmss');
-    var subfolder = folder.createFolder('SN_' + sanitizeNome(serial) + '_' + timestamp);
+    var nomeSubpasta = 'SN_' + sanitizeNome(serial) + '_' + timestamp;
+    var subfolder = folder.createFolder(nomeSubpasta);
 
     var anexos = [];
     var totalBytes = 0;
     var totalFotos = 0;
 
-    Object.keys(CATEGORIAS).forEach(function (chave) {
+    var chaves = Object.keys(CATEGORIAS);
+    for (var i = 0; i < chaves.length; i++) {
+      var chave = chaves[i];
       var lista = fotos[chave];
-      if (!lista || !lista.length) return;
+      if (!lista || !lista.length) continue;
 
-      lista.forEach(function (dataUrl, indice) {
-        if (!dataUrl) return;
+      for (var j = 0; j < lista.length; j++) {
+        var dataUrl = lista[j];
+        if (!dataUrl) continue;
 
-        var blobInfo = base64ParaBlob(dataUrl, CATEGORIAS[chave] + '_' + (indice + 1));
-        if (!blobInfo) return;
+        var blob = base64ParaBlob(dataUrl, CATEGORIAS[chave] + '_' + (j + 1));
+        if (!blob) continue;
 
-        subfolder.createFile(blobInfo.blob);
-        anexos.push(blobInfo.blob);
-        totalBytes += blobInfo.blob.getBytes().length;
-        totalFotos++;
-      });
-    });
+        subfolder.createFile(blob);
+        anexos.push(blob);
+        totalBytes = totalBytes + blob.getBytes().length;
+        totalFotos = totalFotos + 1;
+      }
+    }
 
     if (totalFotos === 0) {
       throw new Error('Nenhuma fotografia foi recebida.');
     }
 
-    // Aviso preventivo: o Gmail aceita cerca de 25 MB de anexos no total.
-    if (totalBytes > 25 * 1024 * 1024) {
-      throw new Error(
-        'O total de anexos (' + Math.round(totalBytes / 1024 / 1024) +
-        ' MB) excede o limite de ~25 MB do Gmail. Reduza o número ou o tamanho das fotos.'
-      );
+    var limiteBytes = 25 * 1024 * 1024;
+    if (totalBytes > limiteBytes) {
+      var totalMB = Math.round(totalBytes / 1024 / 1024);
+      throw new Error('O total de anexos (' + totalMB + ' MB) excede o limite de ~25 MB do Gmail. Reduza o numero ou o tamanho das fotos.');
     }
 
-    var corpo =
-      'Relatório de testes da máquina.\n\n' +
-      'Número de série: ' + serial + '\n' +
-      'Total de fotografias em anexo: ' + totalFotos + '\n\n' +
-      'Este e-mail foi gerado automaticamente pela aplicação de recolha de fotos de testes.';
+    var corpo = 'Relatorio de testes da maquina.';
+    corpo = corpo + '\n\n';
+    corpo = corpo + 'Numero de serie: ' + serial + '\n';
+    corpo = corpo + 'Total de fotografias em anexo: ' + totalFotos + '\n\n';
+    corpo = corpo + 'Este e-mail foi gerado automaticamente pela aplicacao de recolha de fotos de testes.';
 
     MailApp.sendEmail({
       to: emails,
-      subject: 'Relatório de Testes - S/N: ' + serial,
+      subject: 'Relatorio de Testes - S/N: ' + serial,
       body: corpo,
       attachments: anexos
     });
@@ -116,9 +112,21 @@ function doPost(e) {
     resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
   }
 
-  return ContentService
-    .createTextOutput(JSON.stringify(resposta))
-    .setMimeType(ContentService.MimeType.JSON);
+  var saida = ContentService.createTextOutput(JSON.stringify(resposta));
+  saida.setMimeType(ContentService.MimeType.JSON);
+  return saida;
+}
+
+function limparListaEmails(texto) {
+  var partes = texto.split(',');
+  var limpas = [];
+  for (var i = 0; i < partes.length; i++) {
+    var parte = partes[i].trim();
+    if (parte.length > 0) {
+      limpas.push(parte);
+    }
+  }
+  return limpas.join(',');
 }
 
 /**
@@ -126,15 +134,18 @@ function doPost(e) {
  */
 function base64ParaBlob(dataUrl, nomeBase) {
   var match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(dataUrl);
-  if (!match) return null;
+  if (!match) {
+    return null;
+  }
 
   var mimeType = match[1];
   var base64 = match[2];
   var extensao = mimeType.split('/')[1] || 'jpg';
 
   var bytes = Utilities.base64Decode(base64);
-  var blob = Utilities.newBlob(bytes, mimeType, sanitizeNome(nomeBase) + '.' + extensao);
-  return { blob: blob };
+  var nomeFicheiro = sanitizeNome(nomeBase) + '.' + extensao;
+  var blob = Utilities.newBlob(bytes, mimeType, nomeFicheiro);
+  return blob;
 }
 
 function sanitizeNome(texto) {
