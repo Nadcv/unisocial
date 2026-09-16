@@ -81,6 +81,10 @@ function doGet(e) {
     return listarEsquemasSalvos(e.parameter);
   }
 
+  if (acao === 'carregarRascunho') {
+    return carregarRascunho(e.parameter);
+  }
+
   var tipoParametro = e && e.parameter ? e.parameter.tipo : '';
   var tipoRelatorio = tipoParametro === 'ciclos' ? 'ciclos' : 'testes';
   var tituloPagina = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
@@ -138,6 +142,11 @@ function doPost(e) {
     }
 
     var dados = JSON.parse(e.postData.contents);
+
+    if (dados.guardarComoRascunho === true) {
+      return guardarProgresso(dados);
+    }
+
     var serial = (dados.serial || '').toString().trim();
     var emailsInput = (dados.emails || '').toString().trim();
     var grupo = (dados.grupo || '').toString().trim();
@@ -173,6 +182,8 @@ function doPost(e) {
     var nomeSubpasta = prefixoPasta + sanitizeNome(serial) + '_Grupo' + sanitizeNome(grupo) + '_' + timestamp;
     var subfolder = folder.createFolder(nomeSubpasta);
 
+    var pastaRascunhoExistente = obterPastaRascunho(serial, false);
+
     var anexos = [];
     var totalBytes = 0;
     var totalFotos = 0;
@@ -181,6 +192,14 @@ function doPost(e) {
     for (var i = 0; i < chaves.length; i++) {
       var chave = chaves[i];
       var ehEsquema = ehCategoriaEsquema(chave);
+
+      var fotosRascunho = anexarFotosDoRascunho(pastaRascunhoExistente, chave, CATEGORIAS[chave], subfolder);
+      for (var k = 0; k < fotosRascunho.length; k++) {
+        anexos.push(fotosRascunho[k]);
+        totalBytes = totalBytes + fotosRascunho[k].getBytes().length;
+        totalFotos = totalFotos + 1;
+      }
+
       var fileIdExistente = ehEsquema ? esquemasExistentes[chave] : null;
 
       if (fileIdExistente) {
@@ -253,6 +272,10 @@ function doPost(e) {
     adicionarValorNaLista('esquemasFrio', (descricoesEsquema.esquemaFrio || '').toString().trim());
     adicionarValorNaLista('gases', gas);
 
+    if (pastaRascunhoExistente) {
+      pastaRascunhoExistente.setTrashed(true);
+    }
+
     resposta = { status: 'ok', mensagem: 'Enviado com sucesso.', fotos: totalFotos };
   } catch (erro) {
     resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
@@ -277,6 +300,168 @@ function montarTextoDescricoesEsquema(descricoesEsquema) {
     }
   }
   return texto;
+}
+
+/**
+ * Guarda o progresso de um envio ainda incompleto (fotos + campos do
+ * formulario) numa pasta de rascunho no Drive, identificada pelo numero
+ * de serie. Nao envia e-mail nenhum. Usado quando um teste demora horas
+ * (ex.: vacuo, pressao) e as fotos nao podem ficar so no telemovel.
+ */
+function guardarProgresso(dados) {
+  var resposta;
+  try {
+    var serial = (dados.serial || '').toString().trim();
+    if (!serial) {
+      throw new Error('Numero de serie em falta para guardar o progresso.');
+    }
+
+    var pastaRascunho = obterPastaRascunho(serial, true);
+    var fotos = dados.fotos || {};
+    var chaves = Object.keys(CATEGORIAS);
+    var totalNovas = 0;
+
+    for (var i = 0; i < chaves.length; i++) {
+      var chave = chaves[i];
+      var lista = fotos[chave];
+      if (!lista || !lista.length) continue;
+
+      var pastaCategoria = obterOuCriarSubpasta(pastaRascunho, chave, true);
+      for (var j = 0; j < lista.length; j++) {
+        var dataUrl = lista[j];
+        if (!dataUrl) continue;
+
+        var blob = base64ParaBlob(dataUrl, CATEGORIAS[chave] + '_' + (j + 1));
+        if (!blob) continue;
+
+        pastaCategoria.createFile(blob);
+        totalNovas = totalNovas + 1;
+      }
+    }
+
+    var camposGuardados = {
+      emails: dados.emails || '',
+      grupo: dados.grupo || '',
+      tipoValvula: dados.tipoValvula || '',
+      tipoRelatorio: dados.tipoRelatorio || 'testes',
+      gas: dados.gas || '',
+      observacoes: dados.observacoes || '',
+      descricoesEsquema: dados.descricoesEsquema || {}
+    };
+    guardarDadosRascunho(pastaRascunho, camposGuardados);
+
+    resposta = { status: 'ok', mensagem: 'Progresso guardado.', fotosGuardadas: totalNovas };
+  } catch (erro) {
+    resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
+  }
+
+  var saida = ContentService.createTextOutput(JSON.stringify(resposta));
+  saida.setMimeType(ContentService.MimeType.JSON);
+  return saida;
+}
+
+/**
+ * Responde em JSON com os campos e as fotos ja guardadas num rascunho
+ * para o numero de serie indicado (usado para retomar um envio).
+ */
+function carregarRascunho(parametros) {
+  var resposta;
+  try {
+    var serial = (parametros.serial || '').toString().trim();
+    if (!serial) {
+      throw new Error('Numero de serie em falta.');
+    }
+
+    var pastaRascunho = obterPastaRascunho(serial, false);
+    if (!pastaRascunho) {
+      resposta = { status: 'ok', existe: false };
+    } else {
+      var dadosGuardados = lerDadosRascunho(pastaRascunho);
+      var fotos = {};
+      var chaves = Object.keys(CATEGORIAS);
+
+      for (var i = 0; i < chaves.length; i++) {
+        var chave = chaves[i];
+        var pastaCategoria = obterOuCriarSubpasta(pastaRascunho, chave, false);
+        var itens = [];
+
+        if (pastaCategoria) {
+          var ficheiros = pastaCategoria.getFiles();
+          while (ficheiros.hasNext()) {
+            var ficheiro = ficheiros.next();
+            itens.push({ id: ficheiro.getId(), nome: ficheiro.getName() });
+          }
+        }
+
+        fotos[chave] = itens;
+      }
+
+      resposta = { status: 'ok', existe: true, dados: dadosGuardados, fotos: fotos };
+    }
+  } catch (erro) {
+    resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
+  }
+
+  var saida = ContentService.createTextOutput(JSON.stringify(resposta));
+  saida.setMimeType(ContentService.MimeType.JSON);
+  return saida;
+}
+
+/**
+ * Devolve (ou cria) a pasta de rascunho para um numero de serie.
+ */
+function obterPastaRascunho(serial, criarSeNaoExistir) {
+  if (!serial) return null;
+  var raiz = DriveApp.getFolderById(FOLDER_ID);
+  var pastaRascunhos = obterOuCriarSubpasta(raiz, 'Rascunhos', criarSeNaoExistir);
+  if (!pastaRascunhos) return null;
+  var nomePasta = 'RASCUNHO_' + sanitizeNome(serial);
+  return obterOuCriarSubpasta(pastaRascunhos, nomePasta, criarSeNaoExistir);
+}
+
+function guardarDadosRascunho(pastaRascunho, dadosCampos) {
+  var conteudo = JSON.stringify(dadosCampos);
+  var existentes = pastaRascunho.getFilesByName('dados.json');
+  if (existentes.hasNext()) {
+    existentes.next().setTrashed(true);
+  }
+  var blob = Utilities.newBlob(conteudo, 'application/json', 'dados.json');
+  pastaRascunho.createFile(blob);
+}
+
+function lerDadosRascunho(pastaRascunho) {
+  var existentes = pastaRascunho.getFilesByName('dados.json');
+  if (!existentes.hasNext()) return {};
+  var conteudo = existentes.next().getBlob().getDataAsString();
+  return JSON.parse(conteudo);
+}
+
+/**
+ * Copia todas as fotos ja guardadas num rascunho, para uma dada
+ * categoria, para a subpasta deste envio, devolvendo os blobs para
+ * serem anexados ao e-mail.
+ */
+function anexarFotosDoRascunho(pastaRascunho, chave, nomeBase, subfolder) {
+  var anexosRascunho = [];
+  if (!pastaRascunho) return anexosRascunho;
+
+  var pastaCategoria = obterOuCriarSubpasta(pastaRascunho, chave, false);
+  if (!pastaCategoria) return anexosRascunho;
+
+  var ficheiros = pastaCategoria.getFiles();
+  var indice = 0;
+  while (ficheiros.hasNext()) {
+    var ficheiroOriginal = ficheiros.next();
+    indice = indice + 1;
+    var blob = ficheiroOriginal.getBlob();
+    var extensao = obterExtensao(ficheiroOriginal.getName());
+    var nomeFicheiro = sanitizeNome(nomeBase) + '_rascunho_' + indice + '.' + extensao;
+    var blobRenomeado = blob.setName(nomeFicheiro);
+    subfolder.createFile(blobRenomeado);
+    anexosRascunho.push(blobRenomeado);
+  }
+
+  return anexosRascunho;
 }
 
 function ehCategoriaEsquema(chave) {

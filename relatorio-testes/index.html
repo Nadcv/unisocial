@@ -156,8 +156,12 @@
     line-height: 1;
     cursor: pointer;
   }
+  .linha-botoes {
+    display: flex;
+    gap: 10px;
+  }
   .botao-enviar {
-    width: 100%;
+    flex: 2;
     padding: 16px;
     font-size: 1.05rem;
     font-weight: 700;
@@ -169,6 +173,22 @@
   }
   .botao-enviar:disabled {
     background: #9aa5b1;
+    cursor: not-allowed;
+  }
+  .botao-guardar {
+    flex: 1;
+    padding: 16px 10px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border: 1px solid var(--azul);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--azul);
+    cursor: pointer;
+  }
+  .botao-guardar:disabled {
+    border-color: #9aa5b1;
+    color: #9aa5b1;
     cursor: not-allowed;
   }
   .estado {
@@ -323,9 +343,12 @@
       <textarea id="observacoes" name="observacoes" placeholder="Notas adicionais sobre a máquina ou o teste..."></textarea>
     </div>
 
-    <button type="submit" class="botao-enviar" id="botao-enviar">Enviar</button>
+    <div class="linha-botoes">
+      <button type="button" class="botao-guardar" id="botao-guardar">Guardar progresso</button>
+      <button type="submit" class="botao-enviar" id="botao-enviar">Enviar</button>
+    </div>
     <div class="estado" id="estado"></div>
-    <div class="rodape-ajuda">As fotos são comprimidas automaticamente antes do envio para caberem no limite de anexos do Gmail (~25 MB no total).</div>
+    <div class="rodape-ajuda">As fotos são comprimidas automaticamente antes do envio para caberem no limite de anexos do Gmail (~25 MB no total). Use "Guardar progresso" se algum teste (ex.: vácuo) ainda estiver a decorrer — as fotos ficam guardadas no Drive, não só no telemóvel.</div>
   </form>
 </main>
 
@@ -439,6 +462,12 @@
 
   var campoGrupo = document.getElementById('grupo');
   var campoTipoValvula = document.getElementById('tipoValvula');
+  var campoSerial = document.getElementById('serial');
+
+  // Quantas fotos ja estao guardadas num rascunho no Drive (por
+  // categoria), para este numero de serie - carregadas ao sair do
+  // campo "Numero de serie".
+  var fotosRascunhoContagem = {};
 
   var container = document.getElementById('categorias-container');
 
@@ -607,6 +636,64 @@
     promessaListaJson.catch(aoFalharLista);
   }
 
+  /**
+   * Ao sair do campo "Numero de serie", verifica se existe um rascunho
+   * guardado (de um envio anterior ainda incompleto) e, se existir,
+   * preenche os campos e mostra quantas fotos ja estao guardadas.
+   */
+  campoSerial.addEventListener('blur', verificarRascunho);
+
+  function verificarRascunho() {
+    var serial = campoSerial.value.trim();
+    if (!serial) return;
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) return;
+
+    var url = APPS_SCRIPT_URL + '?action=carregarRascunho&serial=' + encodeURIComponent(serial);
+    var promessaRascunho = fetch(url);
+
+    function aoReceberRascunhoResposta(resposta) {
+      return resposta.json();
+    }
+
+    function aoProcessarRascunho(dadosResposta) {
+      if (dadosResposta.status !== 'ok' || !dadosResposta.existe) return;
+
+      var dadosGuardados = dadosResposta.dados || {};
+      if (dadosGuardados.grupo) campoGrupo.value = dadosGuardados.grupo;
+      if (dadosGuardados.tipoValvula) campoTipoValvula.value = dadosGuardados.tipoValvula;
+      if (dadosGuardados.emails) document.getElementById('emails').value = dadosGuardados.emails;
+      if (dadosGuardados.gas) document.getElementById('gas').value = dadosGuardados.gas;
+      if (dadosGuardados.observacoes) document.getElementById('observacoes').value = dadosGuardados.observacoes;
+      if (dadosGuardados.tipoRelatorio === 'ciclos') {
+        TIPO_RELATORIO = 'ciclos';
+        atualizarAbaAtiva();
+      }
+      if (dadosGuardados.descricoesEsquema) {
+        Object.keys(dadosGuardados.descricoesEsquema).forEach(function (chave) {
+          var campo = document.getElementById('descricao-' + chave);
+          var valor = dadosGuardados.descricoesEsquema[chave];
+          if (campo && valor) campo.value = valor;
+        });
+      }
+
+      var fotosGuardadas = dadosResposta.fotos || {};
+      var totalGuardado = 0;
+      Object.keys(fotosGuardadas).forEach(function (chave) {
+        var quantidade = fotosGuardadas[chave] ? fotosGuardadas[chave].length : 0;
+        fotosRascunhoContagem[chave] = quantidade;
+        totalGuardado = totalGuardado + quantidade;
+        atualizarContagem(chave);
+      });
+
+      if (totalGuardado > 0) {
+        mostrarEstado('Rascunho encontrado: ' + totalGuardado + ' foto(s) já guardada(s) para este número de série.', 'info');
+      }
+    }
+
+    var promessaRascunhoJson = promessaRascunho.then(aoReceberRascunhoResposta);
+    promessaRascunhoJson.then(aoProcessarRascunho);
+  }
+
   function adicionarPreview(chave, base64, indice) {
     var previews = document.getElementById('previews-' + chave);
     var thumb = document.createElement('div');
@@ -628,6 +715,7 @@
     var el = document.getElementById('contagem-' + chave);
     var n = fotosPorCategoria[chave].length;
     if (esquemaExistente[chave]) n = 1;
+    n = n + (fotosRascunhoContagem[chave] || 0);
     el.textContent = n + (n === 1 ? ' foto' : ' fotos');
   }
 
@@ -694,6 +782,7 @@
     var totalFotos = CATEGORIAS.reduce(function (soma, c) {
       var conta = fotosPorCategoria[c.chave].length;
       if (esquemaExistente[c.chave]) conta = conta + 1;
+      conta = conta + (fotosRascunhoContagem[c.chave] || 0);
       return soma + conta;
     }, 0);
     if (totalFotos === 0) {
@@ -766,6 +855,81 @@
     promessaFinal.finally(aoTerminar);
   });
 
+  var botaoGuardar = document.getElementById('botao-guardar');
+
+  botaoGuardar.addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Indique o número de série antes de guardar o progresso.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    var descricoesEsquemaRascunho = {};
+    CATEGORIAS.forEach(function (c) {
+      if (!c.esquema) return;
+      var campo = document.getElementById('descricao-' + c.chave);
+      descricoesEsquemaRascunho[c.chave] = campo ? campo.value.trim() : '';
+    });
+
+    var payloadRascunho = {
+      serial: serial,
+      emails: document.getElementById('emails').value.trim(),
+      grupo: campoGrupo.value,
+      tipoValvula: campoTipoValvula.value,
+      tipoRelatorio: TIPO_RELATORIO,
+      gas: document.getElementById('gas').value.trim(),
+      observacoes: document.getElementById('observacoes').value.trim(),
+      descricoesEsquema: descricoesEsquemaRascunho,
+      fotos: fotosPorCategoria,
+      guardarComoRascunho: true
+    };
+
+    botaoGuardar.disabled = true;
+    botaoGuardar.textContent = 'A guardar...';
+    mostrarEstado('A guardar progresso, aguarde...', 'info');
+
+    var promessaGuardar = fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payloadRascunho) });
+
+    function aoTerminarGuardar() {
+      botaoGuardar.disabled = false;
+      botaoGuardar.textContent = 'Guardar progresso';
+    }
+
+    function aoReceberGuardarResposta(resposta) {
+      return resposta.json();
+    }
+
+    function aoProcessarGuardar(dadosResposta) {
+      if (dadosResposta.status !== 'ok') {
+        mostrarEstado('Erro ao guardar progresso: ' + (dadosResposta.msg || 'falha desconhecida.'), 'erro');
+        return;
+      }
+
+      mostrarEstado('Progresso guardado! Pode fechar a aplicação e continuar mais tarde com o mesmo número de série.', 'sucesso');
+
+      CATEGORIAS.forEach(function (c) {
+        var quantidadeNova = fotosPorCategoria[c.chave].length;
+        fotosRascunhoContagem[c.chave] = (fotosRascunhoContagem[c.chave] || 0) + quantidadeNova;
+        fotosPorCategoria[c.chave] = [];
+        document.getElementById('previews-' + c.chave).innerHTML = '';
+        atualizarContagem(c.chave);
+      });
+    }
+
+    function aoFalharGuardar(erro) {
+      mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+    }
+
+    var promessaGuardarJson = promessaGuardar.then(aoReceberGuardarResposta);
+    var promessaGuardarFinal = promessaGuardarJson.then(aoProcessarGuardar);
+    promessaGuardarFinal.catch(aoFalharGuardar);
+    promessaGuardarFinal.finally(aoTerminarGuardar);
+  });
+
   function limparFormulario() {
     document.getElementById('serial').value = '';
     document.getElementById('emails').value = '';
@@ -773,6 +937,7 @@
     document.getElementById('gas').value = '';
     campoGrupo.value = '';
     campoTipoValvula.value = '';
+    fotosRascunhoContagem = {};
     CATEGORIAS.forEach(function (c) {
       fotosPorCategoria[c.chave] = [];
       document.getElementById('previews-' + c.chave).innerHTML = '';
