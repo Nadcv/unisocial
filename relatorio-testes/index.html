@@ -523,6 +523,53 @@
   preencherSelect('descricao-esquemaEletrico', LISTAS.esquemasEletrico);
   preencherSelect('descricao-esquemaFrio', LISTAS.esquemasFrio);
 
+  // ---------------------------------------------------------------------
+  // Mapa fixo (fornecido pela Aralab) do esquema elétrico e de frio
+  // corretos para cada Grupo + Tipo de válvula, usado para pré-preencher
+  // os selects assim que o Grupo e o Tipo forem escolhidos. O Grupo 67
+  // (Água) fica de fora de propósito: tem dois esquemas de frio válidos
+  // (MAIN-A e MAIN-B) e tem de ser escolhido à mão. Nos Ciclos também não
+  // se aplica, porque a variante PH/PLH não é um campo do formulário.
+  // ---------------------------------------------------------------------
+  var MAPA_ESQUEMAS = {
+    '30': {
+      Mecanica:   { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-030-R513A-MAIN-A' },
+      Eletronica: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-030-EEV-MAIN-A' }
+    },
+    '46': {
+      Mecanica:   { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-046-R513A-MAIN-A' },
+      Eletronica: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-046-EEV-MAIN-C' }
+    },
+    '68': {
+      Mecanica:   { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-068-R513A-MAIN-A' },
+      Eletronica: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-068-EEV-MAIN-A' }
+    },
+    '108': {
+      Mecanica:   { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-108-R513A-MAIN-A' },
+      Eletronica: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-108-EEV-MAIN-D' }
+    }
+  };
+
+  function aplicarMapaEsquemas() {
+    if (TIPO_RELATORIO !== 'testes') return;
+    var grupo = campoGrupo.value;
+    var tipoValvula = campoTipoValvula.value;
+    if (!grupo || !tipoValvula) return;
+
+    var mapaGrupo = MAPA_ESQUEMAS[grupo];
+    if (!mapaGrupo) return;
+    var mapa = mapaGrupo[tipoValvula];
+    if (!mapa) return;
+
+    Object.keys(mapa).forEach(function (chave) {
+      var select = document.getElementById('descricao-' + chave);
+      if (select) select.value = mapa[chave];
+    });
+  }
+
+  campoGrupo.addEventListener('change', aplicarMapaEsquemas);
+  campoTipoValvula.addEventListener('change', aplicarMapaEsquemas);
+
   container.addEventListener('change', function (ev) {
     var input = ev.target;
 
