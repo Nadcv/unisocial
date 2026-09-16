@@ -260,6 +260,9 @@
   .descricao-esquema {
     margin-bottom: 10px;
   }
+  .campo-outro {
+    margin-top: 8px;
+  }
   .abas {
     display: inline-flex;
     margin-top: 12px;
@@ -335,12 +338,24 @@
         </div>
       </div>
 
+      <div class="duas-colunas" id="linhaPhPlh" hidden>
+        <div>
+          <label class="campo-label" for="phPlh">Ciclo PH / PLH</label>
+          <select id="phPlh">
+            <option value="">Selecione...</option>
+            <option value="PH">PH</option>
+            <option value="PLH">PLH</option>
+          </select>
+        </div>
+      </div>
+
       <div style="height:14px"></div>
 
       <label class="campo-label" for="gas">Gás</label>
       <select id="gas" name="gas">
         <option value="">Selecione...</option>
       </select>
+      <input type="text" id="gas-outro" class="campo-outro" placeholder="Escreva o novo gás..." autocomplete="off" hidden />
     </div>
 
     <div class="card" id="categorias-container">
@@ -394,16 +409,21 @@
   var tituloPagina = document.getElementById('tituloPagina');
   var abaTestes = document.getElementById('abaTestes');
   var abaCiclos = document.getElementById('abaCiclos');
+  var linhaPhPlh = document.getElementById('linhaPhPlh');
+  var campoPhPlh = document.getElementById('phPlh');
 
   function atualizarAbaAtiva() {
     if (TIPO_RELATORIO === 'ciclos') {
       tituloPagina.textContent = 'Relatório de Ciclos da Máquina';
       abaCiclos.className = 'aba aba-ativa';
       abaTestes.className = 'aba';
+      linhaPhPlh.hidden = false;
     } else {
       tituloPagina.textContent = 'Relatório de Testes da Máquina';
       abaTestes.className = 'aba aba-ativa';
       abaCiclos.className = 'aba';
+      linhaPhPlh.hidden = true;
+      campoPhPlh.value = '';
     }
   }
 
@@ -434,17 +454,49 @@
     }
   }
 
-  function preencherSelect(idSelect, valores) {
+  function preencherSelect(idSelect, valores, comOutro) {
     var select = document.getElementById(idSelect);
     if (!select || !valores) return;
     var opcoes = '<option value="">Selecione...</option>';
     valores.forEach(function (valor) {
       opcoes = opcoes + '<option value="' + valor + '">' + valor + '</option>';
     });
+    if (comOutro) {
+      opcoes = opcoes + '<option value="__outro__">Outro (escrever)...</option>';
+    }
     select.innerHTML = opcoes;
   }
 
-  preencherSelect('gas', LISTAS.gases);
+  /**
+   * Se o valor guardado (rascunho) ainda estiver na lista de sugestoes,
+   * seleciona-o normalmente. Caso contrario (ex.: foi escrito como
+   * "Outro" e ainda nao ficou na lista permanente), seleciona "Outro" e
+   * mostra o campo de texto com o valor guardado.
+   */
+  function definirValorSelectComOutro(idSelect, idOutro, valor) {
+    var select = document.getElementById(idSelect);
+    var outro = document.getElementById(idOutro);
+    if (!select || !valor) return;
+    var existe = Array.prototype.some.call(select.options, function (opcao) {
+      return opcao.value === valor;
+    });
+    if (existe) {
+      select.value = valor;
+    } else if (outro) {
+      select.value = '__outro__';
+      outro.hidden = false;
+      outro.value = valor;
+    }
+  }
+
+  preencherSelect('gas', LISTAS.gases, true);
+
+  var campoGas = document.getElementById('gas');
+  var campoGasOutro = document.getElementById('gas-outro');
+  campoGas.addEventListener('change', function () {
+    campoGasOutro.hidden = campoGas.value !== '__outro__';
+    if (!campoGasOutro.hidden) campoGasOutro.focus();
+  });
 
   var CATEGORIAS = [
     { chave: 'responsavel',     rotulo: 'Fotografia do responsável', esquema: false },
@@ -492,6 +544,7 @@
           '<select id="descricao-' + cat.chave + '" data-chave-descricao="' + cat.chave + '">' +
             '<option value="">Selecione...</option>' +
           '</select>' +
+          '<input type="text" id="descricao-outro-' + cat.chave + '" class="campo-outro" data-chave-descricao-outro="' + cat.chave + '" placeholder="Escreva o novo código..." autocomplete="off" hidden />' +
         '</div>' +
         '<div class="linha-esquema">' +
           '<input type="checkbox" id="naoTenho-' + cat.chave + '" data-chave-esquema="' + cat.chave + '" />' +
@@ -520,16 +573,15 @@
     container.appendChild(bloco);
   });
 
-  preencherSelect('descricao-esquemaEletrico', LISTAS.esquemasEletrico);
-  preencherSelect('descricao-esquemaFrio', LISTAS.esquemasFrio);
+  preencherSelect('descricao-esquemaEletrico', LISTAS.esquemasEletrico, true);
+  preencherSelect('descricao-esquemaFrio', LISTAS.esquemasFrio, true);
 
   // ---------------------------------------------------------------------
   // Mapa fixo (fornecido pela Aralab) do esquema elétrico e de frio
-  // corretos para cada Grupo + Tipo de válvula, usado para pré-preencher
-  // os selects assim que o Grupo e o Tipo forem escolhidos. O Grupo 67
-  // (Água) fica de fora de propósito: tem dois esquemas de frio válidos
-  // (MAIN-A e MAIN-B) e tem de ser escolhido à mão. Nos Ciclos também não
-  // se aplica, porque a variante PH/PLH não é um campo do formulário.
+  // corretos para cada Grupo + Tipo de válvula (Testes), usado para
+  // pré-preencher os selects assim que o Grupo e o Tipo forem escolhidos.
+  // O Grupo 67 (Água) fica de fora de propósito: tem dois esquemas de
+  // frio válidos (MAIN-A e MAIN-B) e tem de ser escolhido à mão.
   // ---------------------------------------------------------------------
   var MAPA_ESQUEMAS = {
     '30': {
@@ -550,17 +602,38 @@
     }
   };
 
+  // Mesma ideia, mas para os Ciclos: aqui o Grupo não distingue o
+  // esquema, é o Tipo de válvula + PH/PLH que decide o código.
+  var MAPA_ESQUEMAS_CICLOS = {
+    Mecanica: {
+      PH:  { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-Ciclo-PH-R513A-00-MAIN-A' },
+      PLH: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-Ciclo-PLH-R513A-01_07_04-MAIN-A' }
+    },
+    Eletronica: {
+      PH:  { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-Ciclo-PH-EEV09-MAIN-A' },
+      PLH: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-Ciclo-PLH-EEV11_14-MAIN-A' }
+    }
+  };
+
   function aplicarMapaEsquemas() {
-    if (TIPO_RELATORIO !== 'testes') return;
-    var grupo = campoGrupo.value;
     var tipoValvula = campoTipoValvula.value;
-    if (!grupo || !tipoValvula) return;
+    var mapa = null;
 
-    var mapaGrupo = MAPA_ESQUEMAS[grupo];
-    if (!mapaGrupo) return;
-    var mapa = mapaGrupo[tipoValvula];
+    if (TIPO_RELATORIO === 'testes') {
+      var grupo = campoGrupo.value;
+      if (!grupo || !tipoValvula) return;
+      var mapaGrupo = MAPA_ESQUEMAS[grupo];
+      if (!mapaGrupo) return;
+      mapa = mapaGrupo[tipoValvula];
+    } else {
+      var phPlh = campoPhPlh.value;
+      if (!tipoValvula || !phPlh) return;
+      var mapaTipo = MAPA_ESQUEMAS_CICLOS[tipoValvula];
+      if (!mapaTipo) return;
+      mapa = mapaTipo[phPlh];
+    }
+
     if (!mapa) return;
-
     Object.keys(mapa).forEach(function (chave) {
       var select = document.getElementById('descricao-' + chave);
       if (select) select.value = mapa[chave];
@@ -569,6 +642,7 @@
 
   campoGrupo.addEventListener('change', aplicarMapaEsquemas);
   campoTipoValvula.addEventListener('change', aplicarMapaEsquemas);
+  campoPhPlh.addEventListener('change', aplicarMapaEsquemas);
 
   container.addEventListener('change', function (ev) {
     var input = ev.target;
@@ -581,6 +655,19 @@
     if (input.tagName === 'SELECT' && input.dataset.chaveLista) {
       esquemaExistente[input.dataset.chaveLista] = input.value || null;
       atualizarContagem(input.dataset.chaveLista);
+      return;
+    }
+
+    if (input.tagName === 'SELECT' && input.dataset.chaveDescricao) {
+      var outroDescricao = document.getElementById('descricao-outro-' + input.dataset.chaveDescricao);
+      if (outroDescricao) {
+        outroDescricao.hidden = input.value !== '__outro__';
+        if (!outroDescricao.hidden) {
+          outroDescricao.focus();
+        } else {
+          outroDescricao.value = '';
+        }
+      }
       return;
     }
 
@@ -719,17 +806,16 @@
       if (dadosGuardados.grupo) campoGrupo.value = dadosGuardados.grupo;
       if (dadosGuardados.tipoValvula) campoTipoValvula.value = dadosGuardados.tipoValvula;
       if (dadosGuardados.emails) document.getElementById('emails').value = dadosGuardados.emails;
-      if (dadosGuardados.gas) document.getElementById('gas').value = dadosGuardados.gas;
       if (dadosGuardados.observacoes) document.getElementById('observacoes').value = dadosGuardados.observacoes;
       if (dadosGuardados.tipoRelatorio === 'ciclos') {
         TIPO_RELATORIO = 'ciclos';
         atualizarAbaAtiva();
       }
+      if (dadosGuardados.phPlh) campoPhPlh.value = dadosGuardados.phPlh;
+      if (dadosGuardados.gas) definirValorSelectComOutro('gas', 'gas-outro', dadosGuardados.gas);
       if (dadosGuardados.descricoesEsquema) {
         Object.keys(dadosGuardados.descricoesEsquema).forEach(function (chave) {
-          var campo = document.getElementById('descricao-' + chave);
-          var valor = dadosGuardados.descricoesEsquema[chave];
-          if (campo && valor) campo.value = valor;
+          definirValorSelectComOutro('descricao-' + chave, 'descricao-outro-' + chave, dadosGuardados.descricoesEsquema[chave]);
         });
       }
 
@@ -854,11 +940,19 @@
 
     var observacoes = document.getElementById('observacoes').value.trim();
     var gas = document.getElementById('gas').value.trim();
+    if (gas === '__outro__') {
+      gas = document.getElementById('gas-outro').value.trim();
+    }
     var descricoesEsquema = {};
     CATEGORIAS.forEach(function (c) {
       if (!c.esquema) return;
       var campo = document.getElementById('descricao-' + c.chave);
-      descricoesEsquema[c.chave] = campo ? campo.value.trim() : '';
+      var valor = campo ? campo.value.trim() : '';
+      if (valor === '__outro__') {
+        var outro = document.getElementById('descricao-outro-' + c.chave);
+        valor = outro ? outro.value.trim() : '';
+      }
+      descricoesEsquema[c.chave] = valor;
     });
 
     var payload = {
@@ -867,6 +961,7 @@
       grupo: grupo,
       tipoValvula: tipoValvula,
       tipoRelatorio: TIPO_RELATORIO,
+      phPlh: campoPhPlh.value,
       observacoes: observacoes,
       gas: gas,
       descricoesEsquema: descricoesEsquema,
@@ -929,8 +1024,18 @@
     CATEGORIAS.forEach(function (c) {
       if (!c.esquema) return;
       var campo = document.getElementById('descricao-' + c.chave);
-      descricoesEsquemaRascunho[c.chave] = campo ? campo.value.trim() : '';
+      var valor = campo ? campo.value.trim() : '';
+      if (valor === '__outro__') {
+        var outro = document.getElementById('descricao-outro-' + c.chave);
+        valor = outro ? outro.value.trim() : '';
+      }
+      descricoesEsquemaRascunho[c.chave] = valor;
     });
+
+    var gasRascunho = document.getElementById('gas').value.trim();
+    if (gasRascunho === '__outro__') {
+      gasRascunho = document.getElementById('gas-outro').value.trim();
+    }
 
     var payloadRascunho = {
       serial: serial,
@@ -938,7 +1043,8 @@
       grupo: campoGrupo.value,
       tipoValvula: campoTipoValvula.value,
       tipoRelatorio: TIPO_RELATORIO,
-      gas: document.getElementById('gas').value.trim(),
+      phPlh: campoPhPlh.value,
+      gas: gasRascunho,
       observacoes: document.getElementById('observacoes').value.trim(),
       descricoesEsquema: descricoesEsquemaRascunho,
       fotos: fotosPorCategoria,
@@ -992,8 +1098,11 @@
     document.getElementById('emails').value = '';
     document.getElementById('observacoes').value = '';
     document.getElementById('gas').value = '';
+    campoGasOutro.value = '';
+    campoGasOutro.hidden = true;
     campoGrupo.value = '';
     campoTipoValvula.value = '';
+    campoPhPlh.value = '';
     fotosRascunhoContagem = {};
     CATEGORIAS.forEach(function (c) {
       fotosPorCategoria[c.chave] = [];
@@ -1005,6 +1114,11 @@
         if (checkbox) checkbox.checked = false;
         var campoDescricao = document.getElementById('descricao-' + c.chave);
         if (campoDescricao) campoDescricao.value = '';
+        var campoDescricaoOutro = document.getElementById('descricao-outro-' + c.chave);
+        if (campoDescricaoOutro) {
+          campoDescricaoOutro.value = '';
+          campoDescricaoOutro.hidden = true;
+        }
         aoAlterarNaoTenho(c.chave, false);
       }
       atualizarContagem(c.chave);

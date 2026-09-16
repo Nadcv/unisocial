@@ -160,6 +160,7 @@ function doPost(e) {
     var descricoesEsquema = dados.descricoesEsquema || {};
     var observacoes = (dados.observacoes || '').toString().trim();
     var gas = (dados.gas || '').toString().trim();
+    var phPlh = (dados.phPlh || '').toString().trim();
     var tipoRelatorio = dados.tipoRelatorio === 'ciclos' ? 'ciclos' : 'testes';
     var nomeRelatorio = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
     var prefixoPasta = tipoRelatorio === 'ciclos' ? 'CICLO_' : 'SN_';
@@ -251,6 +252,9 @@ function doPost(e) {
     corpo = corpo + 'Numero de serie: ' + serial + '\n';
     corpo = corpo + 'Grupo: ' + grupo + '\n';
     corpo = corpo + 'Tipo de valvula: ' + tipoValvula + '\n';
+    if (phPlh) {
+      corpo = corpo + 'Ciclo: ' + phPlh + '\n';
+    }
     if (gas) {
       corpo = corpo + 'Gas: ' + gas + '\n';
     }
@@ -347,6 +351,7 @@ function guardarProgresso(dados) {
       grupo: dados.grupo || '',
       tipoValvula: dados.tipoValvula || '',
       tipoRelatorio: dados.tipoRelatorio || 'testes',
+      phPlh: dados.phPlh || '',
       gas: dados.gas || '',
       observacoes: dados.observacoes || '',
       descricoesEsquema: dados.descricoesEsquema || {}
