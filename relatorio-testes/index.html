@@ -372,7 +372,7 @@
       <button type="submit" class="botao-enviar" id="botao-enviar">Enviar</button>
     </div>
     <div class="estado" id="estado"></div>
-    <div class="rodape-ajuda">As fotos são comprimidas automaticamente antes do envio para caberem no limite de anexos do Gmail (~25 MB no total). Use "Guardar progresso" se algum teste (ex.: vácuo) ainda estiver a decorrer — as fotos ficam guardadas no Drive, não só no telemóvel.</div>
+    <div class="rodape-ajuda">As fotos são comprimidas automaticamente antes do envio para caberem no limite de anexos do Gmail (~25 MB no total). Preencha o número de série antes de tirar fotos: assim, cada foto é guardada automaticamente no Drive assim que é tirada (não fica só no telemóvel). Use "Guardar progresso" para também guardar os restantes campos (Grupo, Gás, etc.) a qualquer momento.</div>
   </form>
 </main>
 
@@ -690,6 +690,14 @@
       esconderEstado();
       input.value = '';
       perguntarSeGuardaEsquema(chave);
+      // Guarda logo esta foto no Drive (se ja houver numero de serie), para
+      // nao depender de ficar so na memoria do telemovel/browser ate ao
+      // "Guardar progresso" manual - em alguns telemoveis a pagina pode
+      // recarregar sozinha ao voltar da camara, o que apagaria fotos ainda
+      // nao guardadas.
+      if (campoSerial.value.trim()) {
+        guardarProgressoAgora();
+      }
     }).catch(function (erro) {
       mostrarEstado('Erro ao processar imagem: ' + erro.message, 'erro');
     });
@@ -1009,7 +1017,7 @@
 
   var botaoGuardar = document.getElementById('botao-guardar');
 
-  botaoGuardar.addEventListener('click', function () {
+  function guardarProgressoAgora() {
     var serial = campoSerial.value.trim();
     if (!serial) {
       mostrarEstado('Indique o número de série antes de guardar o progresso.', 'erro');
@@ -1091,7 +1099,9 @@
     var promessaGuardarFinal = promessaGuardarJson.then(aoProcessarGuardar);
     promessaGuardarFinal.catch(aoFalharGuardar);
     promessaGuardarFinal.finally(aoTerminarGuardar);
-  });
+  }
+
+  botaoGuardar.addEventListener('click', guardarProgressoAgora);
 
   function limparFormulario() {
     document.getElementById('serial').value = '';
