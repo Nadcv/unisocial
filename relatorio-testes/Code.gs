@@ -39,6 +39,14 @@ var CATEGORIAS_ESQUEMA = ['esquemaEletrico', 'esquemaFrio'];
 // nas Propriedades do Script e crescem sozinhas quando alguem escreve um
 // valor novo no formulario - nao e preciso voltar a mexer no codigo.
 var LISTAS_PADRAO = {
+  grupos: [
+    '30',
+    '46',
+    '67',
+    '68',
+    '107',
+    '108'
+  ],
   esquemasEletrico: [
     'DCE-SWE-WALKIN-P-PH-MAIN-F',
     'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G',
@@ -97,6 +105,7 @@ function doGet(e) {
   var tituloPagina = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
 
   var listas = {
+    grupos: obterLista('grupos'),
     esquemasEletrico: obterLista('esquemasEletrico'),
     esquemasFrio: obterLista('esquemasFrio'),
     gases: obterLista('gases'),
@@ -284,6 +293,7 @@ function doPost(e) {
       attachments: anexos
     });
 
+    adicionarValorNaLista('grupos', grupo);
     adicionarValorNaLista('esquemasEletrico', (descricoesEsquema.esquemaEletrico || '').toString().trim());
     adicionarValorNaLista('esquemasFrio', (descricoesEsquema.esquemaFrio || '').toString().trim());
     adicionarValorNaLista('gases', gas);

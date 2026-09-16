@@ -329,13 +329,8 @@
           <label class="campo-label" for="grupo">Grupo da máquina</label>
           <select id="grupo">
             <option value="">Selecione...</option>
-            <option value="30">30</option>
-            <option value="46">46</option>
-            <option value="67">67</option>
-            <option value="68">68</option>
-            <option value="107">107</option>
-            <option value="108">108</option>
           </select>
+          <input type="text" id="grupo-outro" class="campo-outro" placeholder="Escreva o novo grupo..." autocomplete="off" hidden />
         </div>
         <div>
           <label class="campo-label" for="tipoValvula">Tipo de válvula</label>
@@ -453,12 +448,12 @@
   // novo, o Code.gs guarda-o para aparecer aqui nas proximas vezes.
   // ---------------------------------------------------------------------
   var LISTAS_JSON = '<?!= listasJson ?>';
-  var LISTAS = { esquemasEletrico: [], esquemasFrio: [], gases: [] };
+  var LISTAS = { grupos: [], esquemasEletrico: [], esquemasFrio: [], gases: [], ciclosPhPlh: [] };
   if (LISTAS_JSON.indexOf('{') === 0) {
     try {
       LISTAS = JSON.parse(LISTAS_JSON);
     } catch (erroListas) {
-      LISTAS = { esquemasEletrico: [], esquemasFrio: [], gases: [] };
+      LISTAS = { grupos: [], esquemasEletrico: [], esquemasFrio: [], gases: [], ciclosPhPlh: [] };
     }
   }
 
@@ -552,6 +547,24 @@
   var campoTipoValvula = document.getElementById('tipoValvula');
   var campoSerial = document.getElementById('serial');
 
+  preencherSelect('grupo', LISTAS.grupos, true);
+
+  var campoGrupoOutro = document.getElementById('grupo-outro');
+  campoGrupo.addEventListener('change', function () {
+    campoGrupoOutro.hidden = campoGrupo.value !== '__outro__';
+    if (!campoGrupoOutro.hidden) campoGrupoOutro.focus();
+  });
+
+  /**
+   * Devolve o Grupo escolhido, resolvendo "Outro" para o texto escrito.
+   */
+  function obterValorGrupo() {
+    if (campoGrupo.value === '__outro__') {
+      return campoGrupoOutro.value.trim();
+    }
+    return campoGrupo.value;
+  }
+
   var container = document.getElementById('categorias-container');
 
   CATEGORIAS.forEach(function (cat) {
@@ -642,7 +655,7 @@
     var mapa = null;
 
     if (TIPO_RELATORIO === 'testes') {
-      var grupo = campoGrupo.value;
+      var grupo = obterValorGrupo();
       if (!grupo || !tipoValvula) return;
       var mapaGrupo = MAPA_ESQUEMAS[grupo];
       if (!mapaGrupo) return;
@@ -730,7 +743,7 @@
     if (!categoria || !categoria.esquema) return;
     if (guardarEsquema[chave]) return;
 
-    var grupo = campoGrupo.value;
+    var grupo = obterValorGrupo();
     var tipoValvula = campoTipoValvula.value;
     if (!grupo || !tipoValvula) return;
 
@@ -758,7 +771,7 @@
 
   function carregarListaEsquemas(chave) {
     var lista = document.getElementById('listaEsquemas-' + chave);
-    var grupo = campoGrupo.value;
+    var grupo = obterValorGrupo();
     var tipoValvula = campoTipoValvula.value;
 
     if (!grupo || !tipoValvula) {
@@ -833,7 +846,7 @@
       if (dadosResposta.status !== 'ok' || !dadosResposta.existe) return;
 
       var dadosGuardados = dadosResposta.dados || {};
-      if (dadosGuardados.grupo) campoGrupo.value = dadosGuardados.grupo;
+      if (dadosGuardados.grupo) definirValorSelectComOutro('grupo', 'grupo-outro', dadosGuardados.grupo);
       if (dadosGuardados.tipoValvula) campoTipoValvula.value = dadosGuardados.tipoValvula;
       if (dadosGuardados.emails) document.getElementById('emails').value = dadosGuardados.emails;
       if (dadosGuardados.observacoes) document.getElementById('observacoes').value = dadosGuardados.observacoes;
@@ -1008,7 +1021,7 @@
 
     var serial = document.getElementById('serial').value.trim();
     var emails = document.getElementById('emails').value.trim();
-    var grupo = campoGrupo.value;
+    var grupo = obterValorGrupo();
     var tipoValvula = campoTipoValvula.value;
 
     if (!serial) { mostrarEstado('Indique o número de série.', 'erro'); return; }
@@ -1143,7 +1156,7 @@
     var payloadRascunho = {
       serial: serial,
       emails: document.getElementById('emails').value.trim(),
-      grupo: campoGrupo.value,
+      grupo: obterValorGrupo(),
       tipoValvula: campoTipoValvula.value,
       tipoRelatorio: TIPO_RELATORIO,
       phPlh: phPlhRascunho,
@@ -1210,6 +1223,8 @@
     campoGasOutro.value = '';
     campoGasOutro.hidden = true;
     campoGrupo.value = '';
+    campoGrupoOutro.value = '';
+    campoGrupoOutro.hidden = true;
     campoTipoValvula.value = '';
     campoPhPlh.value = '';
     campoPhPlhOutro.value = '';
