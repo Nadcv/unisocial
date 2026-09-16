@@ -32,6 +32,48 @@ var CATEGORIAS = {
 // Categorias que suportam reutilizar/guardar um esquema por Grupo + Tipo de valvula.
 var CATEGORIAS_ESQUEMA = ['esquemaEletrico', 'esquemaFrio'];
 
+// Listas iniciais de sugestoes (codigos de esquema e gases). Ficam guardadas
+// nas Propriedades do Script e crescem sozinhas quando alguem escreve um
+// valor novo no formulario - nao e preciso voltar a mexer no codigo.
+var LISTAS_PADRAO = {
+  esquemasEletrico: [
+    'DCE-SWE-WALKIN-P-PH-MAIN-F',
+    'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G',
+    'DCE-SWE-300-500-50-MAIN-B'
+  ],
+  esquemasFrio: [
+    'DCR-SWE-030-EEV-MAIN-A',
+    'DCR-SWE-030-R513A-MAIN-A',
+    'DCR-SWE-033-MAIN-C',
+    'DCR-SWE-033-EEV-MAIN-B',
+    'DCR-SWE-046-EEV-MAIN-C',
+    'DCR-SWE-046-R513A-MAIN-A',
+    'DCR-SWE-068-R513A-MAIN-A',
+    'DCR-SWE-068-EEV-MAIN-A',
+    'DCR-SWE-067-MAIN-A',
+    'DCR-SWE-067-MAIN-B',
+    'DCR-SWE-108-R513A-MAIN-A',
+    'DCR-SWE-108-EEV-MAIN-D',
+    'DCR-SWE-2895K5E-TFD-B',
+    'DCR-SWE-Ciclo-PH-R513A-00-MAIN-A',
+    'DCR-SWE-Ciclo-PLH-R513A-01_07_04-MAIN-A',
+    'DCR-SWE-Ciclo-PH-EEV09-MAIN-A',
+    'DCR-SWE-Ciclo-PLH-EEV11_14-MAIN-A'
+  ],
+  gases: [
+    'R449A',
+    'R513A',
+    'R404A',
+    'R407C',
+    'R410A',
+    'R452A',
+    'R134a',
+    'R290',
+    'CO2 (R744)',
+    'Azoto (N2)'
+  ]
+};
+
 function doGet(e) {
   var acao = e && e.parameter ? e.parameter.action : '';
 
@@ -43,13 +85,49 @@ function doGet(e) {
   var tipoRelatorio = tipoParametro === 'ciclos' ? 'ciclos' : 'testes';
   var tituloPagina = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
 
+  var listas = {
+    esquemasEletrico: obterLista('esquemasEletrico'),
+    esquemasFrio: obterLista('esquemasFrio'),
+    gases: obterLista('gases')
+  };
+
   var template = HtmlService.createTemplateFromFile('Index');
   template.appsScriptUrl = ScriptApp.getService().getUrl();
   template.tipoRelatorio = tipoRelatorio;
+  template.listasJson = JSON.stringify(listas);
   var saida = template.evaluate();
   saida.setTitle(tituloPagina);
   saida.addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
   return saida;
+}
+
+/**
+ * Devolve a lista guardada nas Propriedades do Script para o nome dado
+ * (esquemasEletrico, esquemasFrio ou gases), semeando com a lista padrao
+ * na primeira vez que for pedida.
+ */
+function obterLista(nomePropriedade) {
+  var propriedades = PropertiesService.getScriptProperties();
+  var valorGuardado = propriedades.getProperty(nomePropriedade);
+  if (valorGuardado) {
+    return JSON.parse(valorGuardado);
+  }
+  var padrao = LISTAS_PADRAO[nomePropriedade] || [];
+  propriedades.setProperty(nomePropriedade, JSON.stringify(padrao));
+  return padrao;
+}
+
+/**
+ * Acrescenta um valor novo a uma lista guardada (se ainda nao existir),
+ * para ficar disponivel como sugestao nos proximos envios.
+ */
+function adicionarValorNaLista(nomePropriedade, valor) {
+  if (!valor) return;
+  var lista = obterLista(nomePropriedade);
+  if (lista.indexOf(valor) !== -1) return;
+  lista.push(valor);
+  var propriedades = PropertiesService.getScriptProperties();
+  propriedades.setProperty(nomePropriedade, JSON.stringify(lista));
 }
 
 function doPost(e) {
@@ -69,6 +147,7 @@ function doPost(e) {
     var guardarEsquema = dados.guardarEsquema || {};
     var descricoesEsquema = dados.descricoesEsquema || {};
     var observacoes = (dados.observacoes || '').toString().trim();
+    var gas = (dados.gas || '').toString().trim();
     var tipoRelatorio = dados.tipoRelatorio === 'ciclos' ? 'ciclos' : 'testes';
     var nomeRelatorio = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
     var prefixoPasta = tipoRelatorio === 'ciclos' ? 'CICLO_' : 'SN_';
@@ -150,6 +229,9 @@ function doPost(e) {
     corpo = corpo + 'Numero de serie: ' + serial + '\n';
     corpo = corpo + 'Grupo: ' + grupo + '\n';
     corpo = corpo + 'Tipo de valvula: ' + tipoValvula + '\n';
+    if (gas) {
+      corpo = corpo + 'Gas: ' + gas + '\n';
+    }
     corpo = corpo + 'Total de fotografias em anexo: ' + totalFotos + '\n';
     corpo = corpo + montarTextoDescricoesEsquema(descricoesEsquema);
     corpo = corpo + '\n';
@@ -166,6 +248,10 @@ function doPost(e) {
       body: corpo,
       attachments: anexos
     });
+
+    adicionarValorNaLista('esquemasEletrico', (descricoesEsquema.esquemaEletrico || '').toString().trim());
+    adicionarValorNaLista('esquemasFrio', (descricoesEsquema.esquemaFrio || '').toString().trim());
+    adicionarValorNaLista('gases', gas);
 
     resposta = { status: 'ok', mensagem: 'Enviado com sucesso.', fotos: totalFotos };
   } catch (erro) {

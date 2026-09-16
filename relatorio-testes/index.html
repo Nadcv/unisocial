@@ -305,6 +305,13 @@
           </select>
         </div>
       </div>
+
+      <div style="height:14px"></div>
+
+      <label class="campo-label" for="gas">Gás</label>
+      <input type="text" id="gas" name="gas" list="listaGases" placeholder="Escolha ou escreva o gás..." autocomplete="off" />
+      <datalist id="listaGases"></datalist>
+      <div class="ajuda">Pode escolher da lista ou escrever um gás novo.</div>
     </div>
 
     <div class="card" id="categorias-container">
@@ -380,6 +387,33 @@
 
   atualizarAbaAtiva();
 
+  // ---------------------------------------------------------------------
+  // Listas de sugestoes (codigos de esquema e gases), enviadas pelo
+  // servidor em JSON. Crescem sozinhas: quando alguem escreve um valor
+  // novo, o Code.gs guarda-o para aparecer aqui nas proximas vezes.
+  // ---------------------------------------------------------------------
+  var LISTAS_JSON = '<?!= listasJson ?>';
+  var LISTAS = { esquemasEletrico: [], esquemasFrio: [], gases: [] };
+  if (LISTAS_JSON.indexOf('{') === 0) {
+    try {
+      LISTAS = JSON.parse(LISTAS_JSON);
+    } catch (erroListas) {
+      LISTAS = { esquemasEletrico: [], esquemasFrio: [], gases: [] };
+    }
+  }
+
+  function preencherDatalist(idDatalist, valores) {
+    var datalist = document.getElementById(idDatalist);
+    if (!datalist || !valores) return;
+    var opcoes = '';
+    valores.forEach(function (valor) {
+      opcoes = opcoes + '<option value="' + valor + '"></option>';
+    });
+    datalist.innerHTML = opcoes;
+  }
+
+  preencherDatalist('listaGases', LISTAS.gases);
+
   var CATEGORIAS = [
     { chave: 'responsavel',     rotulo: 'Fotografia do responsável', esquema: false },
     { chave: 'eletrico',        rotulo: 'Teste elétrico', esquema: false },
@@ -416,8 +450,9 @@
     if (cat.esquema) {
       extraEsquema =
         '<div class="descricao-esquema">' +
-          '<label class="campo-label" for="descricao-' + cat.chave + '">Descrição do esquema (sugerida pela Aralab)</label>' +
-          '<input type="text" id="descricao-' + cat.chave + '" data-chave-descricao="' + cat.chave + '" placeholder="Ex.: Esquema V2 - revisão 2023" />' +
+          '<label class="campo-label" for="descricao-' + cat.chave + '">Descrição do esquema (código)</label>' +
+          '<input type="text" id="descricao-' + cat.chave + '" list="datalist-descricao-' + cat.chave + '" data-chave-descricao="' + cat.chave + '" placeholder="Escolha ou escreva o código..." autocomplete="off" />' +
+          '<datalist id="datalist-descricao-' + cat.chave + '"></datalist>' +
         '</div>' +
         '<div class="linha-esquema">' +
           '<input type="checkbox" id="naoTenho-' + cat.chave + '" data-chave-esquema="' + cat.chave + '" />' +
@@ -445,6 +480,9 @@
       '<div class="previews" id="previews-' + cat.chave + '"></div>';
     container.appendChild(bloco);
   });
+
+  preencherDatalist('datalist-descricao-esquemaEletrico', LISTAS.esquemasEletrico);
+  preencherDatalist('datalist-descricao-esquemaFrio', LISTAS.esquemasFrio);
 
   container.addEventListener('change', function (ev) {
     var input = ev.target;
@@ -669,6 +707,7 @@
     }
 
     var observacoes = document.getElementById('observacoes').value.trim();
+    var gas = document.getElementById('gas').value.trim();
     var descricoesEsquema = {};
     CATEGORIAS.forEach(function (c) {
       if (!c.esquema) return;
@@ -683,6 +722,7 @@
       tipoValvula: tipoValvula,
       tipoRelatorio: TIPO_RELATORIO,
       observacoes: observacoes,
+      gas: gas,
       descricoesEsquema: descricoesEsquema,
       fotos: fotosPorCategoria,
       esquemasExistentes: esquemaExistente,
@@ -730,6 +770,7 @@
     document.getElementById('serial').value = '';
     document.getElementById('emails').value = '';
     document.getElementById('observacoes').value = '';
+    document.getElementById('gas').value = '';
     campoGrupo.value = '';
     campoTipoValvula.value = '';
     CATEGORIAS.forEach(function (c) {
