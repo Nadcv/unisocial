@@ -338,9 +338,9 @@
       <div style="height:14px"></div>
 
       <label class="campo-label" for="gas">Gás</label>
-      <input type="text" id="gas" name="gas" list="listaGases" placeholder="Escolha ou escreva o gás..." autocomplete="off" />
-      <datalist id="listaGases"></datalist>
-      <div class="ajuda">Pode escolher da lista ou escrever um gás novo.</div>
+      <select id="gas" name="gas">
+        <option value="">Selecione...</option>
+      </select>
     </div>
 
     <div class="card" id="categorias-container">
@@ -434,17 +434,17 @@
     }
   }
 
-  function preencherDatalist(idDatalist, valores) {
-    var datalist = document.getElementById(idDatalist);
-    if (!datalist || !valores) return;
-    var opcoes = '';
+  function preencherSelect(idSelect, valores) {
+    var select = document.getElementById(idSelect);
+    if (!select || !valores) return;
+    var opcoes = '<option value="">Selecione...</option>';
     valores.forEach(function (valor) {
-      opcoes = opcoes + '<option value="' + valor + '"></option>';
+      opcoes = opcoes + '<option value="' + valor + '">' + valor + '</option>';
     });
-    datalist.innerHTML = opcoes;
+    select.innerHTML = opcoes;
   }
 
-  preencherDatalist('listaGases', LISTAS.gases);
+  preencherSelect('gas', LISTAS.gases);
 
   var CATEGORIAS = [
     { chave: 'responsavel',     rotulo: 'Fotografia do responsável', esquema: false },
@@ -489,8 +489,9 @@
       extraEsquema =
         '<div class="descricao-esquema">' +
           '<label class="campo-label" for="descricao-' + cat.chave + '">Descrição do esquema (código)</label>' +
-          '<input type="text" id="descricao-' + cat.chave + '" list="datalist-descricao-' + cat.chave + '" data-chave-descricao="' + cat.chave + '" placeholder="Escolha ou escreva o código..." autocomplete="off" />' +
-          '<datalist id="datalist-descricao-' + cat.chave + '"></datalist>' +
+          '<select id="descricao-' + cat.chave + '" data-chave-descricao="' + cat.chave + '">' +
+            '<option value="">Selecione...</option>' +
+          '</select>' +
         '</div>' +
         '<div class="linha-esquema">' +
           '<input type="checkbox" id="naoTenho-' + cat.chave + '" data-chave-esquema="' + cat.chave + '" />' +
@@ -519,8 +520,8 @@
     container.appendChild(bloco);
   });
 
-  preencherDatalist('datalist-descricao-esquemaEletrico', LISTAS.esquemasEletrico);
-  preencherDatalist('datalist-descricao-esquemaFrio', LISTAS.esquemasFrio);
+  preencherSelect('descricao-esquemaEletrico', LISTAS.esquemasEletrico);
+  preencherSelect('descricao-esquemaFrio', LISTAS.esquemasFrio);
 
   container.addEventListener('change', function (ev) {
     var input = ev.target;
