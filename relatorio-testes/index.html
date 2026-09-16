@@ -164,6 +164,15 @@
     line-height: 1;
     cursor: pointer;
   }
+  .thumb-generico {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    background: var(--cinza-fundo);
+  }
   .linha-botoes {
     display: flex;
     gap: 10px;
@@ -343,9 +352,8 @@
           <label class="campo-label" for="phPlh">Ciclo PH / PLH</label>
           <select id="phPlh">
             <option value="">Selecione...</option>
-            <option value="PH">PH</option>
-            <option value="PLH">PLH</option>
           </select>
+          <input type="text" id="phPlh-outro" class="campo-outro" placeholder="Escreva o novo valor..." autocomplete="off" hidden />
         </div>
       </div>
 
@@ -498,6 +506,14 @@
     if (!campoGasOutro.hidden) campoGasOutro.focus();
   });
 
+  preencherSelect('phPlh', LISTAS.ciclosPhPlh, true);
+
+  var campoPhPlhOutro = document.getElementById('phPlh-outro');
+  campoPhPlh.addEventListener('change', function () {
+    campoPhPlhOutro.hidden = campoPhPlh.value !== '__outro__';
+    if (!campoPhPlhOutro.hidden) campoPhPlhOutro.focus();
+  });
+
   var CATEGORIAS = [
     { chave: 'responsavel',     rotulo: 'Fotografia do responsável', esquema: false },
     { chave: 'eletrico',        rotulo: 'Teste elétrico', esquema: false },
@@ -511,9 +527,20 @@
     { chave: 'ventilador',      rotulo: 'Ventilador', esquema: false }
   ];
 
-  // Guarda os ficheiros já comprimidos (base64) por categoria.
+  // Guarda os ficheiros já comprimidos (base64) por categoria, ainda por
+  // guardar no Drive (fica vazio quase logo a seguir, porque cada foto e
+  // guardada automaticamente assim que e tirada).
   var fotosPorCategoria = {};
   CATEGORIAS.forEach(function (c) { fotosPorCategoria[c.chave] = []; });
+
+  // Fotos ja guardadas no Drive (deste rascunho), por categoria. Cada
+  // item tem { id, nome, base64 } - base64 so existe para fotos tiradas
+  // nesta sessao (para mostrar a miniatura sem ter de voltar a
+  // descarregar do Drive); fotos de uma sessao anterior tem base64 nulo
+  // e mostram um icone generico. Cada item pode ser apagado do Drive
+  // diretamente pelo operador.
+  var fotosSalvas = {};
+  CATEGORIAS.forEach(function (c) { fotosSalvas[c.chave] = []; });
 
   // Para as categorias de esquema: id do ficheiro do Drive escolhido da
   // biblioteca (em vez de tirar foto nova), e se um esquema novo deve
@@ -524,11 +551,6 @@
   var campoGrupo = document.getElementById('grupo');
   var campoTipoValvula = document.getElementById('tipoValvula');
   var campoSerial = document.getElementById('serial');
-
-  // Quantas fotos ja estao guardadas num rascunho no Drive (por
-  // categoria), para este numero de serie - carregadas ao sair do
-  // campo "Numero de serie".
-  var fotosRascunhoContagem = {};
 
   var container = document.getElementById('categorias-container');
 
@@ -680,8 +702,8 @@
 
     var promessas = ficheiros.map(function (ficheiro) {
       return comprimirImagem(ficheiro).then(function (base64) {
-        var indice = fotosPorCategoria[chave].push(base64) - 1;
-        adicionarPreview(chave, base64, indice);
+        fotosPorCategoria[chave].push(base64);
+        renderizarPreviews(chave);
       });
     });
 
@@ -819,7 +841,7 @@
         TIPO_RELATORIO = 'ciclos';
         atualizarAbaAtiva();
       }
-      if (dadosGuardados.phPlh) campoPhPlh.value = dadosGuardados.phPlh;
+      if (dadosGuardados.phPlh) definirValorSelectComOutro('phPlh', 'phPlh-outro', dadosGuardados.phPlh);
       if (dadosGuardados.gas) definirValorSelectComOutro('gas', 'gas-outro', dadosGuardados.gas);
       if (dadosGuardados.descricoesEsquema) {
         Object.keys(dadosGuardados.descricoesEsquema).forEach(function (chave) {
@@ -830,9 +852,12 @@
       var fotosGuardadas = dadosResposta.fotos || {};
       var totalGuardado = 0;
       Object.keys(fotosGuardadas).forEach(function (chave) {
-        var quantidade = fotosGuardadas[chave] ? fotosGuardadas[chave].length : 0;
-        fotosRascunhoContagem[chave] = quantidade;
-        totalGuardado = totalGuardado + quantidade;
+        var itens = fotosGuardadas[chave] || [];
+        fotosSalvas[chave] = itens.map(function (item) {
+          return { id: item.id, nome: item.nome, base64: null };
+        });
+        totalGuardado = totalGuardado + itens.length;
+        renderizarPreviews(chave);
         atualizarContagem(chave);
       });
 
@@ -845,28 +870,89 @@
     promessaRascunhoJson.then(aoProcessarRascunho);
   }
 
-  function adicionarPreview(chave, base64, indice) {
+  /**
+   * Redesenha as miniaturas de uma categoria a partir do estado atual:
+   * primeiro as fotos ja guardadas no Drive (fotosSalvas, apagaveis
+   * diretamente do Drive), depois as que ainda estao so na memoria a
+   * aguardar o guardar automatico (fotosPorCategoria, removidas so
+   * localmente).
+   */
+  function renderizarPreviews(chave) {
     var previews = document.getElementById('previews-' + chave);
-    var thumb = document.createElement('div');
-    thumb.className = 'thumb';
-    thumb.innerHTML = '<img src="' + base64 + '" alt="" />' +
-      '<button type="button" aria-label="Remover">✕</button>';
+    previews.innerHTML = '';
 
-    thumb.querySelector('button').addEventListener('click', function () {
-      var pos = fotosPorCategoria[chave].indexOf(base64);
-      if (pos > -1) fotosPorCategoria[chave].splice(pos, 1);
-      thumb.remove();
-      atualizarContagem(chave);
+    fotosSalvas[chave].forEach(function (item, indice) {
+      var thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      var conteudo = item.base64
+        ? '<img src="' + item.base64 + '" alt="" />'
+        : '<div class="thumb-generico">📷</div>';
+      thumb.innerHTML = conteudo + '<button type="button" aria-label="Apagar">✕</button>';
+      thumb.querySelector('button').addEventListener('click', function () {
+        apagarFotoSalva(chave, indice);
+      });
+      previews.appendChild(thumb);
     });
 
-    previews.appendChild(thumb);
+    fotosPorCategoria[chave].forEach(function (base64, indice) {
+      var thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      thumb.innerHTML = '<img src="' + base64 + '" alt="" />' +
+        '<button type="button" aria-label="Remover">✕</button>';
+      thumb.querySelector('button').addEventListener('click', function () {
+        fotosPorCategoria[chave].splice(indice, 1);
+        renderizarPreviews(chave);
+        atualizarContagem(chave);
+      });
+      previews.appendChild(thumb);
+    });
+  }
+
+  /**
+   * Apaga do Drive uma foto ja guardada de um rascunho (pede confirmacao
+   * primeiro), e atualiza a lista/miniaturas localmente se resultar bem.
+   */
+  function apagarFotoSalva(chave, indice) {
+    var item = fotosSalvas[chave][indice];
+    if (!item) return;
+    if (!window.confirm('Apagar esta foto?')) return;
+
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = { apagarFotoRascunho: true, fileId: item.id };
+    var promessaApagar = fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+
+    function aoReceberApagarResposta(resposta) {
+      return resposta.json();
+    }
+
+    function aoProcessarApagar(resposta) {
+      if (resposta.status !== 'ok') {
+        mostrarEstado('Erro ao apagar foto: ' + (resposta.msg || 'falha desconhecida.'), 'erro');
+        return;
+      }
+      fotosSalvas[chave].splice(indice, 1);
+      renderizarPreviews(chave);
+      atualizarContagem(chave);
+      mostrarEstado('Foto apagada.', 'sucesso');
+    }
+
+    function aoFalharApagar(erro) {
+      mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+    }
+
+    var promessaApagarJson = promessaApagar.then(aoReceberApagarResposta);
+    promessaApagarJson.then(aoProcessarApagar);
+    promessaApagarJson.catch(aoFalharApagar);
   }
 
   function atualizarContagem(chave) {
     var el = document.getElementById('contagem-' + chave);
-    var n = fotosPorCategoria[chave].length;
+    var n = fotosSalvas[chave].length + fotosPorCategoria[chave].length;
     if (esquemaExistente[chave]) n = 1;
-    n = n + (fotosRascunhoContagem[chave] || 0);
     el.textContent = n + (n === 1 ? ' foto' : ' fotos');
   }
 
@@ -933,7 +1019,7 @@
     var totalFotos = CATEGORIAS.reduce(function (soma, c) {
       var conta = fotosPorCategoria[c.chave].length;
       if (esquemaExistente[c.chave]) conta = conta + 1;
-      conta = conta + (fotosRascunhoContagem[c.chave] || 0);
+      conta = conta + fotosSalvas[c.chave].length;
       return soma + conta;
     }, 0);
     if (totalFotos === 0) {
@@ -950,6 +1036,10 @@
     var gas = document.getElementById('gas').value.trim();
     if (gas === '__outro__') {
       gas = document.getElementById('gas-outro').value.trim();
+    }
+    var phPlh = campoPhPlh.value;
+    if (phPlh === '__outro__') {
+      phPlh = campoPhPlhOutro.value.trim();
     }
     var descricoesEsquema = {};
     CATEGORIAS.forEach(function (c) {
@@ -969,7 +1059,7 @@
       grupo: grupo,
       tipoValvula: tipoValvula,
       tipoRelatorio: TIPO_RELATORIO,
-      phPlh: campoPhPlh.value,
+      phPlh: phPlh,
       observacoes: observacoes,
       gas: gas,
       descricoesEsquema: descricoesEsquema,
@@ -1045,13 +1135,18 @@
       gasRascunho = document.getElementById('gas-outro').value.trim();
     }
 
+    var phPlhRascunho = campoPhPlh.value;
+    if (phPlhRascunho === '__outro__') {
+      phPlhRascunho = campoPhPlhOutro.value.trim();
+    }
+
     var payloadRascunho = {
       serial: serial,
       emails: document.getElementById('emails').value.trim(),
       grupo: campoGrupo.value,
       tipoValvula: campoTipoValvula.value,
       tipoRelatorio: TIPO_RELATORIO,
-      phPlh: campoPhPlh.value,
+      phPlh: phPlhRascunho,
       gas: gasRascunho,
       observacoes: document.getElementById('observacoes').value.trim(),
       descricoesEsquema: descricoesEsquemaRascunho,
@@ -1082,11 +1177,15 @@
 
       mostrarEstado('Progresso guardado! Pode fechar a aplicação e continuar mais tarde com o mesmo número de série.', 'sucesso');
 
+      var fotosCriadas = dadosResposta.fotosCriadas || {};
       CATEGORIAS.forEach(function (c) {
-        var quantidadeNova = fotosPorCategoria[c.chave].length;
-        fotosRascunhoContagem[c.chave] = (fotosRascunhoContagem[c.chave] || 0) + quantidadeNova;
+        var criadas = fotosCriadas[c.chave] || [];
+        var pendentes = fotosPorCategoria[c.chave];
+        criadas.forEach(function (item, indice) {
+          fotosSalvas[c.chave].push({ id: item.id, nome: item.nome, base64: pendentes[indice] || null });
+        });
         fotosPorCategoria[c.chave] = [];
-        document.getElementById('previews-' + c.chave).innerHTML = '';
+        renderizarPreviews(c.chave);
         atualizarContagem(c.chave);
       });
     }
@@ -1113,9 +1212,11 @@
     campoGrupo.value = '';
     campoTipoValvula.value = '';
     campoPhPlh.value = '';
-    fotosRascunhoContagem = {};
+    campoPhPlhOutro.value = '';
+    campoPhPlhOutro.hidden = true;
     CATEGORIAS.forEach(function (c) {
       fotosPorCategoria[c.chave] = [];
+      fotosSalvas[c.chave] = [];
       document.getElementById('previews-' + c.chave).innerHTML = '';
       if (c.esquema) {
         esquemaExistente[c.chave] = null;

@@ -74,6 +74,10 @@ var LISTAS_PADRAO = {
     'R290',
     'CO2 (R744)',
     'Azoto (N2)'
+  ],
+  ciclosPhPlh: [
+    'PH',
+    'PLH'
   ]
 };
 
@@ -95,7 +99,8 @@ function doGet(e) {
   var listas = {
     esquemasEletrico: obterLista('esquemasEletrico'),
     esquemasFrio: obterLista('esquemasFrio'),
-    gases: obterLista('gases')
+    gases: obterLista('gases'),
+    ciclosPhPlh: obterLista('ciclosPhPlh')
   };
 
   var template = HtmlService.createTemplateFromFile('Index');
@@ -148,6 +153,10 @@ function doPost(e) {
 
     if (dados.guardarComoRascunho === true) {
       return guardarProgresso(dados);
+    }
+
+    if (dados.apagarFotoRascunho === true) {
+      return apagarFotoRascunho(dados);
     }
 
     var serial = (dados.serial || '').toString().trim();
@@ -278,6 +287,7 @@ function doPost(e) {
     adicionarValorNaLista('esquemasEletrico', (descricoesEsquema.esquemaEletrico || '').toString().trim());
     adicionarValorNaLista('esquemasFrio', (descricoesEsquema.esquemaFrio || '').toString().trim());
     adicionarValorNaLista('gases', gas);
+    adicionarValorNaLista('ciclosPhPlh', phPlh);
 
     if (pastaRascunhoExistente) {
       pastaRascunhoExistente.setTrashed(true);
@@ -327,6 +337,7 @@ function guardarProgresso(dados) {
     var fotos = dados.fotos || {};
     var chaves = Object.keys(CATEGORIAS);
     var totalNovas = 0;
+    var fotosCriadas = {};
 
     for (var i = 0; i < chaves.length; i++) {
       var chave = chaves[i];
@@ -334,6 +345,7 @@ function guardarProgresso(dados) {
       if (!lista || !lista.length) continue;
 
       var pastaCategoria = obterOuCriarSubpasta(pastaRascunho, chave, true);
+      var criadasCategoria = [];
       for (var j = 0; j < lista.length; j++) {
         var dataUrl = lista[j];
         if (!dataUrl) continue;
@@ -341,8 +353,12 @@ function guardarProgresso(dados) {
         var blob = base64ParaBlob(dataUrl, CATEGORIAS[chave] + '_' + (j + 1));
         if (!blob) continue;
 
-        pastaCategoria.createFile(blob);
+        var ficheiroCriado = pastaCategoria.createFile(blob);
+        criadasCategoria.push({ id: ficheiroCriado.getId(), nome: ficheiroCriado.getName() });
         totalNovas = totalNovas + 1;
+      }
+      if (criadasCategoria.length) {
+        fotosCriadas[chave] = criadasCategoria;
       }
     }
 
@@ -358,7 +374,31 @@ function guardarProgresso(dados) {
     };
     guardarDadosRascunho(pastaRascunho, camposGuardados);
 
-    resposta = { status: 'ok', mensagem: 'Progresso guardado.', fotosGuardadas: totalNovas };
+    resposta = { status: 'ok', mensagem: 'Progresso guardado.', fotosGuardadas: totalNovas, fotosCriadas: fotosCriadas };
+  } catch (erro) {
+    resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
+  }
+
+  var saida = ContentService.createTextOutput(JSON.stringify(resposta));
+  saida.setMimeType(ContentService.MimeType.JSON);
+  return saida;
+}
+
+/**
+ * Apaga (move para o lixo) uma foto especifica de um rascunho, pelo ID
+ * do ficheiro no Drive. Usado quando o operador quer remover uma foto
+ * ja guardada, antes de enviar o relatorio final.
+ */
+function apagarFotoRascunho(dados) {
+  var resposta;
+  try {
+    var fileId = (dados.fileId || '').toString().trim();
+    if (!fileId) {
+      throw new Error('ID do ficheiro em falta.');
+    }
+    var ficheiro = DriveApp.getFileById(fileId);
+    ficheiro.setTrashed(true);
+    resposta = { status: 'ok', mensagem: 'Foto apagada.' };
   } catch (erro) {
     resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
   }
