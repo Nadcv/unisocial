@@ -15,6 +15,9 @@
 
 var FOLDER_ID = '18H0wf27uzxFdDqdTOQ2f-9P6-zjwbGqO';
 
+// Nome da empresa, mostrado no formulario e usado no assunto/corpo do e-mail.
+var EMPRESA = 'Cablotec';
+
 // Nomes das categorias de fotos aceites, e respetivos rotulos usados no e-mail/nome de ficheiro.
 var CATEGORIAS = {
   responsavel: 'Fotografia do responsavel',
@@ -100,7 +103,7 @@ function doGet(e) {
   template.tipoRelatorio = tipoRelatorio;
   template.listasJson = JSON.stringify(listas);
   var saida = template.evaluate();
-  saida.setTitle(tituloPagina);
+  saida.setTitle(EMPRESA + ' - ' + tituloPagina);
   saida.addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
   return saida;
 }
@@ -243,7 +246,7 @@ function doPost(e) {
       throw new Error('O total de anexos (' + totalMB + ' MB) excede o limite de ~25 MB do Gmail. Reduza o numero ou o tamanho das fotos.');
     }
 
-    var corpo = nomeRelatorio + ' da maquina.';
+    var corpo = EMPRESA + ' - ' + nomeRelatorio + ' da maquina.';
     corpo = corpo + '\n\n';
     corpo = corpo + 'Numero de serie: ' + serial + '\n';
     corpo = corpo + 'Grupo: ' + grupo + '\n';
@@ -263,7 +266,7 @@ function doPost(e) {
 
     MailApp.sendEmail({
       to: emails,
-      subject: nomeRelatorio + ' - S/N: ' + serial + ' - Grupo ' + grupo,
+      subject: EMPRESA + ' - ' + nomeRelatorio + ' - S/N: ' + serial + ' - Grupo ' + grupo,
       body: corpo,
       attachments: anexos
     });
