@@ -67,6 +67,35 @@ export function exportDocumentToDxf(doc: CadDocument): string {
     d.drawPolyline([...corners, corners[0]]);
   }
 
+  d.addLayer('walls', Drawing.ACI.WHITE, 'CONTINUOUS').setActiveLayer('walls');
+  for (const wall of doc.walls.values()) {
+    const dx = wall.end[0] - wall.start[0];
+    const dy = wall.end[1] - wall.start[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / len) * (wall.thickness / 2);
+    const ny = (dx / len) * (wall.thickness / 2);
+    const corners: [number, number][] = [
+      [wall.start[0] + nx, wall.start[1] + ny],
+      [wall.end[0] + nx, wall.end[1] + ny],
+      [wall.end[0] - nx, wall.end[1] - ny],
+      [wall.start[0] - nx, wall.start[1] - ny],
+    ];
+    d.drawPolyline([...corners, corners[0]]);
+  }
+
+  d.addLayer('dimensions', Drawing.ACI.RED, 'CONTINUOUS').setActiveLayer('dimensions');
+  for (const dim of doc.dimensions.values()) {
+    const [fx, fy] = dim.from;
+    const [tx, ty] = dim.to;
+    const dx = tx - fx;
+    const dy = ty - fy;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / len) * dim.offset;
+    const ny = (dx / len) * dim.offset;
+    d.drawLine(fx + nx, fy + ny, tx + nx, ty + ny);
+    d.drawText(fx + nx + dx / 2, fy + ny + dy / 2, 0.1, 0, `${len.toFixed(2)}m`);
+  }
+
   d.addLayer('reference', Drawing.ACI.BLUE, 'CONTINUOUS').setActiveLayer('reference');
   for (const e of doc.dxfEntities) {
     if (e.kind === 'line') d.drawLine(e.from[0], e.from[1], e.to[0], e.to[1]);

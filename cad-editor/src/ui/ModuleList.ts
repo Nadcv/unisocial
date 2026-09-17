@@ -41,6 +41,7 @@ export class ModuleList {
       const insertBtn = document.createElement('button');
       insertBtn.textContent = '+ inserir';
       insertBtn.addEventListener('click', () => {
+        this.doc.checkpoint();
         const inst = this.doc.instantiateMaster(master.id, { x: 0, y: 0, z: 0 });
         if (inst) this.doc.setSelection([inst.id]);
       });

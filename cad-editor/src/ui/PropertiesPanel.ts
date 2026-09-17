@@ -25,7 +25,10 @@ export class PropertiesPanel {
     input.type = 'number';
     input.step = String(step);
     input.value = value.toFixed(3);
-    input.addEventListener('change', () => onChange(parseFloat(input.value) || 0));
+    input.addEventListener('change', () => {
+      this.doc.checkpoint();
+      onChange(parseFloat(input.value) || 0);
+    });
     row.append(span, input);
     return row;
   }
@@ -55,7 +58,10 @@ export class PropertiesPanel {
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.value = mod.name;
-    nameInput.addEventListener('change', () => this.doc.updateModule(mod.id, { name: nameInput.value }));
+    nameInput.addEventListener('change', () => {
+      this.doc.checkpoint();
+      this.doc.updateModule(mod.id, { name: nameInput.value });
+    });
     nameRow.append(nameSpan, nameInput);
     this.root.appendChild(nameRow);
 
@@ -76,7 +82,17 @@ export class PropertiesPanel {
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
     colorInput.value = mod.color;
-    colorInput.addEventListener('input', () => this.doc.updateModule(mod.id, { color: colorInput.value }));
+    let colorCheckpointed = false;
+    colorInput.addEventListener('focus', () => {
+      colorCheckpointed = false;
+    });
+    colorInput.addEventListener('input', () => {
+      if (!colorCheckpointed) {
+        this.doc.checkpoint();
+        colorCheckpointed = true;
+      }
+      this.doc.updateModule(mod.id, { color: colorInput.value });
+    });
     colorRow.append(colorSpan, colorInput);
     this.root.appendChild(colorRow);
 
@@ -93,6 +109,7 @@ export class PropertiesPanel {
     const dupBtn = document.createElement('button');
     dupBtn.textContent = 'Duplicar';
     dupBtn.addEventListener('click', () => {
+      this.doc.checkpoint();
       const copy = this.doc.duplicateModule(mod.id);
       if (copy) this.doc.setSelection([copy.id]);
     });
@@ -101,6 +118,7 @@ export class PropertiesPanel {
     makeMasterBtn.textContent = 'Tornar reutilizável';
     makeMasterBtn.title = 'Cria um módulo mestre a partir deste, para inserir várias cópias sincronizadas';
     makeMasterBtn.addEventListener('click', () => {
+      this.doc.checkpoint();
       const master = this.doc.defineMaster({ name: mod.name, width: mod.width, depth: mod.depth, height: mod.height, color: mod.color });
       this.doc.updateModule(mod.id, { masterId: master.id });
     });
@@ -108,7 +126,10 @@ export class PropertiesPanel {
     const delBtn = document.createElement('button');
     delBtn.textContent = 'Excluir';
     delBtn.className = 'danger';
-    delBtn.addEventListener('click', () => this.doc.removeModule(mod.id));
+    delBtn.addEventListener('click', () => {
+      this.doc.checkpoint();
+      this.doc.removeModule(mod.id);
+    });
 
     actions.append(dupBtn, makeMasterBtn, delBtn);
     this.root.appendChild(actions);

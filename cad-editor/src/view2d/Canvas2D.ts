@@ -1,16 +1,29 @@
 import type { CadDocument } from '../core/Document';
-import type { ModuleDef } from '../core/types';
+import type { DimensionDef, ModuleDef, WallDef } from '../core/types';
 
 const HANDLE_SIZE = 8;
+const WALL_HIT_TOLERANCE = 6; // px
+
+export type ToolMode = 'select' | 'wall' | 'dimension';
 
 type DragMode = { kind: 'move'; startX: number; startY: number; origins: Map<string, { x: number; y: number }> }
   | { kind: 'resize'; id: string; startX: number; startY: number; origin: { width: number; depth: number } }
   | { kind: 'pan'; startX: number; startY: number; originOffset: { x: number; y: number } }
   | null;
 
+function distToSegment(px: number, py: number, [x1, y1]: [number, number], [x2, y2]: [number, number]): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq));
+  const cx = x1 + t * dx;
+  const cy = y1 + t * dy;
+  return Math.hypot(px - cx, py - cy);
+}
+
 /**
  * Top-down (plan) 2D editor. World units are meters; screen units are pixels.
- * Renders imported DXF reference geometry plus editable module rectangles.
+ * Renders imported DXF reference geometry plus editable module rectangles, walls and dimensions.
  */
 export class Canvas2D {
   private canvas: HTMLCanvasElement;
@@ -20,6 +33,13 @@ export class Canvas2D {
   private offset = { x: 0, y: 0 }; // world origin position on screen, in px
   private drag: DragMode = null;
   private resizeObserver: ResizeObserver;
+
+  private tool: ToolMode = 'select';
+  private snapEnabled = true;
+  private snapStep = 0.05; // meters
+  private pendingPoint: [number, number] | null = null;
+  private previewPoint: [number, number] | null = null;
+  private selectedWallId: string | null = null;
 
   constructor(container: HTMLElement, doc: CadDocument) {
     this.doc = doc;
@@ -40,6 +60,11 @@ export class Canvas2D {
     this.canvas.addEventListener('mousemove', this.onMouseMove);
     window.addEventListener('mouseup', this.onMouseUp);
     this.canvas.addEventListener('wheel', this.onWheel, { passive: false });
+    this.canvas.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault();
+      this.cancelPending();
+    });
+    window.addEventListener('keydown', this.onKeyDown);
 
     doc.events.on('change', () => this.render());
     doc.events.on('selectionChange', () => this.render());
@@ -47,7 +72,52 @@ export class Canvas2D {
 
   dispose(): void {
     this.resizeObserver.disconnect();
+    window.removeEventListener('keydown', this.onKeyDown);
   }
+
+  setTool(tool: ToolMode): void {
+    this.tool = tool;
+    this.pendingPoint = null;
+    this.previewPoint = null;
+    this.render();
+  }
+
+  setSnap(enabled: boolean, step?: number): void {
+    this.snapEnabled = enabled;
+    if (step !== undefined) this.snapStep = step;
+    this.render();
+  }
+
+  private cancelPending(): void {
+    this.pendingPoint = null;
+    this.previewPoint = null;
+    this.render();
+  }
+
+  private onKeyDown = (ev: KeyboardEvent): void => {
+    const target = ev.target as HTMLElement | null;
+    if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+
+    if (ev.key === 'Escape') {
+      this.cancelPending();
+      return;
+    }
+    if ((ev.key === 'Delete' || ev.key === 'Backspace') && this.tool === 'select') {
+      let changed = false;
+      if (this.doc.selectedIds.size > 0) {
+        this.doc.checkpoint();
+        for (const id of [...this.doc.selectedIds]) this.doc.removeModule(id);
+        changed = true;
+      }
+      if (this.selectedWallId) {
+        if (!changed) this.doc.checkpoint();
+        this.doc.removeWall(this.selectedWallId);
+        this.selectedWallId = null;
+        changed = true;
+      }
+      if (changed) ev.preventDefault();
+    }
+  };
 
   private resize(): void {
     const parent = this.canvas.parentElement!;
@@ -73,12 +143,31 @@ export class Canvas2D {
     return [ev.clientX - rect.left, ev.clientY - rect.top];
   }
 
+  private snap(v: number): number {
+    if (!this.snapEnabled) return v;
+    return Math.round(v / this.snapStep) * this.snapStep;
+  }
+
+  private snapPoint(wx: number, wy: number): [number, number] {
+    return [this.snap(wx), this.snap(wy)];
+  }
+
   private moduleAt(wx: number, wy: number): ModuleDef | undefined {
     const list = [...this.doc.modules.values()];
     for (let i = list.length - 1; i >= 0; i--) {
       const m = list[i];
       const local = this.toLocal(m, wx, wy);
       if (local.x >= 0 && local.x <= m.width && local.y >= 0 && local.y <= m.depth) return m;
+    }
+    return undefined;
+  }
+
+  private wallAtScreen(sx: number, sy: number): WallDef | undefined {
+    for (const wall of this.doc.walls.values()) {
+      const p1 = this.worldToScreen(...wall.start);
+      const p2 = this.worldToScreen(...wall.end);
+      const tolerance = Math.max(WALL_HIT_TOLERANCE, (wall.thickness * this.scale) / 2);
+      if (distToSegment(sx, sy, p1, p2) <= tolerance) return wall;
     }
     return undefined;
   }
@@ -101,12 +190,34 @@ export class Canvas2D {
 
   private onMouseDown = (ev: MouseEvent): void => {
     const [sx, sy] = this.eventToCanvasXY(ev);
-    const [wx, wy] = this.screenToWorld(sx, sy);
+    const [wxRaw, wyRaw] = this.screenToWorld(sx, sy);
 
     if (ev.button === 1 || ev.shiftKey) {
       this.drag = { kind: 'pan', startX: sx, startY: sy, originOffset: { ...this.offset } };
       return;
     }
+
+    if (ev.button === 2) return; // handled by contextmenu -> cancelPending
+
+    if (this.tool === 'wall' || this.tool === 'dimension') {
+      const point = this.snapPoint(wxRaw, wyRaw);
+      if (!this.pendingPoint) {
+        this.pendingPoint = point;
+      } else {
+        this.doc.checkpoint();
+        if (this.tool === 'wall') {
+          this.doc.addWall({ start: this.pendingPoint, end: point, thickness: 0.15, height: 2.6, color: '#8a8a9a' });
+          this.pendingPoint = point; // chain: keep drawing from the end point
+        } else {
+          this.doc.addDimension({ from: this.pendingPoint, to: point, offset: 0.3 });
+          this.pendingPoint = null; // dimensions don't chain
+        }
+      }
+      this.render();
+      return;
+    }
+
+    const [wx, wy] = [wxRaw, wyRaw];
 
     // Check resize handle on the (single) selected module first.
     if (this.doc.selectedIds.size === 1) {
@@ -115,6 +226,7 @@ export class Canvas2D {
       if (m) {
         const [hx, hy] = this.resizeHandleScreen(m);
         if (Math.hypot(hx - sx, hy - sy) <= HANDLE_SIZE) {
+          this.doc.checkpoint();
           this.drag = { kind: 'resize', id, startX: wx, startY: wy, origin: { width: m.width, depth: m.depth } };
           return;
         }
@@ -123,23 +235,42 @@ export class Canvas2D {
 
     const hit = this.moduleAt(wx, wy);
     if (hit) {
+      this.selectedWallId = null;
       if (!this.doc.selectedIds.has(hit.id)) {
         this.doc.setSelection(ev.ctrlKey || ev.metaKey ? [...this.doc.selectedIds, hit.id] : [hit.id]);
       }
+      this.doc.checkpoint();
       const origins = new Map<string, { x: number; y: number }>();
       for (const id of this.doc.selectedIds) {
         const mod = this.doc.modules.get(id);
         if (mod) origins.set(id, { x: mod.position.x, y: mod.position.y });
       }
       this.drag = { kind: 'move', startX: wx, startY: wy, origins };
-    } else {
-      this.doc.setSelection([]);
+      return;
     }
+
+    const wallHit = this.wallAtScreen(sx, sy);
+    if (wallHit) {
+      this.doc.setSelection([]);
+      this.selectedWallId = wallHit.id;
+      this.render();
+      return;
+    }
+
+    this.selectedWallId = null;
+    this.doc.setSelection([]);
   };
 
   private onMouseMove = (ev: MouseEvent): void => {
-    if (!this.drag) return;
     const [sx, sy] = this.eventToCanvasXY(ev);
+
+    if ((this.tool === 'wall' || this.tool === 'dimension') && this.pendingPoint) {
+      const [wx, wy] = this.screenToWorld(sx, sy);
+      this.previewPoint = this.snapPoint(wx, wy);
+      this.render();
+    }
+
+    if (!this.drag) return;
 
     if (this.drag.kind === 'pan') {
       this.offset = { x: this.drag.originOffset.x + (sx - this.drag.startX), y: this.drag.originOffset.y + (sy - this.drag.startY) };
@@ -150,11 +281,11 @@ export class Canvas2D {
     const [wx, wy] = this.screenToWorld(sx, sy);
 
     if (this.drag.kind === 'move') {
-      const dx = wx - this.drag.startX;
-      const dy = wy - this.drag.startY;
+      const dx = this.snap(wx - this.drag.startX);
+      const dy = this.snap(wy - this.drag.startY);
       for (const [id, origin] of this.drag.origins) {
         const mod = this.doc.modules.get(id);
-        if (mod) mod.position = { ...mod.position, x: origin.x + dx, y: origin.y + dy };
+        if (mod) mod.position = { ...mod.position, x: this.snap(origin.x + dx), y: this.snap(origin.y + dy) };
       }
       this.doc.events.emit('change', { reason: 'drag-move' });
       return;
@@ -164,8 +295,8 @@ export class Canvas2D {
       const mod = this.doc.modules.get(this.drag.id);
       if (mod) {
         const local = this.toLocal(mod, wx, wy);
-        mod.width = Math.max(0.05, local.x);
-        mod.depth = Math.max(0.05, local.y);
+        mod.width = Math.max(this.snapEnabled ? this.snapStep : 0.05, this.snap(local.x));
+        mod.depth = Math.max(this.snapEnabled ? this.snapStep : 0.05, this.snap(local.y));
       }
       this.doc.events.emit('change', { reason: 'drag-resize' });
     }
@@ -197,7 +328,10 @@ export class Canvas2D {
 
     this.drawGrid(w, h);
     this.drawDxfEntities();
+    for (const wall of this.doc.walls.values()) this.drawWall(wall);
     for (const mod of this.doc.modules.values()) this.drawModule(mod);
+    for (const dim of this.doc.dimensions.values()) this.drawDimension(dim);
+    this.drawPendingTool();
   }
 
   private drawGrid(w: number, h: number): void {
@@ -290,6 +424,103 @@ export class Canvas2D {
       ctx.beginPath();
       ctx.arc(pw, 0, HANDLE_SIZE / 2, 0, Math.PI * 2);
       ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  private drawWall(wall: WallDef): void {
+    const ctx = this.ctx;
+    const [x1, y1] = this.worldToScreen(...wall.start);
+    const [x2, y2] = this.worldToScreen(...wall.end);
+    const selected = this.selectedWallId === wall.id;
+    ctx.save();
+    ctx.lineCap = 'square';
+    ctx.strokeStyle = selected ? '#ffd25b' : wall.color;
+    ctx.lineWidth = Math.max(2, wall.thickness * this.scale);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private drawDimension(dim: DimensionDef): void {
+    const ctx = this.ctx;
+    const [fx, fy] = dim.from;
+    const [tx, ty] = dim.to;
+    const dx = tx - fx;
+    const dy = ty - fy;
+    const len = Math.hypot(dx, dy);
+    if (len < 1e-6) return;
+    const nx = -dy / len; // unit normal, used to offset the dimension line
+    const ny = dx / len;
+    const ox = nx * dim.offset;
+    const oy = ny * dim.offset;
+
+    const p1 = this.worldToScreen(fx + ox, fy + oy);
+    const p2 = this.worldToScreen(tx + ox, ty + oy);
+    const e1 = this.worldToScreen(fx, fy);
+    const e2 = this.worldToScreen(tx, ty);
+
+    ctx.save();
+    ctx.strokeStyle = '#ff9d4d';
+    ctx.fillStyle = '#ff9d4d';
+    ctx.lineWidth = 1;
+
+    // Extension lines from the measured points out to the dimension line.
+    ctx.beginPath();
+    ctx.moveTo(e1[0], e1[1]);
+    ctx.lineTo(p1[0], p1[1]);
+    ctx.moveTo(e2[0], e2[1]);
+    ctx.lineTo(p2[0], p2[1]);
+    ctx.stroke();
+
+    // Dimension line with small perpendicular end ticks.
+    ctx.beginPath();
+    ctx.moveTo(p1[0], p1[1]);
+    ctx.lineTo(p2[0], p2[1]);
+    ctx.stroke();
+    const tick = 4;
+    ctx.beginPath();
+    ctx.moveTo(p1[0] - nx * tick, p1[1] + ny * tick);
+    ctx.lineTo(p1[0] + nx * tick, p1[1] - ny * tick);
+    ctx.moveTo(p2[0] - nx * tick, p2[1] + ny * tick);
+    ctx.lineTo(p2[0] + nx * tick, p2[1] - ny * tick);
+    ctx.stroke();
+
+    const midX = (p1[0] + p2[0]) / 2;
+    const midY = (p1[1] + p2[1]) / 2;
+    let angle = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
+    if (angle > Math.PI / 2 || angle < -Math.PI / 2) angle += Math.PI; // keep text upright
+
+    ctx.translate(midX, midY);
+    ctx.rotate(angle);
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${len.toFixed(2)} m`, 0, -4);
+    ctx.restore();
+  }
+
+  private drawPendingTool(): void {
+    if (!this.pendingPoint) return;
+    const ctx = this.ctx;
+    const start = this.worldToScreen(...this.pendingPoint);
+    const end = this.previewPoint ? this.worldToScreen(...this.previewPoint) : start;
+    ctx.save();
+    ctx.strokeStyle = this.tool === 'wall' ? '#8a8a9a' : '#ff9d4d';
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = this.tool === 'wall' ? 4 : 1;
+    ctx.beginPath();
+    ctx.moveTo(start[0], start[1]);
+    ctx.lineTo(end[0], end[1]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (this.previewPoint) {
+      const len = Math.hypot(this.previewPoint[0] - this.pendingPoint[0], this.previewPoint[1] - this.pendingPoint[1]);
+      ctx.fillStyle = '#e8e8f0';
+      ctx.font = '11px sans-serif';
+      ctx.fillText(`${len.toFixed(2)} m`, (start[0] + end[0]) / 2 + 6, (start[1] + end[1]) / 2 - 6);
     }
     ctx.restore();
   }

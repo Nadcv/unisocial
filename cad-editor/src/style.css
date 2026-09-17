@@ -68,6 +68,21 @@ button:hover {
   border-color: var(--accent);
 }
 
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+  border-color: var(--border);
+}
+
+.snap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #b8b8c4;
+  white-space: nowrap;
+}
+
 button.active {
   background: var(--accent);
   color: #0c0c10;
@@ -88,6 +103,26 @@ main.layout {
   display: grid;
   grid-template-columns: 220px 1fr 1fr 260px;
   min-height: 0;
+}
+
+.side-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.side-column .panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.preset-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 6px;
+  font-size: 12px;
 }
 
 .view-pane {

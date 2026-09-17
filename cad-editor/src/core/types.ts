@@ -34,6 +34,25 @@ export interface MasterModuleDef {
   color: string;
 }
 
+/** A straight wall segment, drawn in 2D as a thick line and extruded as a box in 3D. */
+export interface WallDef {
+  id: string;
+  start: [number, number];
+  end: [number, number];
+  thickness: number;
+  height: number;
+  color: string;
+}
+
+/** A 2D linear dimension annotation (measures the distance between two points). */
+export interface DimensionDef {
+  id: string;
+  from: [number, number];
+  to: [number, number];
+  /** Perpendicular offset (in meters) of the dimension line from the measured segment. */
+  offset: number;
+}
+
 /** A flattened reference entity imported from DXF, drawn read-only in the 2D view. */
 export type DxfEntity =
   | { kind: 'line'; from: [number, number]; to: [number, number] }

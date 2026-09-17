@@ -1,5 +1,6 @@
 import type { CadDocument } from '../core/Document';
 import type { Scene3D } from '../view3d/Scene3D';
+import type { Canvas2D, ToolMode } from '../view2d/Canvas2D';
 import { importDxfIntoDocument, exportDocumentToDxf } from '../io/dxf';
 import { importMeshFile, exportToStl, exportToObj, exportToGltf } from '../io/mesh';
 import { importStepOrIgesFile } from '../io/step';
@@ -23,7 +24,7 @@ function download(filename: string, content: string | ArrayBuffer | object): voi
 let moduleCounter = 0;
 
 export class Toolbar {
-  constructor(container: HTMLElement, doc: CadDocument, scene3D: Scene3D, statusEl: HTMLElement) {
+  constructor(container: HTMLElement, doc: CadDocument, scene3D: Scene3D, canvas2d: Canvas2D, statusEl: HTMLElement) {
     const root = document.createElement('div');
     root.className = 'toolbar';
 
@@ -32,10 +33,26 @@ export class Toolbar {
       statusEl.classList.toggle('error', isError);
     };
 
+    // --- Undo / Redo ---
+    const undoBtn = document.createElement('button');
+    undoBtn.textContent = '↶ Desfazer';
+    undoBtn.addEventListener('click', () => doc.undo());
+    const redoBtn = document.createElement('button');
+    redoBtn.textContent = '↷ Refazer';
+    redoBtn.addEventListener('click', () => doc.redo());
+    const syncHistoryButtons = (): void => {
+      undoBtn.disabled = !doc.canUndo;
+      redoBtn.disabled = !doc.canRedo;
+    };
+    doc.events.on('historyChange', syncHistoryButtons);
+    syncHistoryButtons();
+    root.append(undoBtn, redoBtn);
+
     // --- New module ---
     const newModuleBtn = document.createElement('button');
     newModuleBtn.textContent = '+ Novo módulo';
     newModuleBtn.addEventListener('click', () => {
+      doc.checkpoint();
       moduleCounter += 1;
       const mod = doc.addModule({
         name: `Módulo ${moduleCounter}`,
@@ -49,6 +66,42 @@ export class Toolbar {
       doc.setSelection([mod.id]);
     });
     root.appendChild(newModuleBtn);
+
+    // --- 2D drawing tools (select / wall / dimension) ---
+    const toolGroup = document.createElement('div');
+    toolGroup.className = 'button-group';
+    const tools: { mode: ToolMode; label: string }[] = [
+      { mode: 'select', label: 'Selecionar' },
+      { mode: 'wall', label: 'Parede' },
+      { mode: 'dimension', label: 'Cota' },
+    ];
+    tools.forEach(({ mode, label }) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.addEventListener('click', () => {
+        canvas2d.setTool(mode);
+        [...toolGroup.children].forEach((c) => c.classList.remove('active'));
+        btn.classList.add('active');
+      });
+      toolGroup.appendChild(btn);
+    });
+    (toolGroup.firstChild as HTMLElement)?.classList.add('active');
+    root.appendChild(toolGroup);
+
+    // --- Snap toggle ---
+    const snapLabel = document.createElement('label');
+    snapLabel.className = 'snap-toggle';
+    const snapCheckbox = document.createElement('input');
+    snapCheckbox.type = 'checkbox';
+    snapCheckbox.checked = true;
+    const applySnap = (): void => {
+      canvas2d.setSnap(snapCheckbox.checked, 0.05);
+      scene3D.setSnap(snapCheckbox.checked, 0.05);
+    };
+    snapCheckbox.addEventListener('change', applySnap);
+    applySnap();
+    snapLabel.append(snapCheckbox, document.createTextNode(' Ajustar à grade (5cm / 15°)'));
+    root.appendChild(snapLabel);
 
     // --- Import ---
     const importInput = document.createElement('input');
@@ -82,6 +135,42 @@ export class Toolbar {
     importBtn.textContent = 'Importar CAD...';
     importBtn.addEventListener('click', () => importInput.click());
     root.appendChild(importBtn);
+
+    // --- Open project (.json) ---
+    const openInput = document.createElement('input');
+    openInput.type = 'file';
+    openInput.accept = '.json';
+    openInput.style.display = 'none';
+    openInput.addEventListener('change', async () => {
+      const file = openInput.files?.[0];
+      openInput.value = '';
+      if (!file) return;
+      try {
+        const text = await file.text();
+        doc.checkpoint();
+        doc.loadJSON(text);
+        doc.setSelection([]);
+        setStatus(`Projeto aberto: ${file.name}`);
+      } catch (err) {
+        setStatus(`Não foi possível abrir o projeto: ${(err as Error).message}`, true);
+      }
+    });
+    root.appendChild(openInput);
+
+    const openBtn = document.createElement('button');
+    openBtn.textContent = 'Abrir projeto...';
+    openBtn.addEventListener('click', () => openInput.click());
+    root.appendChild(openBtn);
+
+    // --- New project ---
+    const newProjectBtn = document.createElement('button');
+    newProjectBtn.textContent = 'Novo projeto';
+    newProjectBtn.addEventListener('click', () => {
+      doc.checkpoint();
+      doc.clear();
+      setStatus('Novo projeto (Ctrl+Z para desfazer).');
+    });
+    root.appendChild(newProjectBtn);
 
     // --- Export menu ---
     const exportSelect = document.createElement('select');

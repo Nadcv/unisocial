@@ -72,6 +72,17 @@ function buildExportGroup(doc: CadDocument): THREE.Group {
     mesh.name = m.name;
     group.add(mesh);
   }
+  for (const wall of doc.walls.values()) {
+    const dx = wall.end[0] - wall.start[0];
+    const dy = wall.end[1] - wall.start[1];
+    const length = Math.max(0.01, Math.hypot(dx, dy));
+    const geometry = new THREE.BoxGeometry(length, wall.height, wall.thickness);
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: wall.color }));
+    mesh.position.set((wall.start[0] + wall.end[0]) / 2, wall.height / 2, (wall.start[1] + wall.end[1]) / 2);
+    mesh.rotation.set(0, -Math.atan2(dy, dx), 0);
+    mesh.name = 'Parede';
+    group.add(mesh);
+  }
   return group;
 }
 

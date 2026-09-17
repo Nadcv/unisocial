@@ -5,6 +5,9 @@ import { Scene3D } from './view3d/Scene3D';
 import { Toolbar } from './ui/Toolbar';
 import { ModuleList } from './ui/ModuleList';
 import { PropertiesPanel } from './ui/PropertiesPanel';
+import { PresetLibrary } from './ui/PresetLibrary';
+
+const STORAGE_KEY = 'cad-modular-project-v1';
 
 const app = document.getElementById('app')!;
 
@@ -23,6 +26,7 @@ layout.className = 'layout';
 app.appendChild(layout);
 
 const leftPanelHost = document.createElement('div');
+leftPanelHost.className = 'side-column';
 layout.appendChild(leftPanelHost);
 
 const pane2d = document.createElement('div');
@@ -36,6 +40,7 @@ pane3d.innerHTML = '<span class="pane-label">3D</span>';
 layout.appendChild(pane3d);
 
 const rightPanelHost = document.createElement('div');
+rightPanelHost.className = 'side-column';
 layout.appendChild(rightPanelHost);
 
 const footer = document.createElement('footer');
@@ -45,22 +50,65 @@ app.appendChild(footer);
 
 const doc = new CadDocument();
 
-new Canvas2D(pane2d, doc);
+const canvas2d = new Canvas2D(pane2d, doc);
 const scene3D = new Scene3D(pane3d, doc);
+new PresetLibrary(leftPanelHost, doc);
 new ModuleList(leftPanelHost, doc);
 new PropertiesPanel(rightPanelHost, doc);
-new Toolbar(toolbarHost, doc, scene3D, footer);
+new Toolbar(toolbarHost, doc, scene3D, canvas2d, footer);
 
-// Seed a small example so the app isn't empty on first load.
-const master = doc.defineMaster({ name: 'Armário base 60', width: 0.6, depth: 0.6, height: 0.75, color: '#5b8cff' });
-doc.instantiateMaster(master.id, { x: 0, y: 0, z: 0 });
-doc.instantiateMaster(master.id, { x: 0.6, y: 0, z: 0 });
-doc.addModule({
-  name: 'Bancada',
-  position: { x: 0, y: 0.6, z: 0.75 },
-  rotationZ: 0,
-  width: 1.2,
-  depth: 0.05,
-  height: 0.05,
-  color: '#c9a35b',
+function seedExample(): void {
+  const master = doc.defineMaster({ name: 'Armário base 60', width: 0.6, depth: 0.6, height: 0.75, color: '#5b8cff' });
+  doc.instantiateMaster(master.id, { x: 0, y: 0, z: 0 });
+  doc.instantiateMaster(master.id, { x: 0.6, y: 0, z: 0 });
+  doc.addModule({
+    name: 'Bancada',
+    position: { x: 0, y: 0.6, z: 0.75 },
+    rotationZ: 0,
+    width: 1.2,
+    depth: 0.05,
+    height: 0.05,
+    color: '#c9a35b',
+  });
+}
+
+// Restore the last autosaved project, if any; otherwise seed a small example so the app isn't
+// empty on first load. Either way, the initial state becomes the undo baseline (undoing past it
+// would just erase everything, which isn't useful).
+let restored = false;
+try {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    doc.loadJSON(saved);
+    restored = true;
+  }
+} catch {
+  // localStorage unavailable (private browsing, storage disabled) — fall through to the seed.
+}
+if (!restored) seedExample();
+doc.resetHistory();
+
+// Debounced autosave: persists modules/masters/walls/dimensions (not imported reference
+// geometry, which isn't JSON-serializable) so a reload picks up where you left off.
+let autosaveTimer: number | undefined;
+doc.events.on('change', () => {
+  window.clearTimeout(autosaveTimer);
+  autosaveTimer = window.setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, doc.toJSON());
+    } catch {
+      // storage unavailable or full — autosave is best-effort, not critical.
+    }
+  }, 500);
+});
+
+// Global undo/redo shortcuts (ignored while typing in a form field).
+window.addEventListener('keydown', (ev) => {
+  const target = ev.target as HTMLElement | null;
+  if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+  const modKey = ev.ctrlKey || ev.metaKey;
+  if (!modKey || ev.key.toLowerCase() !== 'z') return;
+  ev.preventDefault();
+  if (ev.shiftKey) doc.redo();
+  else doc.undo();
 });

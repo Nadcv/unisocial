@@ -1,5 +1,5 @@
 import { Emitter } from './events';
-import type { DxfEntity, MasterModuleDef, ModuleDef, ReferenceMesh } from './types';
+import type { DimensionDef, DxfEntity, MasterModuleDef, ModuleDef, ReferenceMesh, WallDef } from './types';
 
 let idCounter = 0;
 export function nextId(prefix: string): string {
@@ -10,25 +10,99 @@ export function nextId(prefix: string): string {
 interface DocEvents {
   change: { reason: string };
   selectionChange: { selectedIds: string[] };
+  historyChange: { canUndo: boolean; canRedo: boolean };
   [key: string]: unknown;
 }
 
+interface SerializedDoc {
+  modules: ModuleDef[];
+  masters: MasterModuleDef[];
+  walls: WallDef[];
+  dimensions: DimensionDef[];
+}
+
+const HISTORY_LIMIT = 100;
+
 /**
- * The single source of truth for a drawing: modules, master blocks, and imported reference
- * geometry. The 2D and 3D views both read/write through this document and re-render on `change`.
+ * The single source of truth for a drawing: modules, master blocks, walls, dimensions, and
+ * imported reference geometry. The 2D and 3D views both read/write through this document and
+ * re-render on `change`.
+ *
+ * Undo/redo works by snapshotting the serializable state. Continuous interactions (dragging a
+ * module) call `checkpoint()` once *before* the drag starts, not on every intermediate move, so
+ * a whole drag collapses into a single undo step — callers are responsible for calling it at the
+ * right granularity (see Canvas2D/Scene3D pointerdown handlers and the UI panels).
  */
 export class CadDocument {
   readonly events = new Emitter<DocEvents>();
 
   modules = new Map<string, ModuleDef>();
   masters = new Map<string, MasterModuleDef>();
+  walls = new Map<string, WallDef>();
+  dimensions = new Map<string, DimensionDef>();
   dxfEntities: DxfEntity[] = [];
   referenceMeshes: ReferenceMesh[] = [];
 
   selectedIds = new Set<string>();
 
+  private undoStack: string[] = [];
+  private redoStack: string[] = [];
+  private restoring = false;
+
   private notify(reason: string): void {
     this.events.emit('change', { reason });
+  }
+
+  // --- History (undo/redo) --------------------------------------------
+
+  /** Call once before starting a mutation (or a batch of them, e.g. a drag) that should be undoable. */
+  checkpoint(): void {
+    if (this.restoring) return;
+    this.undoStack.push(this.serializeState());
+    if (this.undoStack.length > HISTORY_LIMIT) this.undoStack.shift();
+    this.redoStack = [];
+    this.emitHistoryChange();
+  }
+
+  undo(): void {
+    const prev = this.undoStack.pop();
+    if (prev === undefined) return;
+    this.redoStack.push(this.serializeState());
+    this.restoreState(prev);
+    this.emitHistoryChange();
+  }
+
+  redo(): void {
+    const next = this.redoStack.pop();
+    if (next === undefined) return;
+    this.undoStack.push(this.serializeState());
+    this.restoreState(next);
+    this.emitHistoryChange();
+  }
+
+  /** Discards undo/redo history (e.g. right after an initial load, so undo can't erase it). */
+  resetHistory(): void {
+    this.undoStack = [];
+    this.redoStack = [];
+    this.emitHistoryChange();
+  }
+
+  get canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+
+  get canRedo(): boolean {
+    return this.redoStack.length > 0;
+  }
+
+  private emitHistoryChange(): void {
+    this.events.emit('historyChange', { canUndo: this.canUndo, canRedo: this.canRedo });
+  }
+
+  private restoreState(json: string): void {
+    this.restoring = true;
+    this.loadJSON(json);
+    this.restoring = false;
   }
 
   // --- Modules -------------------------------------------------------
@@ -109,6 +183,42 @@ export class CadDocument {
     });
   }
 
+  // --- Walls -------------------------------------------------------------
+
+  addWall(partial: Omit<WallDef, 'id'> & { id?: string }): WallDef {
+    const wall: WallDef = { id: partial.id ?? nextId('wall'), ...partial };
+    this.walls.set(wall.id, wall);
+    this.notify('addWall');
+    return wall;
+  }
+
+  updateWall(id: string, patch: Partial<Omit<WallDef, 'id'>>): void {
+    const wall = this.walls.get(id);
+    if (!wall) return;
+    Object.assign(wall, patch);
+    this.notify('updateWall');
+  }
+
+  removeWall(id: string): void {
+    this.walls.delete(id);
+    this.selectedIds.delete(id);
+    this.notify('removeWall');
+  }
+
+  // --- Dimensions (2D annotations) ----------------------------------------
+
+  addDimension(partial: Omit<DimensionDef, 'id'> & { id?: string }): DimensionDef {
+    const dim: DimensionDef = { id: partial.id ?? nextId('dim'), ...partial };
+    this.dimensions.set(dim.id, dim);
+    this.notify('addDimension');
+    return dim;
+  }
+
+  removeDimension(id: string): void {
+    this.dimensions.delete(id);
+    this.notify('removeDimension');
+  }
+
   // --- Selection -------------------------------------------------------
 
   setSelection(ids: string[]): void {
@@ -131,27 +241,43 @@ export class CadDocument {
   clear(): void {
     this.modules.clear();
     this.masters.clear();
+    this.walls.clear();
+    this.dimensions.clear();
     this.dxfEntities = [];
     this.referenceMeshes = [];
     this.selectedIds.clear();
     this.notify('clear');
   }
 
+  private serializeState(): string {
+    const data: SerializedDoc = {
+      modules: [...this.modules.values()],
+      masters: [...this.masters.values()],
+      walls: [...this.walls.values()],
+      dimensions: [...this.dimensions.values()],
+    };
+    return JSON.stringify(data);
+  }
+
+  /** Pretty-printed export for downloads; identical shape to what loadJSON accepts. */
   toJSON(): string {
-    return JSON.stringify(
-      {
-        modules: [...this.modules.values()],
-        masters: [...this.masters.values()],
-      },
-      null,
-      2,
-    );
+    const data: SerializedDoc = {
+      modules: [...this.modules.values()],
+      masters: [...this.masters.values()],
+      walls: [...this.walls.values()],
+      dimensions: [...this.dimensions.values()],
+    };
+    return JSON.stringify(data, null, 2);
   }
 
   loadJSON(json: string): void {
-    const data = JSON.parse(json) as { modules: ModuleDef[]; masters: MasterModuleDef[] };
-    this.modules = new Map(data.modules.map((m) => [m.id, m]));
-    this.masters = new Map(data.masters.map((m) => [m.id, m]));
+    const data = JSON.parse(json) as Partial<SerializedDoc>;
+    this.modules = new Map((data.modules ?? []).map((m) => [m.id, m]));
+    this.masters = new Map((data.masters ?? []).map((m) => [m.id, m]));
+    this.walls = new Map((data.walls ?? []).map((w) => [w.id, w]));
+    this.dimensions = new Map((data.dimensions ?? []).map((d) => [d.id, d]));
+    this.selectedIds.clear();
     this.notify('loadJSON');
+    this.events.emit('selectionChange', { selectedIds: [] });
   }
 }

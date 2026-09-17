@@ -17,6 +17,7 @@ export class Scene3D {
   private transform: TransformControls;
   private doc: CadDocument;
   private meshes = new Map<string, THREE.Mesh>();
+  private wallMeshes = new Map<string, THREE.Mesh>();
   private referenceGroup = new THREE.Group();
   private raycaster = new THREE.Raycaster();
   private container: HTMLElement;
@@ -49,7 +50,9 @@ export class Scene3D {
 
     this.transform = new TransformControls(this.camera, this.renderer.domElement);
     this.transform.addEventListener('dragging-changed', (ev) => {
-      this.orbit.enabled = !(ev as unknown as { value: boolean }).value;
+      const dragging = (ev as unknown as { value: boolean }).value;
+      this.orbit.enabled = !dragging;
+      if (dragging) this.doc.checkpoint();
     });
     this.transform.addEventListener('objectChange', () => this.writeBackTransform());
     this.scene.add(this.transform.getHelper());
@@ -74,6 +77,12 @@ export class Scene3D {
 
   setMode(mode: 'translate' | 'rotate' | 'scale'): void {
     this.transform.setMode(mode);
+  }
+
+  setSnap(enabled: boolean, translationStep = 0.05): void {
+    this.transform.setTranslationSnap(enabled ? translationStep : null);
+    this.transform.setRotationSnap(enabled ? THREE.MathUtils.degToRad(15) : null);
+    this.transform.setScaleSnap(enabled ? 0.1 : null);
   }
 
   private resize(): void {
@@ -151,13 +160,58 @@ export class Scene3D {
     }
     for (const [id, mesh] of this.meshes) {
       if (!seen.has(id)) {
+        // A module can disappear without a 'selectionChange' event first (e.g. undo/redo
+        // restoring a state where it never existed) — detach the gizmo before the mesh is gone,
+        // or TransformControls keeps updating a disposed object every frame.
+        if (this.transform.object === mesh) this.transform.detach();
         this.scene.remove(mesh);
         mesh.geometry.dispose();
         (mesh.material as THREE.Material).dispose();
         this.meshes.delete(id);
       }
     }
+    this.syncWalls();
     this.syncReferenceMeshes();
+  }
+
+  private syncWalls(): void {
+    const seen = new Set<string>();
+    for (const wall of this.doc.walls.values()) {
+      seen.add(wall.id);
+      const dx = wall.end[0] - wall.start[0];
+      const dy = wall.end[1] - wall.start[1];
+      const length = Math.max(0.01, Math.hypot(dx, dy));
+      const angle = Math.atan2(dy, dx);
+      const midX = (wall.start[0] + wall.end[0]) / 2;
+      const midY = (wall.start[1] + wall.end[1]) / 2;
+
+      let mesh = this.wallMeshes.get(wall.id);
+      if (!mesh) {
+        const geometry = new THREE.BoxGeometry(length, wall.height, wall.thickness);
+        const material = new THREE.MeshStandardMaterial({ color: wall.color, metalness: 0.05, roughness: 0.9 });
+        mesh = new THREE.Mesh(geometry, material);
+        mesh.userData.wallId = wall.id;
+        this.scene.add(mesh);
+        this.wallMeshes.set(wall.id, mesh);
+      } else {
+        const params = (mesh.geometry as THREE.BoxGeometry).parameters;
+        if (params.width !== length || params.height !== wall.height || params.depth !== wall.thickness) {
+          mesh.geometry.dispose();
+          mesh.geometry = new THREE.BoxGeometry(length, wall.height, wall.thickness);
+        }
+        (mesh.material as THREE.MeshStandardMaterial).color.set(wall.color);
+      }
+      mesh.position.set(midX, wall.height / 2, midY);
+      mesh.rotation.set(0, -angle, 0);
+    }
+    for (const [id, mesh] of this.wallMeshes) {
+      if (!seen.has(id)) {
+        this.scene.remove(mesh);
+        mesh.geometry.dispose();
+        (mesh.material as THREE.Material).dispose();
+        this.wallMeshes.delete(id);
+      }
+    }
   }
 
   private syncReferenceMeshes(): void {
