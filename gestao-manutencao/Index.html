@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Gestão de Manutenção</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-panel: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(13,17,23,0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px;
+  }
+  header h1 {
+    margin: 0 0 10px;
+    font-size: 1.15rem;
+  }
+  nav {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+  }
+  nav button {
+    flex: 0 0 auto;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  nav button.active {
+    color: #fff;
+    border-color: var(--accent);
+    background: rgba(88,166,255,0.12);
+  }
+  main {
+    padding: 16px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .tab { display: none; }
+  .tab.active { display: block; }
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    margin: 0 0 12px;
+    font-size: 1rem;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+  }
+  .stat {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .stat .n { font-size: 1.6rem; font-weight: 700; }
+  .stat .l { font-size: 0.78rem; color: var(--text-dim); }
+  label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin: 10px 0 4px;
+  }
+  input, select, textarea {
+    width: 100%;
+    background: #0d1117;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 10px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+  }
+  textarea { min-height: 60px; resize: vertical; }
+  button.primary {
+    margin-top: 14px;
+    background: var(--accent);
+    color: #0d1117;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary:disabled { opacity: 0.6; cursor: default; }
+  .msg { margin-top: 10px; font-size: 0.85rem; }
+  .msg.ok { color: var(--ok); }
+  .msg.err { color: var(--danger); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-dim); font-weight: 600; font-size: 0.78rem; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .badge.Pendente { background: rgba(210,153,34,0.15); color: var(--warn); }
+  .badge.Emcurso { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .badge.Concluída { background: rgba(63,185,80,0.15); color: var(--ok); }
+  .badge.alarme { background: rgba(248,81,73,0.15); color: var(--danger); }
+  select.estado { width: auto; font-size: 0.78rem; padding: 4px 6px; }
+  .row-actions { display: flex; gap: 6px; align-items: center; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 0.82rem;
+    margin: 3px 4px 0 0;
+  }
+  .chip button {
+    background: none; border: none; color: var(--danger); cursor: pointer; font-size: 0.9rem; line-height: 1;
+  }
+  .empty { color: var(--text-dim); font-size: 0.85rem; padding: 6px 0; }
+  .muted { color: var(--text-dim); font-size: 0.78rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚙️ Gestão de Manutenção — Eletrificação &amp; Refrigeração</h1>
+  <nav id="nav">
+    <button data-tab="dashboard" class="active">Painel</button>
+    <button data-tab="tarefas">Tarefas</button>
+    <button data-tab="equipamentos">Equipamentos</button>
+    <button data-tab="refrigeracao">Refrigeração</button>
+    <button data-tab="equipa">Equipa</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- DASHBOARD -->
+  <section class="tab active" id="tab-dashboard">
+    <div class="stats" id="stats"></div>
+    <div class="card">
+      <h2>Alarmes de refrigeração recentes</h2>
+      <div id="alarmesRecentes"></div>
+    </div>
+    <div class="card">
+      <h2>Tarefas em aberto</h2>
+      <div id="tarefasAbertas"></div>
+    </div>
+  </section>
+
+  <!-- TAREFAS -->
+  <section class="tab" id="tab-tarefas">
+    <div class="card">
+      <h2>Nova tarefa (troca de grupo/quadro, ciclo, refrigeração...)</h2>
+      <form id="formTarefa">
+        <label>Equipamento</label>
+        <select name="equipamentoId" required></select>
+
+        <label>Tipo de tarefa</label>
+        <select name="tipo" required>
+          <option>Troca de grupo/quadro</option>
+          <option>Ciclo</option>
+          <option>Refrigeração</option>
+          <option>Outro</option>
+        </select>
+
+        <label>Descrição</label>
+        <textarea name="descricao" required placeholder="Ex.: Substituir quadro elétrico do grupo 2, disjuntor a disparar."></textarea>
+
+        <label>Responsável</label>
+        <select name="responsavel" required></select>
+
+        <button class="primary" type="submit">Criar tarefa</button>
+        <div class="msg" id="msgTarefa"></div>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Todas as tarefas</h2>
+      <div id="listaTarefas"></div>
+    </div>
+  </section>
+
+  <!-- EQUIPAMENTOS -->
+  <section class="tab" id="tab-equipamentos">
+    <div class="card">
+      <h2>Novo equipamento</h2>
+      <form id="formEquipamento">
+        <label>Nome / identificação</label>
+        <input name="nome" required placeholder="Ex.: Grupo 2, Quadro Linha A, Câmara Fria 1" />
+
+        <label>Tipo</label>
+        <select name="tipo" required>
+          <option value="Elétrico">Elétrico</option>
+          <option value="Refrigeração">Refrigeração</option>
+        </select>
+
+        <label>Localização</label>
+        <input name="local" placeholder="Ex.: Nave 1, junto à linha 3" />
+
+        <label>Notas</label>
+        <textarea name="notas" placeholder="Opcional"></textarea>
+
+        <button class="primary" type="submit">Adicionar equipamento</button>
+        <div class="msg" id="msgEquipamento"></div>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Equipamentos registados</h2>
+      <div id="listaEquipamentos"></div>
+    </div>
+  </section>
+
+  <!-- REFRIGERAÇÃO -->
+  <section class="tab" id="tab-refrigeracao">
+    <div class="card">
+      <h2>Nova leitura de temperatura</h2>
+      <form id="formTemperatura">
+        <label>Equipamento de refrigeração</label>
+        <select name="equipamentoId" required></select>
+
+        <label>Temperatura (°C)</label>
+        <input name="temperatura" type="number" step="0.1" required />
+
+        <label>
+          <input type="checkbox" name="alarme" style="width:auto; display:inline-block; vertical-align:middle;" />
+          Marcar como alarme / fora da gama normal
+        </label>
+
+        <label>Responsável pela leitura</label>
+        <select name="responsavel" required></select>
+
+        <label>Observações</label>
+        <textarea name="observacoes" placeholder="Opcional"></textarea>
+
+        <button class="primary" type="submit">Registar leitura</button>
+        <div class="msg" id="msgTemperatura"></div>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Histórico de leituras</h2>
+      <div id="listaTemperaturas"></div>
+    </div>
+  </section>
+
+  <!-- EQUIPA -->
+  <section class="tab" id="tab-equipa">
+    <div class="card">
+      <h2>Equipa (técnicos)</h2>
+      <form id="formTecnico">
+        <label>Nome do técnico</label>
+        <input name="nome" required placeholder="Ex.: João Silva" />
+        <button class="primary" type="submit">Adicionar</button>
+        <div class="msg" id="msgTecnico"></div>
+      </form>
+      <div id="listaTecnicos" style="margin-top:14px;"></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  var DADOS = { tecnicos: [], equipamentos: [], tarefas: [], temperaturas: [] };
+
+  function esc(s) {
+    return (s === null || s === undefined ? '' : String(s))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function fmtData(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function estadoClasse(estado) {
+    return estado.replace(/\s+/g, '');
+  }
+
+  // ---------- Navegação ----------
+  document.getElementById('nav').addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-tab]');
+    if (!btn) return;
+    document.querySelectorAll('#nav button').forEach(function (b) { b.classList.remove('active'); });
+    document.querySelectorAll('main .tab').forEach(function (t) { t.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+
+  // ---------- Render ----------
+  function preencherSelects() {
+    var equipSelects = document.querySelectorAll('select[name="equipamentoId"]');
+    equipSelects.forEach(function (sel) {
+      var tabId = sel.closest('section').id;
+      var lista = DADOS.equipamentos;
+      if (tabId === 'tab-refrigeracao') lista = lista.filter(function (e) { return e.tipo === 'Refrigeração'; });
+      sel.innerHTML = '<option value="">Selecione...</option>' + lista.map(function (e) {
+        return '<option value="' + esc(e.id) + '">' + esc(e.nome) + ' (' + esc(e.tipo) + ')</option>';
+      }).join('');
+    });
+
+    var respSelects = document.querySelectorAll('select[name="responsavel"]');
+    respSelects.forEach(function (sel) {
+      sel.innerHTML = '<option value="">Selecione...</option>' + DADOS.tecnicos.map(function (t) {
+        return '<option value="' + esc(t.nome) + '">' + esc(t.nome) + '</option>';
+      }).join('');
+    });
+  }
+
+  function renderDashboard() {
+    var pendentes = DADOS.tarefas.filter(function (t) { return t.estado === 'Pendente'; }).length;
+    var emCurso = DADOS.tarefas.filter(function (t) { return t.estado === 'Em curso'; }).length;
+    var concluidas = DADOS.tarefas.filter(function (t) { return t.estado === 'Concluída'; }).length;
+    var alarmesAtivos = DADOS.temperaturas.filter(function (t) { return t.alarme === true || t.alarme === 'TRUE'; }).length;
+
+    document.getElementById('stats').innerHTML = [
+      ['Tarefas pendentes', pendentes],
+      ['Tarefas em curso', emCurso],
+      ['Tarefas concluídas', concluidas],
+      ['Equipamentos', DADOS.equipamentos.length],
+      ['Leituras com alarme', alarmesAtivos],
+      ['Técnicos na equipa', DADOS.tecnicos.length]
+    ].map(function (s) {
+      return '<div class="stat"><div class="n">' + s[1] + '</div><div class="l">' + s[0] + '</div></div>';
+    }).join('');
+
+    var alarmes = DADOS.temperaturas
+      .filter(function (t) { return t.alarme === true || t.alarme === 'TRUE'; })
+      .sort(function (a, b) { return new Date(b.dataHora) - new Date(a.dataHora); })
+      .slice(0, 5);
+    document.getElementById('alarmesRecentes').innerHTML = alarmes.length
+      ? alarmes.map(function (a) {
+          return '<div class="chip">🔴 ' + esc(a.equipamentoNome) + ' — ' + esc(a.temperatura) + '°C <span class="muted">(' + fmtData(a.dataHora) + ')</span></div>';
+        }).join('')
+      : '<div class="empty">Sem alarmes registados.</div>';
+
+    var abertas = DADOS.tarefas
+      .filter(function (t) { return t.estado !== 'Concluída'; })
+      .sort(function (a, b) { return new Date(b.dataCriacao) - new Date(a.dataCriacao); })
+      .slice(0, 8);
+    document.getElementById('tarefasAbertas').innerHTML = abertas.length
+      ? abertas.map(function (t) {
+          return '<div class="chip">' + esc(t.equipamentoNome) + ' — ' + esc(t.tipo) +
+            ' <span class="badge ' + estadoClasse(t.estado) + '">' + esc(t.estado) + '</span> <span class="muted">(' + esc(t.responsavel) + ')</span></div>';
+        }).join('')
+      : '<div class="empty">Sem tarefas em aberto.</div>';
+  }
+
+  function renderTarefas() {
+    var lista = DADOS.tarefas.slice().sort(function (a, b) { return new Date(b.dataCriacao) - new Date(a.dataCriacao); });
+    var el = document.getElementById('listaTarefas');
+    if (!lista.length) { el.innerHTML = '<div class="empty">Ainda sem tarefas.</div>'; return; }
+
+    var linhas = lista.map(function (t) {
+      return '<tr>' +
+        '<td>' + fmtData(t.dataCriacao) + '</td>' +
+        '<td>' + esc(t.equipamentoNome) + '</td>' +
+        '<td>' + esc(t.tipo) + '</td>' +
+        '<td>' + esc(t.descricao) + '</td>' +
+        '<td>' + esc(t.responsavel) + '</td>' +
+        '<td>' +
+          '<div class="row-actions">' +
+          '<span class="badge ' + estadoClasse(t.estado) + '">' + esc(t.estado) + '</span>' +
+          '<select class="estado" data-id="' + esc(t.id) + '">' +
+            ['Pendente', 'Em curso', 'Concluída'].map(function (opt) {
+              return '<option' + (opt === t.estado ? ' selected' : '') + '>' + opt + '</option>';
+            }).join('') +
+          '</select>' +
+          '</div>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    el.innerHTML = '<table><thead><tr><th>Data</th><th>Equipamento</th><th>Tipo</th><th>Descrição</th><th>Responsável</th><th>Estado</th></tr></thead><tbody>' + linhas + '</tbody></table>';
+
+    el.querySelectorAll('select.estado').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var id = sel.dataset.id;
+        var novoEstado = sel.value;
+        sel.disabled = true;
+        google.script.run
+          .withSuccessHandler(function (tarefas) { DADOS.tarefas = tarefas; renderTudo(); })
+          .withFailureHandler(function (err) { alert('Erro ao atualizar tarefa: ' + err.message); sel.disabled = false; })
+          .atualizarEstadoTarefa(id, novoEstado);
+      });
+    });
+  }
+
+  function renderEquipamentos() {
+    var el = document.getElementById('listaEquipamentos');
+    if (!DADOS.equipamentos.length) { el.innerHTML = '<div class="empty">Ainda sem equipamentos.</div>'; return; }
+    var linhas = DADOS.equipamentos.map(function (e) {
+      return '<tr><td>' + esc(e.nome) + '</td><td>' + esc(e.tipo) + '</td><td>' + esc(e.local) + '</td><td>' + esc(e.notas) + '</td></tr>';
+    }).join('');
+    el.innerHTML = '<table><thead><tr><th>Nome</th><th>Tipo</th><th>Local</th><th>Notas</th></tr></thead><tbody>' + linhas + '</tbody></table>';
+  }
+
+  function renderTemperaturas() {
+    var lista = DADOS.temperaturas.slice().sort(function (a, b) { return new Date(b.dataHora) - new Date(a.dataHora); });
+    var el = document.getElementById('listaTemperaturas');
+    if (!lista.length) { el.innerHTML = '<div class="empty">Ainda sem leituras.</div>'; return; }
+    var linhas = lista.map(function (t) {
+      var alarme = t.alarme === true || t.alarme === 'TRUE';
+      return '<tr>' +
+        '<td>' + fmtData(t.dataHora) + '</td>' +
+        '<td>' + esc(t.equipamentoNome) + '</td>' +
+        '<td>' + esc(t.temperatura) + '°C ' + (alarme ? '<span class="badge alarme">ALARME</span>' : '') + '</td>' +
+        '<td>' + esc(t.responsavel) + '</td>' +
+        '<td>' + esc(t.observacoes) + '</td>' +
+      '</tr>';
+    }).join('');
+    el.innerHTML = '<table><thead><tr><th>Data/Hora</th><th>Equipamento</th><th>Temperatura</th><th>Responsável</th><th>Observações</th></tr></thead><tbody>' + linhas + '</tbody></table>';
+  }
+
+  function renderTecnicos() {
+    var el = document.getElementById('listaTecnicos');
+    if (!DADOS.tecnicos.length) { el.innerHTML = '<div class="empty">Ainda sem técnicos na equipa.</div>'; return; }
+    el.innerHTML = DADOS.tecnicos.map(function (t) {
+      return '<span class="chip">' + esc(t.nome) + ' <button data-id="' + esc(t.id) + '" title="Remover">✕</button></span>';
+    }).join('');
+    el.querySelectorAll('button[data-id]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (!confirm('Remover este técnico da equipa?')) return;
+        google.script.run
+          .withSuccessHandler(function (tecnicos) { DADOS.tecnicos = tecnicos; renderTudo(); })
+          .withFailureHandler(function (err) { alert('Erro: ' + err.message); })
+          .removerTecnico(btn.dataset.id);
+      });
+    });
+  }
+
+  function renderTudo() {
+    preencherSelects();
+    renderDashboard();
+    renderTarefas();
+    renderEquipamentos();
+    renderTemperaturas();
+    renderTecnicos();
+  }
+
+  // ---------- Formulários ----------
+  function ligarFormulario(formId, msgId, acao, aoSucesso) {
+    var form = document.getElementById(formId);
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = document.getElementById(msgId);
+      var botao = form.querySelector('button.primary');
+      var dados = {};
+      new FormData(form).forEach(function (v, k) { dados[k] = v; });
+      dados.alarme = !!form.querySelector('input[name="alarme"]') && form.querySelector('input[name="alarme"]').checked;
+
+      msg.textContent = '';
+      msg.className = 'msg';
+      botao.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (resultado) {
+          botao.disabled = false;
+          msg.textContent = 'Guardado com sucesso.';
+          msg.className = 'msg ok';
+          aoSucesso(resultado);
+          form.reset();
+          renderTudo();
+        })
+        .withFailureHandler(function (err) {
+          botao.disabled = false;
+          msg.textContent = err.message || 'Ocorreu um erro.';
+          msg.className = 'msg err';
+        })
+        [acao](acao === 'addTecnico' ? dados.nome : dados);
+    });
+  }
+
+  ligarFormulario('formTecnico', 'msgTecnico', 'addTecnico', function (r) { DADOS.tecnicos = r; });
+  ligarFormulario('formEquipamento', 'msgEquipamento', 'addEquipamento', function (r) { DADOS.equipamentos = r; });
+  ligarFormulario('formTarefa', 'msgTarefa', 'addTarefa', function (r) { DADOS.tarefas = r; });
+  ligarFormulario('formTemperatura', 'msgTemperatura', 'addTemperatura', function (r) { DADOS.temperaturas = r; });
+
+  // ---------- Arranque ----------
+  google.script.run
+    .withSuccessHandler(function (dados) {
+      DADOS = dados;
+      renderTudo();
+    })
+    .withFailureHandler(function (err) {
+      document.querySelector('main').innerHTML = '<div class="card">Erro ao carregar dados: ' + esc(err.message) + '</div>';
+    })
+    .getInitialData();
+</script>
+
+</body>
+</html>
