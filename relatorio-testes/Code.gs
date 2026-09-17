@@ -86,7 +86,8 @@ var LISTAS_PADRAO = {
   ciclosPhPlh: [
     'PH',
     'PLH'
-  ]
+  ],
+  tecnicos: []
 };
 
 function doGet(e) {
@@ -100,6 +101,14 @@ function doGet(e) {
     return carregarRascunho(e.parameter);
   }
 
+  if (acao === 'listarRascunhos') {
+    return listarRascunhosAbertos();
+  }
+
+  if (acao === 'listarEnviosAnteriores') {
+    return listarEnviosAnteriores(e.parameter);
+  }
+
   var tipoParametro = e && e.parameter ? e.parameter.tipo : '';
   var tipoRelatorio = tipoParametro === 'ciclos' ? 'ciclos' : 'testes';
   var tituloPagina = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
@@ -109,7 +118,8 @@ function doGet(e) {
     esquemasEletrico: obterLista('esquemasEletrico'),
     esquemasFrio: obterLista('esquemasFrio'),
     gases: obterLista('gases'),
-    ciclosPhPlh: obterLista('ciclosPhPlh')
+    ciclosPhPlh: obterLista('ciclosPhPlh'),
+    tecnicos: obterLista('tecnicos')
   };
 
   var template = HtmlService.createTemplateFromFile('Index');
@@ -168,6 +178,10 @@ function doPost(e) {
       return apagarFotoRascunho(dados);
     }
 
+    if (dados.corrigirEnvio === true) {
+      return corrigirEnvio(dados);
+    }
+
     var serial = (dados.serial || '').toString().trim();
     var emailsInput = (dados.emails || '').toString().trim();
     var grupo = (dados.grupo || '').toString().trim();
@@ -179,6 +193,7 @@ function doPost(e) {
     var observacoes = (dados.observacoes || '').toString().trim();
     var gas = (dados.gas || '').toString().trim();
     var phPlh = (dados.phPlh || '').toString().trim();
+    var tecnico = (dados.tecnico || '').toString().trim();
     var tipoRelatorio = dados.tipoRelatorio === 'ciclos' ? 'ciclos' : 'testes';
     var nomeRelatorio = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
     var prefixoPasta = tipoRelatorio === 'ciclos' ? 'CICLO_' : 'SN_';
@@ -276,6 +291,9 @@ function doPost(e) {
     if (gas) {
       corpo = corpo + 'Gas: ' + gas + '\n';
     }
+    if (tecnico) {
+      corpo = corpo + 'Tecnico responsavel: ' + tecnico + '\n';
+    }
     corpo = corpo + 'Total de fotografias em anexo: ' + totalFotos + '\n';
     corpo = corpo + montarTextoDescricoesEsquema(descricoesEsquema);
     corpo = corpo + '\n';
@@ -298,6 +316,7 @@ function doPost(e) {
     adicionarValorNaLista('esquemasFrio', (descricoesEsquema.esquemaFrio || '').toString().trim());
     adicionarValorNaLista('gases', gas);
     adicionarValorNaLista('ciclosPhPlh', phPlh);
+    adicionarValorNaLista('tecnicos', tecnico);
 
     if (pastaRascunhoExistente) {
       pastaRascunhoExistente.setTrashed(true);
@@ -373,12 +392,14 @@ function guardarProgresso(dados) {
     }
 
     var camposGuardados = {
+      serial: serial,
       emails: dados.emails || '',
       grupo: dados.grupo || '',
       tipoValvula: dados.tipoValvula || '',
       tipoRelatorio: dados.tipoRelatorio || 'testes',
       phPlh: dados.phPlh || '',
       gas: dados.gas || '',
+      tecnico: dados.tecnico || '',
       observacoes: dados.observacoes || '',
       descricoesEsquema: dados.descricoesEsquema || {}
     };
@@ -409,6 +430,203 @@ function apagarFotoRascunho(dados) {
     var ficheiro = DriveApp.getFileById(fileId);
     ficheiro.setTrashed(true);
     resposta = { status: 'ok', mensagem: 'Foto apagada.' };
+  } catch (erro) {
+    resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
+  }
+
+  var saida = ContentService.createTextOutput(JSON.stringify(resposta));
+  saida.setMimeType(ContentService.MimeType.JSON);
+  return saida;
+}
+
+/**
+ * Responde em JSON com a lista de todos os rascunhos ainda em aberto
+ * (numero de serie, grupo e tipo de relatorio), para o operador poder
+ * escolher qual continuar sem ter de se lembrar do numero de serie.
+ */
+function listarRascunhosAbertos() {
+  var resposta;
+  try {
+    var raiz = DriveApp.getFolderById(FOLDER_ID);
+    var pastaRascunhos = obterOuCriarSubpasta(raiz, 'Rascunhos', false);
+    var itens = [];
+
+    if (pastaRascunhos) {
+      var pastas = pastaRascunhos.getFolders();
+      while (pastas.hasNext()) {
+        var pasta = pastas.next();
+        var dadosGuardados = lerDadosRascunho(pasta);
+        var serial = dadosGuardados.serial || pasta.getName().replace(/^RASCUNHO_/, '');
+        itens.push({
+          serial: serial,
+          grupo: dadosGuardados.grupo || '',
+          tipoRelatorio: dadosGuardados.tipoRelatorio || 'testes',
+          atualizadoEm: pasta.getLastUpdated().toISOString()
+        });
+      }
+    }
+
+    itens.sort(function (a, b) {
+      return b.atualizadoEm.localeCompare(a.atualizadoEm);
+    });
+
+    resposta = { status: 'ok', itens: itens };
+  } catch (erro) {
+    resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
+  }
+
+  var saida = ContentService.createTextOutput(JSON.stringify(resposta));
+  saida.setMimeType(ContentService.MimeType.JSON);
+  return saida;
+}
+
+/**
+ * Responde em JSON com a lista de envios ja enviados (pastas finais) para
+ * um numero de serie, usada para escolher qual corrigir.
+ */
+function listarEnviosAnteriores(parametros) {
+  var resposta;
+  try {
+    var serial = (parametros.serial || '').toString().trim();
+    if (!serial) {
+      throw new Error('Numero de serie em falta.');
+    }
+
+    var raiz = DriveApp.getFolderById(FOLDER_ID);
+    var prefixoSerial = sanitizeNome(serial);
+    var itens = [];
+
+    var pastas = raiz.getFolders();
+    while (pastas.hasNext()) {
+      var pasta = pastas.next();
+      var nome = pasta.getName();
+      var ehDesteSerial =
+        nome.indexOf('SN_' + prefixoSerial + '_Grupo') === 0 ||
+        nome.indexOf('CICLO_' + prefixoSerial + '_Grupo') === 0;
+      if (!ehDesteSerial) continue;
+
+      itens.push({
+        id: pasta.getId(),
+        nome: nome,
+        criadoEm: pasta.getDateCreated().toISOString()
+      });
+    }
+
+    itens.sort(function (a, b) {
+      return b.criadoEm.localeCompare(a.criadoEm);
+    });
+
+    resposta = { status: 'ok', itens: itens };
+  } catch (erro) {
+    resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
+  }
+
+  var saida = ContentService.createTextOutput(JSON.stringify(resposta));
+  saida.setMimeType(ContentService.MimeType.JSON);
+  return saida;
+}
+
+/**
+ * Envia um e-mail de correcao a um relatorio ja enviado anteriormente.
+ * Nao reenvia o e-mail original (isso nao e possivel) - envia um novo
+ * e-mail so com o que foi corrigido/adicionado, guardando tambem as
+ * fotos novas na pasta do envio original no Drive.
+ */
+function corrigirEnvio(dados) {
+  var resposta;
+  try {
+    var serial = (dados.serial || '').toString().trim();
+    var pastaOriginalId = (dados.pastaOriginalId || '').toString().trim();
+    var emailsInput = (dados.emails || '').toString().trim();
+    var notaCorrecao = (dados.notaCorrecao || '').toString().trim();
+    var fotos = dados.fotos || {};
+    var grupo = (dados.grupo || '').toString().trim();
+    var tipoValvula = (dados.tipoValvula || '').toString().trim();
+    var gas = (dados.gas || '').toString().trim();
+    var phPlh = (dados.phPlh || '').toString().trim();
+    var tecnico = (dados.tecnico || '').toString().trim();
+    var observacoes = (dados.observacoes || '').toString().trim();
+    var tipoRelatorio = dados.tipoRelatorio === 'ciclos' ? 'ciclos' : 'testes';
+    var nomeRelatorio = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
+
+    if (!serial) {
+      throw new Error('Numero de serie em falta.');
+    }
+    if (!pastaOriginalId) {
+      throw new Error('Escolha qual envio quer corrigir.');
+    }
+    if (!emailsInput) {
+      throw new Error('Pelo menos um e-mail de destinatario e obrigatorio.');
+    }
+    if (!notaCorrecao) {
+      throw new Error('Descreva o que foi corrigido.');
+    }
+
+    var emails = limparListaEmails(emailsInput);
+    var pastaOriginal = DriveApp.getFolderById(pastaOriginalId);
+
+    var anexos = [];
+    var totalBytes = 0;
+    var totalFotos = 0;
+    var chaves = Object.keys(CATEGORIAS);
+
+    for (var i = 0; i < chaves.length; i++) {
+      var chave = chaves[i];
+      var lista = fotos[chave];
+      if (!lista || !lista.length) continue;
+
+      for (var j = 0; j < lista.length; j++) {
+        var dataUrl = lista[j];
+        if (!dataUrl) continue;
+
+        var blob = base64ParaBlob(dataUrl, CATEGORIAS[chave] + '_correcao_' + (j + 1));
+        if (!blob) continue;
+
+        pastaOriginal.createFile(blob);
+        anexos.push(blob);
+        totalBytes = totalBytes + blob.getBytes().length;
+        totalFotos = totalFotos + 1;
+      }
+    }
+
+    var limiteBytes = 25 * 1024 * 1024;
+    if (totalBytes > limiteBytes) {
+      var totalMB = Math.round(totalBytes / 1024 / 1024);
+      throw new Error('O total de anexos (' + totalMB + ' MB) excede o limite de ~25 MB do Gmail.');
+    }
+
+    var corpo = EMPRESA + ' - Correcao ao ' + nomeRelatorio + ' da maquina.';
+    corpo = corpo + '\n\n';
+    corpo = corpo + 'Numero de serie: ' + serial + '\n';
+    if (grupo) corpo = corpo + 'Grupo: ' + grupo + '\n';
+    if (tipoValvula) corpo = corpo + 'Tipo de valvula: ' + tipoValvula + '\n';
+    if (phPlh) corpo = corpo + 'Ciclo: ' + phPlh + '\n';
+    if (gas) corpo = corpo + 'Gas: ' + gas + '\n';
+    if (tecnico) corpo = corpo + 'Tecnico responsavel: ' + tecnico + '\n';
+
+    corpo = corpo + '\nO que foi corrigido:\n' + notaCorrecao + '\n';
+
+    if (totalFotos > 0) {
+      corpo = corpo + '\nFotografias corrigidas/adicionadas em anexo: ' + totalFotos + '\n';
+    }
+
+    if (observacoes) {
+      corpo = corpo + '\nObservacoes:\n' + observacoes + '\n';
+    }
+
+    corpo = corpo + '\nEsta e uma correcao a um relatorio enviado anteriormente (pasta original: ' + pastaOriginal.getName() + ').';
+    corpo = corpo + '\nEste e-mail foi gerado automaticamente pela aplicacao de recolha de fotos de testes.';
+
+    MailApp.sendEmail({
+      to: emails,
+      subject: EMPRESA + ' - CORRECAO - ' + nomeRelatorio + ' - S/N: ' + serial + (grupo ? ' - Grupo ' + grupo : ''),
+      body: corpo,
+      attachments: anexos
+    });
+
+    adicionarValorNaLista('tecnicos', tecnico);
+
+    resposta = { status: 'ok', mensagem: 'Correcao enviada com sucesso.', fotos: totalFotos };
   } catch (erro) {
     resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
   }

@@ -272,6 +272,42 @@
   .campo-outro {
     margin-top: 8px;
   }
+  .linha-botoes-secundarios {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .botao-secundario {
+    flex: 1 1 auto;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+    color: var(--texto);
+    cursor: pointer;
+  }
+  .lista-rascunhos {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .item-rascunho {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 0.85rem;
+    color: var(--texto);
+    cursor: pointer;
+  }
+  .item-rascunho:active { background: #e8f0fe; }
   .abas {
     display: inline-flex;
     margin-top: 12px;
@@ -316,11 +352,25 @@
       <label class="campo-label" for="serial">Número de série da máquina</label>
       <input type="text" id="serial" name="serial" placeholder="Ex.: SN-123456" autocomplete="off" required />
 
+      <div class="linha-botoes-secundarios">
+        <button type="button" class="botao-secundario" id="botaoVerRascunhos">Rascunhos em aberto</button>
+        <button type="button" class="botao-secundario" id="botaoAbrirCorrecao">Corrigir envio anterior</button>
+      </div>
+      <div id="listaRascunhosAbertos" class="lista-rascunhos" hidden></div>
+
       <div style="height:14px"></div>
 
       <label class="campo-label" for="emails">E-mail(s) dos destinatários</label>
       <input type="text" id="emails" name="emails" placeholder="exemplo1@empresa.com, exemplo2@empresa.com" autocomplete="off" required />
       <div class="ajuda">Separe vários e-mails por vírgula.</div>
+
+      <div style="height:14px"></div>
+
+      <label class="campo-label" for="tecnico">Técnico responsável</label>
+      <select id="tecnico">
+        <option value="">Selecione...</option>
+      </select>
+      <input type="text" id="tecnico-outro" class="campo-outro" placeholder="Escreva o nome..." autocomplete="off" hidden />
 
       <div style="height:14px"></div>
 
@@ -377,6 +427,52 @@
     <div class="estado" id="estado"></div>
     <div class="rodape-ajuda">As fotos são comprimidas automaticamente antes do envio para caberem no limite de anexos do Gmail (~25 MB no total). Preencha o número de série antes de tirar fotos: assim, cada foto é guardada automaticamente no Drive assim que é tirada (não fica só no telemóvel). Use "Guardar progresso" para também guardar os restantes campos (Grupo, Gás, etc.) a qualquer momento.</div>
   </form>
+
+  <div class="card" id="cardCorrecao" hidden>
+    <div class="categoria-titulo"><span>Corrigir relatório já enviado</span></div>
+    <div class="ajuda">Escreva o número de série no campo acima e toque em "Procurar envios anteriores". Não é possível alterar o e-mail já enviado — esta ação envia um novo e-mail só com a correção.</div>
+
+    <div style="height:10px"></div>
+
+    <button type="button" class="botao-secundario" id="botaoProcurarEnvios">Procurar envios anteriores</button>
+    <div id="listaEnviosAnteriores" class="lista-rascunhos" hidden></div>
+
+    <div id="detalhesCorrecao" hidden>
+      <div style="height:12px"></div>
+      <div class="ajuda" id="envioSelecionadoLabel"></div>
+
+      <div style="height:10px"></div>
+
+      <label class="campo-label" for="correcaoEmails">E-mail(s) para enviar a correção</label>
+      <input type="text" id="correcaoEmails" placeholder="exemplo1@empresa.com, exemplo2@empresa.com" autocomplete="off" />
+
+      <div style="height:12px"></div>
+
+      <label class="campo-label" for="correcaoCategoria">Categoria da foto a corrigir/adicionar</label>
+      <select id="correcaoCategoria">
+        <option value="">Selecione...</option>
+      </select>
+
+      <div class="botoes-foto" style="margin-top:8px;">
+        <label class="botao-foto">📷 Tirar foto
+          <input type="file" accept="image/*" capture="environment" id="correcaoFotoCamera" />
+        </label>
+        <label class="botao-foto">🖼️ Galeria
+          <input type="file" accept="image/*" multiple id="correcaoFotoGaleria" />
+        </label>
+      </div>
+      <div class="previews" id="previewsCorrecao"></div>
+
+      <div style="height:12px"></div>
+
+      <label class="campo-label" for="correcaoNota">O que foi corrigido</label>
+      <textarea id="correcaoNota" placeholder="Descreva a correção (ex.: foto do teste elétrico estava trocada)..."></textarea>
+
+      <div style="height:14px"></div>
+
+      <button type="button" class="botao-enviar" id="botaoEnviarCorrecao" style="width:100%;">Enviar correção</button>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -448,12 +544,12 @@
   // novo, o Code.gs guarda-o para aparecer aqui nas proximas vezes.
   // ---------------------------------------------------------------------
   var LISTAS_JSON = '<?!= listasJson ?>';
-  var LISTAS = { grupos: [], esquemasEletrico: [], esquemasFrio: [], gases: [], ciclosPhPlh: [] };
+  var LISTAS = { grupos: [], esquemasEletrico: [], esquemasFrio: [], gases: [], ciclosPhPlh: [], tecnicos: [] };
   if (LISTAS_JSON.indexOf('{') === 0) {
     try {
       LISTAS = JSON.parse(LISTAS_JSON);
     } catch (erroListas) {
-      LISTAS = { grupos: [], esquemasEletrico: [], esquemasFrio: [], gases: [], ciclosPhPlh: [] };
+      LISTAS = { grupos: [], esquemasEletrico: [], esquemasFrio: [], gases: [], ciclosPhPlh: [], tecnicos: [] };
     }
   }
 
@@ -563,6 +659,25 @@
       return campoGrupoOutro.value.trim();
     }
     return campoGrupo.value;
+  }
+
+  preencherSelect('tecnico', LISTAS.tecnicos, true);
+
+  var campoTecnico = document.getElementById('tecnico');
+  var campoTecnicoOutro = document.getElementById('tecnico-outro');
+  campoTecnico.addEventListener('change', function () {
+    campoTecnicoOutro.hidden = campoTecnico.value !== '__outro__';
+    if (!campoTecnicoOutro.hidden) campoTecnicoOutro.focus();
+  });
+
+  /**
+   * Devolve o Tecnico escolhido, resolvendo "Outro" para o texto escrito.
+   */
+  function obterValorTecnico() {
+    if (campoTecnico.value === '__outro__') {
+      return campoTecnicoOutro.value.trim();
+    }
+    return campoTecnico.value;
   }
 
   var container = document.getElementById('categorias-container');
@@ -856,6 +971,7 @@
       }
       if (dadosGuardados.phPlh) definirValorSelectComOutro('phPlh', 'phPlh-outro', dadosGuardados.phPlh);
       if (dadosGuardados.gas) definirValorSelectComOutro('gas', 'gas-outro', dadosGuardados.gas);
+      if (dadosGuardados.tecnico) definirValorSelectComOutro('tecnico', 'tecnico-outro', dadosGuardados.tecnico);
       if (dadosGuardados.descricoesEsquema) {
         Object.keys(dadosGuardados.descricoesEsquema).forEach(function (chave) {
           definirValorSelectComOutro('descricao-' + chave, 'descricao-outro-' + chave, dadosGuardados.descricoesEsquema[chave]);
@@ -1075,6 +1191,7 @@
       phPlh: phPlh,
       observacoes: observacoes,
       gas: gas,
+      tecnico: obterValorTecnico(),
       descricoesEsquema: descricoesEsquema,
       fotos: fotosPorCategoria,
       esquemasExistentes: esquemaExistente,
@@ -1161,6 +1278,7 @@
       tipoRelatorio: TIPO_RELATORIO,
       phPlh: phPlhRascunho,
       gas: gasRascunho,
+      tecnico: obterValorTecnico(),
       observacoes: document.getElementById('observacoes').value.trim(),
       descricoesEsquema: descricoesEsquemaRascunho,
       fotos: fotosPorCategoria,
@@ -1225,6 +1343,9 @@
     campoGrupo.value = '';
     campoGrupoOutro.value = '';
     campoGrupoOutro.hidden = true;
+    campoTecnico.value = '';
+    campoTecnicoOutro.value = '';
+    campoTecnicoOutro.hidden = true;
     campoTipoValvula.value = '';
     campoPhPlh.value = '';
     campoPhPlhOutro.value = '';
@@ -1250,6 +1371,291 @@
       atualizarContagem(c.chave);
     });
   }
+
+  // ---------------------------------------------------------------------
+  // "Rascunhos em aberto": mostra os numeros de serie que tem progresso
+  // guardado no Drive, para o operador nao ter de se lembrar de qual
+  // estava a meio (ex.: durante um vacuo de 24 horas).
+  // ---------------------------------------------------------------------
+  var botaoVerRascunhos = document.getElementById('botaoVerRascunhos');
+  var listaRascunhosAbertos = document.getElementById('listaRascunhosAbertos');
+
+  botaoVerRascunhos.addEventListener('click', function () {
+    if (!listaRascunhosAbertos.hidden) {
+      listaRascunhosAbertos.hidden = true;
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    listaRascunhosAbertos.hidden = false;
+    listaRascunhosAbertos.innerHTML = '<div class="ajuda">A carregar...</div>';
+
+    var url = APPS_SCRIPT_URL + '?action=listarRascunhos';
+    var promessaRascunhos = fetch(url);
+
+    function aoReceberResposta(resposta) {
+      return resposta.json();
+    }
+
+    function aoProcessar(dados) {
+      if (dados.status !== 'ok' || !dados.itens || !dados.itens.length) {
+        listaRascunhosAbertos.innerHTML = '<div class="ajuda">Nenhum rascunho em aberto.</div>';
+        return;
+      }
+      var html = '';
+      dados.itens.forEach(function (item) {
+        var descricao = item.serial;
+        if (item.grupo) descricao = descricao + ' — Grupo ' + item.grupo;
+        if (item.tipoRelatorio === 'ciclos') descricao = descricao + ' (Ciclos)';
+        html = html + '<button type="button" class="item-rascunho" data-serial="' +
+          item.serial.replace(/"/g, '&quot;') + '">' + descricao + '</button>';
+      });
+      listaRascunhosAbertos.innerHTML = html;
+    }
+
+    function aoFalhar(erro) {
+      listaRascunhosAbertos.innerHTML = '<div class="ajuda">Erro ao carregar: ' + erro.message + '</div>';
+    }
+
+    var promessaJson = promessaRascunhos.then(aoReceberResposta);
+    promessaJson.then(aoProcessar);
+    promessaJson.catch(aoFalhar);
+  });
+
+  listaRascunhosAbertos.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('.item-rascunho');
+    if (!botao) return;
+    campoSerial.value = botao.dataset.serial;
+    listaRascunhosAbertos.hidden = true;
+    verificarRascunho();
+  });
+
+  // ---------------------------------------------------------------------
+  // "Corrigir envio anterior": procura os envios ja feitos (e-mail ja
+  // enviado) para o numero de serie escrito, e permite enviar um novo
+  // e-mail so com a correcao (nao e possivel alterar o e-mail original).
+  // ---------------------------------------------------------------------
+  var cardCorrecao = document.getElementById('cardCorrecao');
+  var botaoAbrirCorrecao = document.getElementById('botaoAbrirCorrecao');
+  var botaoProcurarEnvios = document.getElementById('botaoProcurarEnvios');
+  var listaEnviosAnteriores = document.getElementById('listaEnviosAnteriores');
+  var detalhesCorrecao = document.getElementById('detalhesCorrecao');
+  var envioSelecionadoLabel = document.getElementById('envioSelecionadoLabel');
+  var correcaoCategoria = document.getElementById('correcaoCategoria');
+  var previewsCorrecao = document.getElementById('previewsCorrecao');
+  var correcaoNota = document.getElementById('correcaoNota');
+  var correcaoEmails = document.getElementById('correcaoEmails');
+  var botaoEnviarCorrecao = document.getElementById('botaoEnviarCorrecao');
+
+  var envioSelecionado = null;
+  var fotosCorrecao = [];
+
+  var opcoesCategoria = '<option value="">Selecione...</option>';
+  CATEGORIAS.forEach(function (c) {
+    opcoesCategoria = opcoesCategoria + '<option value="' + c.chave + '">' + c.rotulo + '</option>';
+  });
+  correcaoCategoria.innerHTML = opcoesCategoria;
+
+  botaoAbrirCorrecao.addEventListener('click', function () {
+    cardCorrecao.hidden = !cardCorrecao.hidden;
+    if (!cardCorrecao.hidden) {
+      cardCorrecao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+
+  botaoProcurarEnvios.addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Escreva o número de série no campo do topo primeiro.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    detalhesCorrecao.hidden = true;
+    envioSelecionado = null;
+    listaEnviosAnteriores.hidden = false;
+    listaEnviosAnteriores.innerHTML = '<div class="ajuda">A carregar...</div>';
+
+    var url = APPS_SCRIPT_URL + '?action=listarEnviosAnteriores&serial=' + encodeURIComponent(serial);
+    var promessaEnvios = fetch(url);
+
+    function aoReceberResposta(resposta) {
+      return resposta.json();
+    }
+
+    function aoProcessar(dados) {
+      if (dados.status !== 'ok' || !dados.itens || !dados.itens.length) {
+        listaEnviosAnteriores.innerHTML = '<div class="ajuda">Nenhum envio anterior encontrado para este número de série.</div>';
+        return;
+      }
+      var html = '';
+      dados.itens.forEach(function (item) {
+        html = html + '<button type="button" class="item-rascunho" data-id="' + item.id +
+          '" data-nome="' + item.nome.replace(/"/g, '&quot;') + '">' + item.nome + '</button>';
+      });
+      listaEnviosAnteriores.innerHTML = html;
+    }
+
+    function aoFalhar(erro) {
+      listaEnviosAnteriores.innerHTML = '<div class="ajuda">Erro ao carregar: ' + erro.message + '</div>';
+    }
+
+    var promessaJson = promessaEnvios.then(aoReceberResposta);
+    promessaJson.then(aoProcessar);
+    promessaJson.catch(aoFalhar);
+  });
+
+  listaEnviosAnteriores.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('.item-rascunho');
+    if (!botao) return;
+    envioSelecionado = { id: botao.dataset.id, nome: botao.dataset.nome };
+    envioSelecionadoLabel.textContent = 'A corrigir: ' + envioSelecionado.nome;
+    listaEnviosAnteriores.hidden = true;
+    detalhesCorrecao.hidden = false;
+  });
+
+  function renderizarPreviewsCorrecao() {
+    previewsCorrecao.innerHTML = '';
+    fotosCorrecao.forEach(function (item, indice) {
+      var thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      thumb.innerHTML = '<img src="' + item.base64 + '" alt="" />' +
+        '<button type="button" aria-label="Remover">✕</button>';
+      thumb.querySelector('button').addEventListener('click', function () {
+        fotosCorrecao.splice(indice, 1);
+        renderizarPreviewsCorrecao();
+      });
+      previewsCorrecao.appendChild(thumb);
+    });
+  }
+
+  function adicionarFotosCorrecao(input) {
+    var ficheiros = Array.prototype.slice.call(input.files || []);
+    if (!ficheiros.length) return;
+
+    var categoria = correcaoCategoria.value;
+    if (!categoria) {
+      mostrarEstado('Escolha primeiro a categoria da foto a corrigir.', 'erro');
+      input.value = '';
+      return;
+    }
+
+    mostrarEstado('A processar fotografias...', 'info');
+
+    var promessas = ficheiros.map(function (ficheiro) {
+      return comprimirImagem(ficheiro).then(function (base64) {
+        fotosCorrecao.push({ categoria: categoria, base64: base64 });
+      });
+    });
+
+    Promise.all(promessas).then(function () {
+      renderizarPreviewsCorrecao();
+      esconderEstado();
+      input.value = '';
+    }).catch(function (erro) {
+      mostrarEstado('Erro ao processar imagem: ' + erro.message, 'erro');
+    });
+  }
+
+  document.getElementById('correcaoFotoCamera').addEventListener('change', function (ev) {
+    adicionarFotosCorrecao(ev.target);
+  });
+  document.getElementById('correcaoFotoGaleria').addEventListener('change', function (ev) {
+    adicionarFotosCorrecao(ev.target);
+  });
+
+  botaoEnviarCorrecao.addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Escreva o número de série no campo do topo.', 'erro');
+      return;
+    }
+    if (!envioSelecionado) {
+      mostrarEstado('Escolha qual envio quer corrigir.', 'erro');
+      return;
+    }
+    var emails = correcaoEmails.value.trim();
+    if (!emails) {
+      mostrarEstado('Indique pelo menos um e-mail para a correção.', 'erro');
+      return;
+    }
+    var nota = correcaoNota.value.trim();
+    if (!nota) {
+      mostrarEstado('Descreva o que foi corrigido.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    var fotosPorCategoriaCorrecao = {};
+    fotosCorrecao.forEach(function (item) {
+      if (!fotosPorCategoriaCorrecao[item.categoria]) fotosPorCategoriaCorrecao[item.categoria] = [];
+      fotosPorCategoriaCorrecao[item.categoria].push(item.base64);
+    });
+
+    var payloadCorrecao = {
+      corrigirEnvio: true,
+      serial: serial,
+      pastaOriginalId: envioSelecionado.id,
+      emails: emails,
+      notaCorrecao: nota,
+      grupo: obterValorGrupo(),
+      tipoValvula: campoTipoValvula.value,
+      tipoRelatorio: TIPO_RELATORIO,
+      phPlh: campoPhPlh.value === '__outro__' ? campoPhPlhOutro.value.trim() : campoPhPlh.value,
+      gas: campoGas.value === '__outro__' ? campoGasOutro.value.trim() : campoGas.value,
+      tecnico: obterValorTecnico(),
+      observacoes: document.getElementById('observacoes').value.trim(),
+      fotos: fotosPorCategoriaCorrecao
+    };
+
+    botaoEnviarCorrecao.disabled = true;
+    botaoEnviarCorrecao.textContent = 'A enviar...';
+    mostrarEstado('A enviar correção, aguarde...', 'info');
+
+    var promessaCorrecao = fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payloadCorrecao) });
+
+    function aoTerminarCorrecao() {
+      botaoEnviarCorrecao.disabled = false;
+      botaoEnviarCorrecao.textContent = 'Enviar correção';
+    }
+
+    function aoReceberRespostaCorrecao(resposta) {
+      return resposta.json();
+    }
+
+    function aoProcessarCorrecao(dadosResposta) {
+      if (dadosResposta.status !== 'ok') {
+        mostrarEstado('Erro ao enviar correção: ' + (dadosResposta.msg || 'falha desconhecida.'), 'erro');
+        return;
+      }
+      mostrarEstado('Correção enviada com sucesso!', 'sucesso');
+      fotosCorrecao = [];
+      renderizarPreviewsCorrecao();
+      correcaoNota.value = '';
+      correcaoEmails.value = '';
+      correcaoCategoria.value = '';
+      envioSelecionado = null;
+      detalhesCorrecao.hidden = true;
+    }
+
+    function aoFalharCorrecao(erro) {
+      mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+    }
+
+    var promessaCorrecaoJson = promessaCorrecao.then(aoReceberRespostaCorrecao);
+    var promessaCorrecaoFinal = promessaCorrecaoJson.then(aoProcessarCorrecao);
+    promessaCorrecaoFinal.catch(aoFalharCorrecao);
+    promessaCorrecaoFinal.finally(aoTerminarCorrecao);
+  });
 
   function mostrarEstado(texto, tipo) {
     var el = document.getElementById('estado');
