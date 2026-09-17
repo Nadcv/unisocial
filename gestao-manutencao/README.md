@@ -17,6 +17,13 @@ servidor próprio nem de configuração de base de dados.
   outros equipamentos, por tipo (Elétrico / Refrigeração).
 - **Refrigeração** — histórico de leituras de temperatura por
   equipamento, com marcação de alarme.
+- **Armazém** — stock de materiais elétricos e de refrigeração (nome,
+  categoria, unidade, stock atual e stock mínimo). Cada consumo ou
+  reposição é registado como um movimento (Entrada/Saída) com uma
+  operação associada — *Corte de tubo de cobre*, *Dobra de tubo de
+  cobre*, *Soldadura*, *Reposição de stock* ou *Outro* — que atualiza
+  automaticamente o stock atual do material. O Painel mostra os
+  materiais que já estão no stock mínimo ou abaixo dele.
 - **Equipa** — gerir os técnicos (por defeito pensado para 4 pessoas,
   mas sem limite fixo).
 
@@ -26,7 +33,7 @@ dados diretamente na própria Sheet se for preciso.
 
 Ficheiros:
 
-- `Index.html` — frontend (SPA com 5 separadores).
+- `Index.html` — frontend (SPA com 6 separadores).
 - `Code.gs` — backend em Google Apps Script (cria a Sheet de dados na
   primeira execução e expõe funções chamadas via `google.script.run`).
 
@@ -66,8 +73,13 @@ chamada **"Gestão de Manutenção - Dados"** e guarda o ID internamente.
    técnicos.
 3. Vá ao separador **Equipamentos** e registe os grupos/quadros
    elétricos e os equipamentos de refrigeração.
-4. A partir daí, use **Tarefas** para trocas de grupos/quadros e
-   ciclos, e **Refrigeração** para o registo de temperaturas.
+4. Vá ao separador **Armazém** e registe os materiais (elétricos, de
+   refrigeração e consumíveis como tubo de cobre e solda), com o
+   stock inicial e o stock mínimo desejado.
+5. A partir daí, use **Tarefas** para trocas de grupos/quadros e
+   ciclos, **Refrigeração** para o registo de temperaturas e
+   **Armazém** para registar cada consumo (corte/dobra de tubo,
+   soldadura, etc.) ou reposição de stock.
 
 > Como o `doGet` do `Code.gs` já serve o `Index.html`, basta abrir o
 > URL `/exec` diretamente — sem necessidade de alojar o frontend noutro

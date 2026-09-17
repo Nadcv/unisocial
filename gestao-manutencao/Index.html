@@ -162,6 +162,7 @@
     <button data-tab="tarefas">Tarefas</button>
     <button data-tab="equipamentos">Equipamentos</button>
     <button data-tab="refrigeracao">Refrigeração</button>
+    <button data-tab="armazem">Armazém</button>
     <button data-tab="equipa">Equipa</button>
   </nav>
 </header>
@@ -178,6 +179,10 @@
     <div class="card">
       <h2>Tarefas em aberto</h2>
       <div id="tarefasAbertas"></div>
+    </div>
+    <div class="card">
+      <h2>Materiais com stock baixo</h2>
+      <div id="stockBaixo"></div>
     </div>
   </section>
 
@@ -275,6 +280,78 @@
     </div>
   </section>
 
+  <!-- ARMAZÉM -->
+  <section class="tab" id="tab-armazem">
+    <div class="card">
+      <h2>Novo material</h2>
+      <form id="formMaterial">
+        <label>Nome do material</label>
+        <input name="nome" required placeholder="Ex.: Tubo de cobre 1/4, Elétrodo de solda, Disjuntor 32A" />
+
+        <label>Categoria</label>
+        <select name="categoria" required>
+          <option value="Elétrico">Elétrico</option>
+          <option value="Refrigeração">Refrigeração</option>
+          <option value="Consumível">Consumível (solda, tubo, etc.)</option>
+        </select>
+
+        <label>Unidade</label>
+        <input name="unidade" placeholder="Ex.: un, m, kg, rolo" value="un" />
+
+        <label>Stock inicial</label>
+        <input name="stockAtual" type="number" step="0.1" min="0" value="0" />
+
+        <label>Stock mínimo (alerta)</label>
+        <input name="stockMinimo" type="number" step="0.1" min="0" value="0" />
+
+        <label>Notas</label>
+        <textarea name="notas" placeholder="Opcional"></textarea>
+
+        <button class="primary" type="submit">Adicionar material</button>
+        <div class="msg" id="msgMaterial"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Registar movimento de stock</h2>
+      <form id="formMovimento">
+        <label>Material</label>
+        <select name="materialId" required></select>
+
+        <label>Tipo de movimento</label>
+        <select name="tipo" required>
+          <option value="Saída">Saída (consumo)</option>
+          <option value="Entrada">Entrada (reposição)</option>
+        </select>
+
+        <label>Operação</label>
+        <select name="operacao" required></select>
+
+        <label>Quantidade</label>
+        <input name="quantidade" type="number" step="0.1" min="0.1" required />
+
+        <label>Responsável</label>
+        <select name="responsavel" required></select>
+
+        <label>Notas</label>
+        <textarea name="notas" placeholder="Opcional"></textarea>
+
+        <button class="primary" type="submit">Registar movimento</button>
+        <div class="msg" id="msgMovimento"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Materiais em stock</h2>
+      <div id="listaMateriais"></div>
+    </div>
+
+    <div class="card">
+      <h2>Histórico de movimentos</h2>
+      <div id="listaMovimentos"></div>
+    </div>
+  </section>
+
   <!-- EQUIPA -->
   <section class="tab" id="tab-equipa">
     <div class="card">
@@ -292,7 +369,7 @@
 </main>
 
 <script>
-  var DADOS = { tecnicos: [], equipamentos: [], tarefas: [], temperaturas: [] };
+  var DADOS = { tecnicos: [], equipamentos: [], tarefas: [], temperaturas: [], materiais: [], movimentos: [], operacoesStock: [] };
 
   function esc(s) {
     return (s === null || s === undefined ? '' : String(s))
@@ -338,6 +415,20 @@
         return '<option value="' + esc(t.nome) + '">' + esc(t.nome) + '</option>';
       }).join('');
     });
+
+    var materialSelects = document.querySelectorAll('select[name="materialId"]');
+    materialSelects.forEach(function (sel) {
+      sel.innerHTML = '<option value="">Selecione...</option>' + DADOS.materiais.map(function (m) {
+        return '<option value="' + esc(m.id) + '">' + esc(m.nome) + ' (' + esc(m.stockAtual) + ' ' + esc(m.unidade) + ')</option>';
+      }).join('');
+    });
+
+    var operacaoSelects = document.querySelectorAll('select[name="operacao"]');
+    operacaoSelects.forEach(function (sel) {
+      sel.innerHTML = DADOS.operacoesStock.map(function (op) {
+        return '<option>' + esc(op) + '</option>';
+      }).join('');
+    });
   }
 
   function renderDashboard() {
@@ -346,12 +437,17 @@
     var concluidas = DADOS.tarefas.filter(function (t) { return t.estado === 'Concluída'; }).length;
     var alarmesAtivos = DADOS.temperaturas.filter(function (t) { return t.alarme === true || t.alarme === 'TRUE'; }).length;
 
+    var materiaisStockBaixo = DADOS.materiais.filter(function (m) {
+      return Number(m.stockAtual) <= Number(m.stockMinimo);
+    });
+
     document.getElementById('stats').innerHTML = [
       ['Tarefas pendentes', pendentes],
       ['Tarefas em curso', emCurso],
       ['Tarefas concluídas', concluidas],
       ['Equipamentos', DADOS.equipamentos.length],
       ['Leituras com alarme', alarmesAtivos],
+      ['Materiais com stock baixo', materiaisStockBaixo.length],
       ['Técnicos na equipa', DADOS.tecnicos.length]
     ].map(function (s) {
       return '<div class="stat"><div class="n">' + s[1] + '</div><div class="l">' + s[0] + '</div></div>';
@@ -377,6 +473,13 @@
             ' <span class="badge ' + estadoClasse(t.estado) + '">' + esc(t.estado) + '</span> <span class="muted">(' + esc(t.responsavel) + ')</span></div>';
         }).join('')
       : '<div class="empty">Sem tarefas em aberto.</div>';
+
+    document.getElementById('stockBaixo').innerHTML = materiaisStockBaixo.length
+      ? materiaisStockBaixo.map(function (m) {
+          return '<div class="chip">🟠 ' + esc(m.nome) + ' — ' + esc(m.stockAtual) + ' ' + esc(m.unidade) +
+            ' <span class="muted">(mínimo: ' + esc(m.stockMinimo) + ')</span></div>';
+        }).join('')
+      : '<div class="empty">Sem materiais abaixo do stock mínimo.</div>';
   }
 
   function renderTarefas() {
@@ -445,6 +548,39 @@
     el.innerHTML = '<table><thead><tr><th>Data/Hora</th><th>Equipamento</th><th>Temperatura</th><th>Responsável</th><th>Observações</th></tr></thead><tbody>' + linhas + '</tbody></table>';
   }
 
+  function renderMateriais() {
+    var el = document.getElementById('listaMateriais');
+    if (!DADOS.materiais.length) { el.innerHTML = '<div class="empty">Ainda sem materiais registados.</div>'; return; }
+    var linhas = DADOS.materiais.map(function (m) {
+      var baixo = Number(m.stockAtual) <= Number(m.stockMinimo);
+      return '<tr>' +
+        '<td>' + esc(m.nome) + '</td>' +
+        '<td>' + esc(m.categoria) + '</td>' +
+        '<td>' + esc(m.stockAtual) + ' ' + esc(m.unidade) + (baixo ? ' <span class="badge alarme">BAIXO</span>' : '') + '</td>' +
+        '<td>' + esc(m.stockMinimo) + ' ' + esc(m.unidade) + '</td>' +
+        '<td>' + esc(m.notas) + '</td>' +
+      '</tr>';
+    }).join('');
+    el.innerHTML = '<table><thead><tr><th>Material</th><th>Categoria</th><th>Stock atual</th><th>Stock mínimo</th><th>Notas</th></tr></thead><tbody>' + linhas + '</tbody></table>';
+  }
+
+  function renderMovimentos() {
+    var lista = DADOS.movimentos.slice().sort(function (a, b) { return new Date(b.dataHora) - new Date(a.dataHora); });
+    var el = document.getElementById('listaMovimentos');
+    if (!lista.length) { el.innerHTML = '<div class="empty">Ainda sem movimentos registados.</div>'; return; }
+    var linhas = lista.map(function (m) {
+      return '<tr>' +
+        '<td>' + fmtData(m.dataHora) + '</td>' +
+        '<td>' + esc(m.materialNome) + '</td>' +
+        '<td>' + esc(m.tipo) + '</td>' +
+        '<td>' + esc(m.operacao) + '</td>' +
+        '<td>' + esc(m.quantidade) + '</td>' +
+        '<td>' + esc(m.responsavel) + '</td>' +
+      '</tr>';
+    }).join('');
+    el.innerHTML = '<table><thead><tr><th>Data/Hora</th><th>Material</th><th>Tipo</th><th>Operação</th><th>Qtd.</th><th>Responsável</th></tr></thead><tbody>' + linhas + '</tbody></table>';
+  }
+
   function renderTecnicos() {
     var el = document.getElementById('listaTecnicos');
     if (!DADOS.tecnicos.length) { el.innerHTML = '<div class="empty">Ainda sem técnicos na equipa.</div>'; return; }
@@ -468,6 +604,8 @@
     renderTarefas();
     renderEquipamentos();
     renderTemperaturas();
+    renderMateriais();
+    renderMovimentos();
     renderTecnicos();
   }
 
@@ -508,6 +646,8 @@
   ligarFormulario('formEquipamento', 'msgEquipamento', 'addEquipamento', function (r) { DADOS.equipamentos = r; });
   ligarFormulario('formTarefa', 'msgTarefa', 'addTarefa', function (r) { DADOS.tarefas = r; });
   ligarFormulario('formTemperatura', 'msgTemperatura', 'addTemperatura', function (r) { DADOS.temperaturas = r; });
+  ligarFormulario('formMaterial', 'msgMaterial', 'addMaterial', function (r) { DADOS.materiais = r; });
+  ligarFormulario('formMovimento', 'msgMovimento', 'addMovimento', function (r) { DADOS.materiais = r.materiais; DADOS.movimentos = r.movimentos; });
 
   // ---------- Arranque ----------
   google.script.run

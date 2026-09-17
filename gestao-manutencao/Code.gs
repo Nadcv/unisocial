@@ -23,8 +23,12 @@ var SHEETS = {
   Tecnicos: ['id', 'nome'],
   Equipamentos: ['id', 'nome', 'tipo', 'local', 'notas', 'dataCriacao'],
   Tarefas: ['id', 'dataCriacao', 'equipamentoId', 'equipamentoNome', 'tipo', 'descricao', 'responsavel', 'estado', 'dataConclusao'],
-  Temperaturas: ['id', 'dataHora', 'equipamentoId', 'equipamentoNome', 'temperatura', 'alarme', 'observacoes', 'responsavel']
+  Temperaturas: ['id', 'dataHora', 'equipamentoId', 'equipamentoNome', 'temperatura', 'alarme', 'observacoes', 'responsavel'],
+  Materiais: ['id', 'nome', 'categoria', 'unidade', 'stockAtual', 'stockMinimo', 'notas', 'dataCriacao'],
+  Movimentos: ['id', 'dataHora', 'materialId', 'materialNome', 'tipo', 'operacao', 'quantidade', 'responsavel', 'notas']
 };
+
+var OPERACOES_STOCK = ['Corte de tubo de cobre', 'Dobra de tubo de cobre', 'Soldadura', 'Reposição de stock', 'Outro'];
 
 function getSpreadsheet_() {
   var props = PropertiesService.getScriptProperties();
@@ -112,7 +116,10 @@ function getInitialData() {
     tecnicos: readSheet_(ss, 'Tecnicos'),
     equipamentos: readSheet_(ss, 'Equipamentos'),
     tarefas: readSheet_(ss, 'Tarefas'),
-    temperaturas: readSheet_(ss, 'Temperaturas')
+    temperaturas: readSheet_(ss, 'Temperaturas'),
+    materiais: readSheet_(ss, 'Materiais'),
+    movimentos: readSheet_(ss, 'Movimentos'),
+    operacoesStock: OPERACOES_STOCK
   };
 }
 
@@ -224,4 +231,83 @@ function addTemperatura(dados) {
     responsavel
   ]);
   return readSheet_(ss, 'Temperaturas');
+}
+
+/** Novo material no armazém (elétrico, refrigeração ou consumível). */
+function addMaterial(dados) {
+  dados = dados || {};
+  var nome = (dados.nome || '').toString().trim();
+  var categoria = (dados.categoria || '').toString().trim();
+  var unidade = (dados.unidade || 'un').toString().trim() || 'un';
+  var stockAtual = Number(dados.stockAtual);
+  var stockMinimo = Number(dados.stockMinimo);
+  if (!nome) throw new Error('Indique o nome do material.');
+  if (['Elétrico', 'Refrigeração', 'Consumível'].indexOf(categoria) === -1) {
+    throw new Error('Categoria de material inválida.');
+  }
+  if (isNaN(stockAtual) || stockAtual < 0) stockAtual = 0;
+  if (isNaN(stockMinimo) || stockMinimo < 0) stockMinimo = 0;
+
+  var ss = getSpreadsheet_();
+  ss.getSheetByName('Materiais').appendRow([
+    generateId_(),
+    nome,
+    categoria,
+    unidade,
+    stockAtual,
+    stockMinimo,
+    (dados.notas || '').toString().trim(),
+    agora_()
+  ]);
+  return readSheet_(ss, 'Materiais');
+}
+
+/**
+ * Regista uma entrada ou saída de stock de um material (ex.: consumo em
+ * corte/dobra de tubo de cobre, soldadura, ou reposição) e atualiza o
+ * stock atual desse material.
+ */
+function addMovimento(dados) {
+  dados = dados || {};
+  var materialId = (dados.materialId || '').toString();
+  var tipo = (dados.tipo || '').toString().trim();
+  var operacao = (dados.operacao || '').toString().trim();
+  var quantidade = Number(dados.quantidade);
+  var responsavel = (dados.responsavel || '').toString().trim();
+
+  if (!materialId) throw new Error('Selecione o material.');
+  if (['Entrada', 'Saída'].indexOf(tipo) === -1) throw new Error('Tipo de movimento inválido.');
+  if (OPERACOES_STOCK.indexOf(operacao) === -1) throw new Error('Operação inválida.');
+  if (isNaN(quantidade) || quantidade <= 0) throw new Error('Indique uma quantidade válida (maior que zero).');
+  if (!responsavel) throw new Error('Selecione o responsável.');
+
+  var ss = getSpreadsheet_();
+  var materiaisSheet = ss.getSheetByName('Materiais');
+  var headers = SHEETS.Materiais;
+  var linha = encontrarLinhaPorId_(materiaisSheet, headers, materialId);
+  if (linha < 0) throw new Error('Material não encontrado.');
+
+  var stockColuna = headers.indexOf('stockAtual') + 1;
+  var stockAtual = Number(materiaisSheet.getRange(linha, stockColuna).getValue()) || 0;
+  var novoStock = tipo === 'Entrada' ? stockAtual + quantidade : stockAtual - quantidade;
+  materiaisSheet.getRange(linha, stockColuna).setValue(novoStock);
+
+  var materialNome = materiaisSheet.getRange(linha, headers.indexOf('nome') + 1).getValue();
+
+  ss.getSheetByName('Movimentos').appendRow([
+    generateId_(),
+    agora_(),
+    materialId,
+    materialNome,
+    tipo,
+    operacao,
+    quantidade,
+    responsavel,
+    (dados.notas || '').toString().trim()
+  ]);
+
+  return {
+    materiais: readSheet_(ss, 'Materiais'),
+    movimentos: readSheet_(ss, 'Movimentos')
+  };
 }
