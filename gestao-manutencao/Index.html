@@ -477,29 +477,41 @@
   });
 
   // ---------- Render ----------
+  var OPCAO_NOVO = '__novo__';
+
   function preencherSelects() {
     var equipSelects = document.querySelectorAll('select[name="equipamentoId"]');
     equipSelects.forEach(function (sel) {
       var tabId = sel.closest('section').id;
+      var apenasRefrigeracao = tabId === 'tab-refrigeracao';
       var lista = DADOS.equipamentos;
-      if (tabId === 'tab-refrigeracao') lista = lista.filter(function (e) { return e.tipo === 'Refrigeração'; });
+      if (apenasRefrigeracao) lista = lista.filter(function (e) { return e.tipo === 'Refrigeração'; });
       sel.innerHTML = '<option value="">Selecione...</option>' + lista.map(function (e) {
         return '<option value="' + esc(e.id) + '">' + esc(e.nome) + ' (' + esc(e.tipo) + ')</option>';
-      }).join('');
+      }).join('') + '<option value="' + OPCAO_NOVO + '">+ Adicionar novo equipamento...</option>';
+      sel.onchange = function () {
+        if (sel.value === OPCAO_NOVO) adicionarEquipamentoRapido(sel, apenasRefrigeracao);
+      };
     });
 
     var respSelects = document.querySelectorAll('select[name="responsavel"]');
     respSelects.forEach(function (sel) {
       sel.innerHTML = '<option value="">Selecione...</option>' + DADOS.tecnicos.map(function (t) {
         return '<option value="' + esc(t.nome) + '">' + esc(t.nome) + '</option>';
-      }).join('');
+      }).join('') + '<option value="' + OPCAO_NOVO + '">+ Adicionar novo técnico...</option>';
+      sel.onchange = function () {
+        if (sel.value === OPCAO_NOVO) adicionarTecnicoRapido(sel);
+      };
     });
 
     var materialSelects = document.querySelectorAll('select[name="materialId"]');
     materialSelects.forEach(function (sel) {
       sel.innerHTML = '<option value="">Selecione...</option>' + DADOS.materiais.map(function (m) {
         return '<option value="' + esc(m.id) + '">' + esc(m.nome) + ' (' + esc(m.stockAtual) + ' ' + esc(m.unidade) + ')</option>';
-      }).join('');
+      }).join('') + '<option value="' + OPCAO_NOVO + '">+ Adicionar novo material...</option>';
+      sel.onchange = function () {
+        if (sel.value === OPCAO_NOVO) adicionarMaterialRapido(sel);
+      };
     });
 
     var operacaoSelects = document.querySelectorAll('select[name="operacao"]');
@@ -508,6 +520,61 @@
         return '<option>' + esc(op) + '</option>';
       }).join('');
     });
+  }
+
+  function adicionarEquipamentoRapido(sel, apenasRefrigeracao) {
+    var nome = (prompt('Nome do novo equipamento:') || '').trim();
+    if (!nome) { sel.value = ''; return; }
+    var tipo = 'Elétrico';
+    if (apenasRefrigeracao) {
+      tipo = 'Refrigeração';
+    } else {
+      var escolha = (prompt('Tipo do equipamento — escreva "Eletrico" ou "Refrigeracao":', 'Eletrico') || '').trim().toLowerCase();
+      tipo = escolha.indexOf('refrig') === 0 ? 'Refrigeração' : 'Elétrico';
+    }
+    sel.disabled = true;
+    google.script.run
+      .withSuccessHandler(function (equipamentos) {
+        DADOS.equipamentos = equipamentos;
+        renderTudo();
+        var novo = equipamentos.filter(function (e) { return e.nome === nome; }).slice(-1)[0];
+        if (novo) sel.value = novo.id;
+        sel.disabled = false;
+      })
+      .withFailureHandler(function (err) { alert('Erro ao adicionar equipamento: ' + err.message); sel.value = ''; sel.disabled = false; })
+      .addEquipamento({ nome: nome, tipo: tipo });
+  }
+
+  function adicionarTecnicoRapido(sel) {
+    var nome = (prompt('Nome do novo técnico:') || '').trim();
+    if (!nome) { sel.value = ''; return; }
+    sel.disabled = true;
+    google.script.run
+      .withSuccessHandler(function (tecnicos) {
+        DADOS.tecnicos = tecnicos;
+        renderTudo();
+        var novo = tecnicos.filter(function (t) { return t.nome === nome; }).slice(-1)[0];
+        if (novo) sel.value = novo.nome;
+        sel.disabled = false;
+      })
+      .withFailureHandler(function (err) { alert('Erro ao adicionar técnico: ' + err.message); sel.value = ''; sel.disabled = false; })
+      .addTecnico(nome);
+  }
+
+  function adicionarMaterialRapido(sel) {
+    var nome = (prompt('Nome do novo material:') || '').trim();
+    if (!nome) { sel.value = ''; return; }
+    sel.disabled = true;
+    google.script.run
+      .withSuccessHandler(function (materiais) {
+        DADOS.materiais = materiais;
+        renderTudo();
+        var novo = materiais.filter(function (m) { return m.nome === nome; }).slice(-1)[0];
+        if (novo) sel.value = novo.id;
+        sel.disabled = false;
+      })
+      .withFailureHandler(function (err) { alert('Erro ao adicionar material: ' + err.message); sel.value = ''; sel.disabled = false; })
+      .addMaterial({ nome: nome, categoria: 'Consumível', unidade: 'un', stockAtual: 0, stockMinimo: 0 });
   }
 
   function renderDashboard() {
