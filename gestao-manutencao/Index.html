@@ -6,15 +6,17 @@
 <title>Gestão de Manutenção</title>
 <style>
   :root {
-    --bg: #0d1117;
-    --bg-panel: #161b22;
-    --border: #30363d;
-    --text: #c9d1d9;
-    --text-dim: #8b949e;
-    --accent: #58a6ff;
-    --ok: #3fb950;
-    --warn: #d29922;
-    --danger: #f85149;
+    --bg: #eef1f8;
+    --card: #ffffff;
+    --border: #e3e7f0;
+    --input-bg: #f3f5f9;
+    --text: #1f2937;
+    --text-dim: #6b7280;
+    --accent: #2f5fdc;
+    --accent-dark: #17246b;
+    --ok: #16a34a;
+    --warn: #d97706;
+    --danger: #dc2626;
   }
   * { box-sizing: border-box; }
   body {
@@ -24,56 +26,86 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
     min-height: 100vh;
   }
-  header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: rgba(13,17,23,0.95);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--border);
-    padding: 14px 16px;
+  .hero {
+    background: linear-gradient(135deg, var(--accent-dark), var(--accent));
+    color: #fff;
+    padding: 30px 16px 52px;
+    text-align: center;
   }
-  header h1 {
-    margin: 0 0 10px;
-    font-size: 1.15rem;
+  .hero .brand {
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    opacity: 0.85;
+    margin-bottom: 8px;
+  }
+  .hero h1 {
+    margin: 0 0 8px;
+    font-size: 1.3rem;
+    font-weight: 800;
+  }
+  .hero p {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.85;
   }
   nav {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     overflow-x: auto;
+    max-width: 620px;
+    margin: -26px auto 0;
+    background: #fff;
+    border-radius: 999px;
+    padding: 6px;
+    box-shadow: 0 10px 24px rgba(23,36,107,0.18);
+    position: relative;
+    z-index: 5;
   }
   nav button {
     flex: 0 0 auto;
-    background: var(--bg-panel);
-    border: 1px solid var(--border);
+    background: transparent;
+    border: none;
     color: var(--text-dim);
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 0.85rem;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
     cursor: pointer;
   }
   nav button.active {
     color: #fff;
-    border-color: var(--accent);
-    background: rgba(88,166,255,0.12);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
   }
   main {
-    padding: 16px;
-    max-width: 900px;
+    padding: 24px 16px 40px;
+    max-width: 720px;
     margin: 0 auto;
   }
   .tab { display: none; }
   .tab.active { display: block; }
+  .row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 520px) {
+    .row2 { grid-template-columns: 1fr; }
+  }
   .card {
-    background: var(--bg-panel);
+    background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 16px;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.05);
   }
   .card h2 {
-    margin: 0 0 12px;
-    font-size: 1rem;
+    margin: 0 0 14px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #111827;
   }
   .stats {
     display: grid;
@@ -81,41 +113,51 @@
     gap: 10px;
   }
   .stat {
-    background: var(--bg-panel);
+    background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 14px;
     padding: 14px;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.05);
   }
-  .stat .n { font-size: 1.6rem; font-weight: 700; }
+  .stat .n { font-size: 1.6rem; font-weight: 800; color: var(--accent); }
   .stat .l { font-size: 0.78rem; color: var(--text-dim); }
   label {
     display: block;
-    font-size: 0.8rem;
-    color: var(--text-dim);
-    margin: 10px 0 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #374151;
+    margin: 12px 0 6px;
   }
   input, select, textarea {
     width: 100%;
-    background: #0d1117;
+    background: var(--input-bg);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 9px 10px;
-    border-radius: 8px;
+    padding: 11px 12px;
+    border-radius: 10px;
     font-size: 0.9rem;
     font-family: inherit;
   }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    background: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(47,95,220,0.12);
+  }
   textarea { min-height: 60px; resize: vertical; }
   button.primary {
-    margin-top: 14px;
-    background: var(--accent);
-    color: #0d1117;
+    margin-top: 16px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #fff;
     border: none;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-weight: 600;
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
     cursor: pointer;
+    box-shadow: 0 6px 14px rgba(47,95,220,0.25);
   }
-  button.primary:disabled { opacity: 0.6; cursor: default; }
+  button.primary:disabled { opacity: 0.6; cursor: default; box-shadow: none; }
   .msg { margin-top: 10px; font-size: 0.85rem; }
   .msg.ok { color: var(--ok); }
   .msg.err { color: var(--danger); }
@@ -129,17 +171,17 @@
     font-size: 0.72rem;
     font-weight: 600;
   }
-  .badge.Pendente { background: rgba(210,153,34,0.15); color: var(--warn); }
-  .badge.Emcurso { background: rgba(88,166,255,0.15); color: var(--accent); }
-  .badge.Concluída { background: rgba(63,185,80,0.15); color: var(--ok); }
-  .badge.alarme { background: rgba(248,81,73,0.15); color: var(--danger); }
+  .badge.Pendente { background: rgba(217,119,6,0.12); color: var(--warn); }
+  .badge.Emcurso { background: rgba(47,95,220,0.12); color: var(--accent); }
+  .badge.Concluída { background: rgba(22,163,74,0.12); color: var(--ok); }
+  .badge.alarme { background: rgba(220,38,38,0.12); color: var(--danger); }
   select.estado { width: auto; font-size: 0.78rem; padding: 4px 6px; }
   .row-actions { display: flex; gap: 6px; align-items: center; }
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: #0d1117;
+    background: var(--input-bg);
     border: 1px solid var(--border);
     border-radius: 999px;
     padding: 5px 10px;
@@ -155,17 +197,19 @@
 </head>
 <body>
 
-<header>
-  <h1>⚙️ Gestão de Manutenção — Eletrificação &amp; Refrigeração</h1>
-  <nav id="nav">
-    <button data-tab="dashboard" class="active">Painel</button>
-    <button data-tab="tarefas">Tarefas</button>
-    <button data-tab="equipamentos">Equipamentos</button>
-    <button data-tab="refrigeracao">Refrigeração</button>
-    <button data-tab="armazem">Armazém</button>
-    <button data-tab="equipa">Equipa</button>
-  </nav>
-</header>
+<div class="hero">
+  <div class="brand">Gestão de Manutenção</div>
+  <h1>⚙️ Eletrificação, Refrigeração &amp; Armazém</h1>
+  <p>Preencha os dados de tarefas, temperaturas e stock da equipa</p>
+</div>
+<nav id="nav">
+  <button data-tab="dashboard" class="active">Painel</button>
+  <button data-tab="tarefas">Tarefas</button>
+  <button data-tab="equipamentos">Equipamentos</button>
+  <button data-tab="refrigeracao">Refrigeração</button>
+  <button data-tab="armazem">Armazém</button>
+  <button data-tab="equipa">Equipa</button>
+</nav>
 
 <main>
 
@@ -191,16 +235,21 @@
     <div class="card">
       <h2>Nova tarefa (troca de grupo/quadro, ciclo, refrigeração...)</h2>
       <form id="formTarefa">
-        <label>Equipamento</label>
-        <select name="equipamentoId" required></select>
-
-        <label>Tipo de tarefa</label>
-        <select name="tipo" required>
-          <option>Troca de grupo/quadro</option>
-          <option>Ciclo</option>
-          <option>Refrigeração</option>
-          <option>Outro</option>
-        </select>
+        <div class="row2">
+          <div>
+            <label>Equipamento</label>
+            <select name="equipamentoId" required></select>
+          </div>
+          <div>
+            <label>Tipo de tarefa</label>
+            <select name="tipo" required>
+              <option>Troca de grupo/quadro</option>
+              <option>Ciclo</option>
+              <option>Refrigeração</option>
+              <option>Outro</option>
+            </select>
+          </div>
+        </div>
 
         <label>Descrição</label>
         <textarea name="descricao" required placeholder="Ex.: Substituir quadro elétrico do grupo 2, disjuntor a disparar."></textarea>
@@ -226,14 +275,19 @@
         <label>Nome / identificação</label>
         <input name="nome" required placeholder="Ex.: Grupo 2, Quadro Linha A, Câmara Fria 1" />
 
-        <label>Tipo</label>
-        <select name="tipo" required>
-          <option value="Elétrico">Elétrico</option>
-          <option value="Refrigeração">Refrigeração</option>
-        </select>
-
-        <label>Localização</label>
-        <input name="local" placeholder="Ex.: Nave 1, junto à linha 3" />
+        <div class="row2">
+          <div>
+            <label>Tipo</label>
+            <select name="tipo" required>
+              <option value="Elétrico">Elétrico</option>
+              <option value="Refrigeração">Refrigeração</option>
+            </select>
+          </div>
+          <div>
+            <label>Localização</label>
+            <input name="local" placeholder="Ex.: Nave 1, junto à linha 3" />
+          </div>
+        </div>
 
         <label>Notas</label>
         <textarea name="notas" placeholder="Opcional"></textarea>
@@ -253,11 +307,16 @@
     <div class="card">
       <h2>Nova leitura de temperatura</h2>
       <form id="formTemperatura">
-        <label>Equipamento de refrigeração</label>
-        <select name="equipamentoId" required></select>
-
-        <label>Temperatura (°C)</label>
-        <input name="temperatura" type="number" step="0.1" required />
+        <div class="row2">
+          <div>
+            <label>Equipamento de refrigeração</label>
+            <select name="equipamentoId" required></select>
+          </div>
+          <div>
+            <label>Temperatura (°C)</label>
+            <input name="temperatura" type="number" step="0.1" required />
+          </div>
+        </div>
 
         <label>
           <input type="checkbox" name="alarme" style="width:auto; display:inline-block; vertical-align:middle;" />
@@ -288,21 +347,31 @@
         <label>Nome do material</label>
         <input name="nome" required placeholder="Ex.: Tubo de cobre 1/4, Elétrodo de solda, Disjuntor 32A" />
 
-        <label>Categoria</label>
-        <select name="categoria" required>
-          <option value="Elétrico">Elétrico</option>
-          <option value="Refrigeração">Refrigeração</option>
-          <option value="Consumível">Consumível (solda, tubo, etc.)</option>
-        </select>
+        <div class="row2">
+          <div>
+            <label>Categoria</label>
+            <select name="categoria" required>
+              <option value="Elétrico">Elétrico</option>
+              <option value="Refrigeração">Refrigeração</option>
+              <option value="Consumível">Consumível (solda, tubo, etc.)</option>
+            </select>
+          </div>
+          <div>
+            <label>Unidade</label>
+            <input name="unidade" placeholder="Ex.: un, m, kg, rolo" value="un" />
+          </div>
+        </div>
 
-        <label>Unidade</label>
-        <input name="unidade" placeholder="Ex.: un, m, kg, rolo" value="un" />
-
-        <label>Stock inicial</label>
-        <input name="stockAtual" type="number" step="0.1" min="0" value="0" />
-
-        <label>Stock mínimo (alerta)</label>
-        <input name="stockMinimo" type="number" step="0.1" min="0" value="0" />
+        <div class="row2">
+          <div>
+            <label>Stock inicial</label>
+            <input name="stockAtual" type="number" step="0.1" min="0" value="0" />
+          </div>
+          <div>
+            <label>Stock mínimo (alerta)</label>
+            <input name="stockMinimo" type="number" step="0.1" min="0" value="0" />
+          </div>
+        </div>
 
         <label>Notas</label>
         <textarea name="notas" placeholder="Opcional"></textarea>
@@ -315,20 +384,30 @@
     <div class="card">
       <h2>Registar movimento de stock</h2>
       <form id="formMovimento">
-        <label>Material</label>
-        <select name="materialId" required></select>
+        <div class="row2">
+          <div>
+            <label>Material</label>
+            <select name="materialId" required></select>
+          </div>
+          <div>
+            <label>Tipo de movimento</label>
+            <select name="tipo" required>
+              <option value="Saída">Saída (consumo)</option>
+              <option value="Entrada">Entrada (reposição)</option>
+            </select>
+          </div>
+        </div>
 
-        <label>Tipo de movimento</label>
-        <select name="tipo" required>
-          <option value="Saída">Saída (consumo)</option>
-          <option value="Entrada">Entrada (reposição)</option>
-        </select>
-
-        <label>Operação</label>
-        <select name="operacao" required></select>
-
-        <label>Quantidade</label>
-        <input name="quantidade" type="number" step="0.1" min="0.1" required />
+        <div class="row2">
+          <div>
+            <label>Operação</label>
+            <select name="operacao" required></select>
+          </div>
+          <div>
+            <label>Quantidade</label>
+            <input name="quantidade" type="number" step="0.1" min="0.1" required />
+          </div>
+        </div>
 
         <label>Responsável</label>
         <select name="responsavel" required></select>
