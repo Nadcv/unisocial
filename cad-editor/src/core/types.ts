@@ -60,11 +60,31 @@ export type DxfEntity =
   | { kind: 'circle'; center: [number, number]; radius: number }
   | { kind: 'arc'; center: [number, number]; radius: number; startAngle: number; endAngle: number };
 
-/** A reference mesh imported from STL/OBJ/glTF/STEP/IGES, shown read-only alongside modules in 3D. */
-export interface ReferenceMesh {
+/**
+ * Metadata for a 3D asset (a whole imported STL/OBJ/glTF/STEP/IGES file, kept as one rigid
+ * group — e.g. a Danfoss valve assembly) saved in the persistent component library (IndexedDB,
+ * see core/componentLibrary.ts). The binary geometry itself lives in IndexedDB, not here.
+ */
+export interface LibraryComponentMeta {
   id: string;
   name: string;
   sourceFormat: string;
-  /** three.js BufferGeometry, kept as `unknown` here to avoid a hard dependency on three in the core model. */
-  geometry: unknown;
+  /** Local-space bounding box at import time, used to draw the 2D footprint without loading the mesh. */
+  width: number;
+  depth: number;
+  height: number;
+  addedAt: number;
+}
+
+/** A placed instance of a library component — positionable/movable, and light enough to be undoable. */
+export interface PlacedComponentDef {
+  id: string;
+  libraryId: string;
+  name: string;
+  position: Vec3;
+  rotationZ: number;
+  scale: number;
+  width: number;
+  depth: number;
+  height: number;
 }

@@ -1,5 +1,13 @@
 import type { CadDocument } from '../core/Document';
-import type { DimensionDef, ModuleDef, WallDef } from '../core/types';
+import type { DimensionDef, ModuleDef, PlacedComponentDef, WallDef } from '../core/types';
+
+/** Minimal shape shared by anything drawn as a rotated footprint rectangle (modules, components). */
+interface Footprint {
+  position: { x: number; y: number };
+  rotationZ: number;
+  width: number;
+  depth: number;
+}
 
 const HANDLE_SIZE = 8;
 const WALL_HIT_TOLERANCE = 6; // px
@@ -106,7 +114,10 @@ export class Canvas2D {
       let changed = false;
       if (this.doc.selectedIds.size > 0) {
         this.doc.checkpoint();
-        for (const id of [...this.doc.selectedIds]) this.doc.removeModule(id);
+        for (const id of [...this.doc.selectedIds]) {
+          if (this.doc.modules.has(id)) this.doc.removeModule(id);
+          else if (this.doc.placedComponents.has(id)) this.doc.removePlacedComponent(id);
+        }
         changed = true;
       }
       if (this.selectedWallId) {
@@ -152,12 +163,26 @@ export class Canvas2D {
     return [this.snap(wx), this.snap(wy)];
   }
 
+  private componentFootprint(inst: PlacedComponentDef): Footprint {
+    return { position: inst.position, rotationZ: inst.rotationZ, width: inst.width * inst.scale, depth: inst.depth * inst.scale };
+  }
+
   private moduleAt(wx: number, wy: number): ModuleDef | undefined {
     const list = [...this.doc.modules.values()];
     for (let i = list.length - 1; i >= 0; i--) {
       const m = list[i];
       const local = this.toLocal(m, wx, wy);
       if (local.x >= 0 && local.x <= m.width && local.y >= 0 && local.y <= m.depth) return m;
+    }
+    return undefined;
+  }
+
+  private componentAt(wx: number, wy: number): PlacedComponentDef | undefined {
+    const list = [...this.doc.placedComponents.values()];
+    for (let i = list.length - 1; i >= 0; i--) {
+      const inst = list[i];
+      const local = this.toLocal(this.componentFootprint(inst), wx, wy);
+      if (local.x >= 0 && local.x <= inst.width * inst.scale && local.y >= 0 && local.y <= inst.depth * inst.scale) return inst;
     }
     return undefined;
   }
@@ -172,19 +197,19 @@ export class Canvas2D {
     return undefined;
   }
 
-  private toLocal(m: ModuleDef, wx: number, wy: number): { x: number; y: number } {
-    const dx = wx - m.position.x;
-    const dy = wy - m.position.y;
-    const cos = Math.cos(-m.rotationZ);
-    const sin = Math.sin(-m.rotationZ);
+  private toLocal(f: Footprint, wx: number, wy: number): { x: number; y: number } {
+    const dx = wx - f.position.x;
+    const dy = wy - f.position.y;
+    const cos = Math.cos(-f.rotationZ);
+    const sin = Math.sin(-f.rotationZ);
     return { x: dx * cos - dy * sin, y: dx * sin + dy * cos };
   }
 
-  private resizeHandleScreen(m: ModuleDef): [number, number] {
-    const cos = Math.cos(m.rotationZ);
-    const sin = Math.sin(m.rotationZ);
-    const wx = m.position.x + m.width * cos - m.depth * sin;
-    const wy = m.position.y + m.width * sin + m.depth * cos;
+  private resizeHandleScreen(f: Footprint): [number, number] {
+    const cos = Math.cos(f.rotationZ);
+    const sin = Math.sin(f.rotationZ);
+    const wx = f.position.x + f.width * cos - f.depth * sin;
+    const wy = f.position.y + f.width * sin + f.depth * cos;
     return this.worldToScreen(wx, wy);
   }
 
@@ -219,7 +244,8 @@ export class Canvas2D {
 
     const [wx, wy] = [wxRaw, wyRaw];
 
-    // Check resize handle on the (single) selected module first.
+    // Check resize handle on the (single) selected module first (components resize via
+    // "Escala" in the properties panel or the 3D gizmo, not a 2D corner handle).
     if (this.doc.selectedIds.size === 1) {
       const id = [...this.doc.selectedIds][0];
       const m = this.doc.modules.get(id);
@@ -233,7 +259,7 @@ export class Canvas2D {
       }
     }
 
-    const hit = this.moduleAt(wx, wy);
+    const hit = this.moduleAt(wx, wy) ?? this.componentAt(wx, wy);
     if (hit) {
       this.selectedWallId = null;
       if (!this.doc.selectedIds.has(hit.id)) {
@@ -242,7 +268,7 @@ export class Canvas2D {
       this.doc.checkpoint();
       const origins = new Map<string, { x: number; y: number }>();
       for (const id of this.doc.selectedIds) {
-        const mod = this.doc.modules.get(id);
+        const mod = this.doc.modules.get(id) ?? this.doc.placedComponents.get(id);
         if (mod) origins.set(id, { x: mod.position.x, y: mod.position.y });
       }
       this.drag = { kind: 'move', startX: wx, startY: wy, origins };
@@ -284,8 +310,8 @@ export class Canvas2D {
       const dx = this.snap(wx - this.drag.startX);
       const dy = this.snap(wy - this.drag.startY);
       for (const [id, origin] of this.drag.origins) {
-        const mod = this.doc.modules.get(id);
-        if (mod) mod.position = { ...mod.position, x: this.snap(origin.x + dx), y: this.snap(origin.y + dy) };
+        const target = this.doc.modules.get(id) ?? this.doc.placedComponents.get(id);
+        if (target) target.position = { ...target.position, x: this.snap(origin.x + dx), y: this.snap(origin.y + dy) };
       }
       this.doc.events.emit('change', { reason: 'drag-move' });
       return;
@@ -330,6 +356,7 @@ export class Canvas2D {
     this.drawDxfEntities();
     for (const wall of this.doc.walls.values()) this.drawWall(wall);
     for (const mod of this.doc.modules.values()) this.drawModule(mod);
+    for (const inst of this.doc.placedComponents.values()) this.drawComponent(inst);
     for (const dim of this.doc.dimensions.values()) this.drawDimension(dim);
     this.drawPendingTool();
   }
@@ -425,6 +452,31 @@ export class Canvas2D {
       ctx.arc(pw, 0, HANDLE_SIZE / 2, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
+  }
+
+  private drawComponent(inst: PlacedComponentDef): void {
+    const ctx = this.ctx;
+    const [x, y] = this.worldToScreen(inst.position.x, inst.position.y);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-inst.rotationZ);
+
+    const pw = inst.width * inst.scale * this.scale;
+    const pd = inst.depth * inst.scale * this.scale;
+    const selected = this.doc.selectedIds.has(inst.id);
+
+    ctx.fillStyle = '#c060ff33';
+    ctx.fillRect(0, -pd, pw, pd);
+    ctx.strokeStyle = selected ? '#ffd25b' : '#c060ff';
+    ctx.lineWidth = selected ? 2.5 : 1.5;
+    ctx.setLineDash([5, 3]);
+    ctx.strokeRect(0, -pd, pw, pd);
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#e8e8f0';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(inst.name, 4, -pd + 14);
     ctx.restore();
   }
 

@@ -3,11 +3,15 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import type { CadDocument } from '../core/Document';
 import type { ModuleDef } from '../core/types';
+import { loadLibraryComponentGroup } from '../io/mesh';
+
+type SelectableKind = 'module' | 'component';
 
 /**
- * 3D editor built on three.js. Each ModuleDef is rendered as a box mesh kept in sync with the
- * document; dragging a mesh with TransformControls writes the new position/rotation/scale back
- * into the document so the 2D view updates too.
+ * 3D editor built on three.js. Each ModuleDef is rendered as a box mesh, and each
+ * PlacedComponentDef as a loaded/cloned group from the component library — both kept in sync
+ * with the document; dragging one with TransformControls writes position/rotation/scale back
+ * into the document so the 2D view (and, for components, the footprint rectangle) updates too.
  */
 export class Scene3D {
   private renderer: THREE.WebGLRenderer;
@@ -18,7 +22,9 @@ export class Scene3D {
   private doc: CadDocument;
   private meshes = new Map<string, THREE.Mesh>();
   private wallMeshes = new Map<string, THREE.Mesh>();
-  private referenceGroup = new THREE.Group();
+  private componentGroups = new Map<string, THREE.Object3D>();
+  private componentTemplates = new Map<string, THREE.Object3D>();
+  private componentLoading = new Set<string>();
   private raycaster = new THREE.Raycaster();
   private container: HTMLElement;
   private resizeObserver: ResizeObserver;
@@ -38,7 +44,6 @@ export class Scene3D {
     dir.position.set(5, 10, 7);
     this.scene.add(dir);
     this.scene.add(new THREE.GridHelper(40, 40, 0x454552, 0x2c2c34));
-    this.scene.add(this.referenceGroup);
 
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.05, 1000);
     this.camera.position.set(6, 6, 8);
@@ -93,6 +98,17 @@ export class Scene3D {
     this.renderer.setSize(w, h);
   }
 
+  /** Walks up from a raycast hit to the top-level object that carries selection userData. */
+  private findSelectable(obj: THREE.Object3D | null): { id: string; kind: SelectableKind; object: THREE.Object3D } | undefined {
+    let cur: THREE.Object3D | null = obj;
+    while (cur) {
+      if (cur.userData.moduleId) return { id: cur.userData.moduleId as string, kind: 'module', object: cur };
+      if (cur.userData.componentInstanceId) return { id: cur.userData.componentInstanceId as string, kind: 'component', object: cur };
+      cur = cur.parent;
+    }
+    return undefined;
+  }
+
   private onClick = (ev: MouseEvent): void => {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(
@@ -100,30 +116,38 @@ export class Scene3D {
       -((ev.clientY - rect.top) / rect.height) * 2 + 1,
     );
     this.raycaster.setFromCamera(ndc, this.camera);
-    const hits = this.raycaster.intersectObjects([...this.meshes.values()]);
+    const targets = [...this.meshes.values(), ...this.componentGroups.values()];
+    const hits = this.raycaster.intersectObjects(targets, true);
     if (hits.length > 0) {
-      const mesh = hits[0].object as THREE.Mesh;
-      const id = mesh.userData.moduleId as string;
-      this.doc.setSelection([id]);
+      const found = this.findSelectable(hits[0].object);
+      if (found) this.doc.setSelection([found.id]);
     } else if (!this.transform.dragging) {
       this.doc.setSelection([]);
     }
   };
 
   private writeBackTransform(): void {
-    const obj = this.transform.object as THREE.Mesh | undefined;
+    const obj = this.transform.object;
     if (!obj) return;
-    const id = obj.userData.moduleId as string;
-    const mod = this.doc.modules.get(id);
-    if (!mod) return;
-    mod.position = { x: obj.position.x, y: obj.position.z, z: obj.position.y };
-    mod.rotationZ = -obj.rotation.y;
-    mod.width = Math.max(0.05, obj.scale.x * mod.width);
-    mod.depth = Math.max(0.05, obj.scale.z * mod.depth);
-    mod.height = Math.max(0.05, obj.scale.y * mod.height);
-    obj.scale.set(1, 1, 1);
-    this.rebuildGeometry(mod, obj);
-    this.doc.events.emit('change', { reason: 'transform3d' });
+    if (obj.userData.moduleId) {
+      const mod = this.doc.modules.get(obj.userData.moduleId as string);
+      if (!mod) return;
+      mod.position = { x: obj.position.x, y: obj.position.z, z: obj.position.y };
+      mod.rotationZ = -obj.rotation.y;
+      mod.width = Math.max(0.05, obj.scale.x * mod.width);
+      mod.depth = Math.max(0.05, obj.scale.z * mod.depth);
+      mod.height = Math.max(0.05, obj.scale.y * mod.height);
+      obj.scale.set(1, 1, 1);
+      this.rebuildGeometry(mod, obj as THREE.Mesh);
+      this.doc.events.emit('change', { reason: 'transform3d' });
+    } else if (obj.userData.componentInstanceId) {
+      const inst = this.doc.placedComponents.get(obj.userData.componentInstanceId as string);
+      if (!inst) return;
+      inst.position = { x: obj.position.x, y: obj.position.z, z: obj.position.y };
+      inst.rotationZ = -obj.rotation.y;
+      inst.scale = (obj.scale.x + obj.scale.y + obj.scale.z) / 3;
+      this.doc.events.emit('change', { reason: 'transform3d' });
+    }
   }
 
   private rebuildGeometry(mod: ModuleDef, mesh: THREE.Mesh): void {
@@ -171,7 +195,7 @@ export class Scene3D {
       }
     }
     this.syncWalls();
-    this.syncReferenceMeshes();
+    this.syncPlacedComponents();
   }
 
   private syncWalls(): void {
@@ -214,25 +238,80 @@ export class Scene3D {
     }
   }
 
-  private syncReferenceMeshes(): void {
-    const existingIds = new Set([...this.referenceGroup.children].map((c) => c.userData.refId as string));
-    for (const ref of this.doc.referenceMeshes) {
-      if (existingIds.has(ref.id)) continue;
-      const geometry = ref.geometry as THREE.BufferGeometry;
-      const material = new THREE.MeshStandardMaterial({ color: 0x8899aa, metalness: 0.1, roughness: 0.8 });
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.userData.refId = ref.id;
-      this.referenceGroup.add(mesh);
+  private async getOrLoadTemplate(libraryId: string): Promise<THREE.Object3D | undefined> {
+    const cached = this.componentTemplates.get(libraryId);
+    if (cached) return cached;
+    const group = await loadLibraryComponentGroup(libraryId);
+    this.componentTemplates.set(libraryId, group);
+    return group;
+  }
+
+  private syncPlacedComponents(): void {
+    const seen = new Set<string>();
+    for (const inst of this.doc.placedComponents.values()) {
+      seen.add(inst.id);
+      const existing = this.componentGroups.get(inst.id);
+      if (existing) {
+        existing.position.set(inst.position.x, inst.position.z, inst.position.y);
+        existing.rotation.set(0, -inst.rotationZ, 0);
+        existing.scale.setScalar(inst.scale);
+        continue;
+      }
+      if (this.componentLoading.has(inst.id)) continue;
+      this.componentLoading.add(inst.id);
+      this.getOrLoadTemplate(inst.libraryId)
+        .then((template) => {
+          this.componentLoading.delete(inst.id);
+          // The instance (or the whole document) may have changed/been removed while loading.
+          if (!template || !this.doc.placedComponents.has(inst.id) || this.componentGroups.has(inst.id)) return;
+          const clone = template.clone(true);
+          // Object3D.clone() shares materials by reference — clone them too so that selection
+          // highlighting (emissive) on one instance doesn't bleed into every other instance of
+          // the same library component.
+          clone.traverse((child) => {
+            const mesh = child as THREE.Mesh;
+            if (!mesh.isMesh) return;
+            mesh.material = Array.isArray(mesh.material) ? mesh.material.map((m) => m.clone()) : mesh.material.clone();
+          });
+          clone.userData.componentInstanceId = inst.id;
+          clone.position.set(inst.position.x, inst.position.z, inst.position.y);
+          clone.rotation.set(0, -inst.rotationZ, 0);
+          clone.scale.setScalar(inst.scale);
+          this.scene.add(clone);
+          this.componentGroups.set(inst.id, clone);
+        })
+        .catch(() => {
+          this.componentLoading.delete(inst.id);
+          // Component missing from the library (e.g. deleted) — nothing to show for this instance.
+        });
+    }
+    for (const [id, group] of this.componentGroups) {
+      if (!seen.has(id)) {
+        if (this.transform.object === group) this.transform.detach();
+        this.scene.remove(group);
+        // Only dispose materials here: geometries are shared with the cached template (and
+        // potentially other instances), so disposing them would break everything else using it.
+        group.traverse((child) => {
+          const mesh = child as THREE.Mesh;
+          const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+          if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
+          else mat?.dispose();
+        });
+        this.componentGroups.delete(id);
+      }
     }
   }
 
   private applySelection(): void {
     const [id] = [...this.doc.selectedIds];
-    const mesh = id ? this.meshes.get(id) : undefined;
     for (const [mid, m] of this.meshes) {
       (m.material as THREE.MeshStandardMaterial).emissive.set(mid === id ? 0x554400 : 0x000000);
     }
-    if (mesh) this.transform.attach(mesh);
+    for (const [cid, group] of this.componentGroups) {
+      setEmissiveRecursive(group, cid === id ? 0x554400 : 0x000000);
+    }
+    const target = (id && this.meshes.get(id)) || (id && this.componentGroups.get(id));
+    if (target) this.transform.attach(target);
     else this.transform.detach();
   }
 
@@ -242,3 +321,12 @@ export class Scene3D {
     this.renderer.render(this.scene, this.camera);
   };
 }
+
+function setEmissiveRecursive(object: THREE.Object3D, hex: number): void {
+  object.traverse((child) => {
+    const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[] | undefined;
+    if (!mat) return;
+    for (const m of Array.isArray(mat) ? mat : [mat]) m.emissive?.set(hex);
+  });
+}
+

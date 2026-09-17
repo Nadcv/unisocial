@@ -1,5 +1,5 @@
 import { Emitter } from './events';
-import type { DimensionDef, DxfEntity, MasterModuleDef, ModuleDef, ReferenceMesh, WallDef } from './types';
+import type { DimensionDef, DxfEntity, MasterModuleDef, ModuleDef, PlacedComponentDef, WallDef } from './types';
 
 let idCounter = 0;
 export function nextId(prefix: string): string {
@@ -19,6 +19,7 @@ interface SerializedDoc {
   masters: MasterModuleDef[];
   walls: WallDef[];
   dimensions: DimensionDef[];
+  placedComponents: PlacedComponentDef[];
 }
 
 const HISTORY_LIMIT = 100;
@@ -40,8 +41,8 @@ export class CadDocument {
   masters = new Map<string, MasterModuleDef>();
   walls = new Map<string, WallDef>();
   dimensions = new Map<string, DimensionDef>();
+  placedComponents = new Map<string, PlacedComponentDef>();
   dxfEntities: DxfEntity[] = [];
-  referenceMeshes: ReferenceMesh[] = [];
 
   selectedIds = new Set<string>();
 
@@ -219,6 +220,28 @@ export class CadDocument {
     this.notify('removeDimension');
   }
 
+  // --- Placed components (instances of the persistent 3D component library) ---------
+
+  addPlacedComponent(partial: Omit<PlacedComponentDef, 'id'> & { id?: string }): PlacedComponentDef {
+    const inst: PlacedComponentDef = { id: partial.id ?? nextId('comp'), ...partial };
+    this.placedComponents.set(inst.id, inst);
+    this.notify('addPlacedComponent');
+    return inst;
+  }
+
+  updatePlacedComponent(id: string, patch: Partial<Omit<PlacedComponentDef, 'id'>>): void {
+    const inst = this.placedComponents.get(id);
+    if (!inst) return;
+    Object.assign(inst, patch);
+    this.notify('updatePlacedComponent');
+  }
+
+  removePlacedComponent(id: string): void {
+    this.placedComponents.delete(id);
+    this.selectedIds.delete(id);
+    this.notify('removePlacedComponent');
+  }
+
   // --- Selection -------------------------------------------------------
 
   setSelection(ids: string[]): void {
@@ -233,18 +256,13 @@ export class CadDocument {
     this.notify('setDxfEntities');
   }
 
-  addReferenceMesh(mesh: ReferenceMesh): void {
-    this.referenceMeshes.push(mesh);
-    this.notify('addReferenceMesh');
-  }
-
   clear(): void {
     this.modules.clear();
     this.masters.clear();
     this.walls.clear();
     this.dimensions.clear();
+    this.placedComponents.clear();
     this.dxfEntities = [];
-    this.referenceMeshes = [];
     this.selectedIds.clear();
     this.notify('clear');
   }
@@ -255,6 +273,7 @@ export class CadDocument {
       masters: [...this.masters.values()],
       walls: [...this.walls.values()],
       dimensions: [...this.dimensions.values()],
+      placedComponents: [...this.placedComponents.values()],
     };
     return JSON.stringify(data);
   }
@@ -266,6 +285,7 @@ export class CadDocument {
       masters: [...this.masters.values()],
       walls: [...this.walls.values()],
       dimensions: [...this.dimensions.values()],
+      placedComponents: [...this.placedComponents.values()],
     };
     return JSON.stringify(data, null, 2);
   }
@@ -276,6 +296,7 @@ export class CadDocument {
     this.masters = new Map((data.masters ?? []).map((m) => [m.id, m]));
     this.walls = new Map((data.walls ?? []).map((w) => [w.id, w]));
     this.dimensions = new Map((data.dimensions ?? []).map((d) => [d.id, d]));
+    this.placedComponents = new Map((data.placedComponents ?? []).map((c) => [c.id, c]));
     this.selectedIds.clear();
     this.notify('loadJSON');
     this.events.emit('selectionChange', { selectedIds: [] });

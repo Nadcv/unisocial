@@ -6,11 +6,11 @@ import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js';
 import { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import type { CadDocument } from '../core/Document';
-import { nextId } from '../core/Document';
+import { loadComponentGlb } from '../core/componentLibrary';
 
 export type MeshFormat = 'stl' | 'obj' | 'gltf' | 'glb';
 
-function formatFromFilename(name: string): MeshFormat | undefined {
+export function formatFromFilename(name: string): MeshFormat | undefined {
   const ext = name.split('.').pop()?.toLowerCase();
   if (ext === 'stl') return 'stl';
   if (ext === 'obj') return 'obj';
@@ -19,8 +19,12 @@ function formatFromFilename(name: string): MeshFormat | undefined {
   return undefined;
 }
 
-/** Imports an STL/OBJ/glTF/GLB file (as raw bytes+name) into the document as a reference mesh. */
-export async function importMeshFile(doc: CadDocument, file: File): Promise<void> {
+/**
+ * Parses an STL/OBJ/glTF/GLB file into a single three.js object, preserving whatever multi-part
+ * structure the file already had (e.g. a multi-body glTF assembly stays one group with several
+ * meshes/materials, instead of being flattened into unrelated pieces).
+ */
+export async function loadMeshGroup(file: File): Promise<THREE.Object3D> {
   const format = formatFromFilename(file.name);
   if (!format) throw new Error(`Formato não suportado: ${file.name}`);
 
@@ -28,15 +32,12 @@ export async function importMeshFile(doc: CadDocument, file: File): Promise<void
     const buffer = await file.arrayBuffer();
     const geometry = new STLLoader().parse(buffer);
     geometry.computeVertexNormals();
-    doc.addReferenceMesh({ id: nextId('ref'), name: file.name, sourceFormat: format, geometry });
-    return;
+    return new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: 0x8899aa, metalness: 0.1, roughness: 0.8 }));
   }
 
   if (format === 'obj') {
     const text = await file.text();
-    const group = new OBJLoader().parse(text);
-    mergeGroupAsReference(doc, group, file.name, format);
-    return;
+    return new OBJLoader().parse(text);
   }
 
   // gltf / glb
@@ -45,23 +46,20 @@ export async function importMeshFile(doc: CadDocument, file: File): Promise<void
   const gltf = await new Promise<{ scene: THREE.Group }>((resolve, reject) => {
     loader.parse(buffer, '', (result) => resolve(result), (err) => reject(err));
   });
-  mergeGroupAsReference(doc, gltf.scene, file.name, format);
+  return gltf.scene;
 }
 
-function mergeGroupAsReference(doc: CadDocument, group: THREE.Object3D, name: string, format: MeshFormat): void {
-  let idx = 0;
-  group.traverse((child) => {
-    if ((child as THREE.Mesh).isMesh) {
-      const mesh = child as THREE.Mesh;
-      const geometry = mesh.geometry.clone();
-      geometry.applyMatrix4(mesh.matrixWorld);
-      idx += 1;
-      doc.addReferenceMesh({ id: nextId('ref'), name: `${name} #${idx}`, sourceFormat: format, geometry });
-    }
+/** Loads a previously-imported component back from the persistent library, by its library id. */
+export async function loadLibraryComponentGroup(libraryId: string): Promise<THREE.Object3D> {
+  const glb = await loadComponentGlb(libraryId);
+  const loader = new GLTFLoader();
+  const gltf = await new Promise<{ scene: THREE.Group }>((resolve, reject) => {
+    loader.parse(glb, '', (result) => resolve(result), (err) => reject(err));
   });
+  return gltf.scene;
 }
 
-function buildExportGroup(doc: CadDocument): THREE.Group {
+async function buildExportGroup(doc: CadDocument): Promise<THREE.Group> {
   const group = new THREE.Group();
   for (const m of doc.modules.values()) {
     const geometry = new THREE.BoxGeometry(m.width, m.height, m.depth);
@@ -83,20 +81,33 @@ function buildExportGroup(doc: CadDocument): THREE.Group {
     mesh.name = 'Parede';
     group.add(mesh);
   }
+  for (const inst of doc.placedComponents.values()) {
+    try {
+      const obj = await loadLibraryComponentGroup(inst.libraryId);
+      obj.position.set(inst.position.x, inst.position.z, inst.position.y);
+      obj.rotation.set(0, -inst.rotationZ, 0);
+      obj.scale.setScalar(inst.scale);
+      obj.name = inst.name;
+      group.add(obj);
+    } catch {
+      // component removed from the library since it was placed — skip it rather than fail the export
+    }
+  }
   return group;
 }
 
-export function exportToStl(doc: CadDocument): string {
-  return new STLExporter().parse(buildExportGroup(doc));
+export async function exportToStl(doc: CadDocument): Promise<string> {
+  return new STLExporter().parse(await buildExportGroup(doc));
 }
 
-export function exportToObj(doc: CadDocument): string {
-  return new OBJExporter().parse(buildExportGroup(doc));
+export async function exportToObj(doc: CadDocument): Promise<string> {
+  return new OBJExporter().parse(await buildExportGroup(doc));
 }
 
 export async function exportToGltf(doc: CadDocument): Promise<ArrayBuffer | object> {
   const exporter = new GLTFExporter();
+  const group = await buildExportGroup(doc);
   return new Promise((resolve, reject) => {
-    exporter.parse(buildExportGroup(doc), (result) => resolve(result), (err) => reject(err), { binary: false });
+    exporter.parse(group, (result) => resolve(result), (err) => reject(err), { binary: false });
   });
 }

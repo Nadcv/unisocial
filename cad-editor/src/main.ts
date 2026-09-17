@@ -6,6 +6,7 @@ import { Toolbar } from './ui/Toolbar';
 import { ModuleList } from './ui/ModuleList';
 import { PropertiesPanel } from './ui/PropertiesPanel';
 import { PresetLibrary } from './ui/PresetLibrary';
+import { ComponentLibraryPanel } from './ui/ComponentLibraryPanel';
 
 const STORAGE_KEY = 'cad-modular-project-v1';
 
@@ -54,8 +55,9 @@ const canvas2d = new Canvas2D(pane2d, doc);
 const scene3D = new Scene3D(pane3d, doc);
 new PresetLibrary(leftPanelHost, doc);
 new ModuleList(leftPanelHost, doc);
+const componentLibrary = new ComponentLibraryPanel(leftPanelHost, doc);
 new PropertiesPanel(rightPanelHost, doc);
-new Toolbar(toolbarHost, doc, scene3D, canvas2d, footer);
+new Toolbar(toolbarHost, doc, scene3D, canvas2d, componentLibrary, footer);
 
 function seedExample(): void {
   const master = doc.defineMaster({ name: 'Armário base 60', width: 0.6, depth: 0.6, height: 0.75, color: '#5b8cff' });
@@ -88,8 +90,9 @@ try {
 if (!restored) seedExample();
 doc.resetHistory();
 
-// Debounced autosave: persists modules/masters/walls/dimensions (not imported reference
-// geometry, which isn't JSON-serializable) so a reload picks up where you left off.
+// Debounced autosave: persists modules/masters/walls/dimensions/placed components (the last one
+// is just a lightweight {libraryId, position, rotation, scale} reference — the actual 3D geometry
+// lives in the separate IndexedDB component library, not here) so a reload picks up where you left off.
 let autosaveTimer: number | undefined;
 doc.events.on('change', () => {
   window.clearTimeout(autosaveTimer);

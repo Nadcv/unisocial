@@ -1,4 +1,5 @@
 import type { CadDocument } from '../core/Document';
+import type { ModuleDef, PlacedComponentDef } from '../core/types';
 
 /** Right-hand panel: shows and edits the numeric fields of the currently selected module(s). */
 export class PropertiesPanel {
@@ -49,8 +50,74 @@ export class PropertiesPanel {
     }
 
     const mod = this.doc.modules.get(ids[0]);
-    if (!mod) return;
+    if (mod) {
+      this.renderModule(mod);
+      return;
+    }
+    const component = this.doc.placedComponents.get(ids[0]);
+    if (component) this.renderComponent(component);
+  }
 
+  private renderComponent(inst: PlacedComponentDef): void {
+    const nameRow = document.createElement('label');
+    nameRow.className = 'field-row';
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = 'Nome';
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.value = inst.name;
+    nameInput.addEventListener('change', () => {
+      this.doc.checkpoint();
+      this.doc.updatePlacedComponent(inst.id, { name: nameInput.value });
+    });
+    nameRow.append(nameSpan, nameInput);
+    this.root.appendChild(nameRow);
+
+    this.root.appendChild(
+      this.field('Posição X (m)', inst.position.x, 0.01, (v) => this.doc.updatePlacedComponent(inst.id, { position: { ...inst.position, x: v } })),
+    );
+    this.root.appendChild(
+      this.field('Posição Y (m)', inst.position.y, 0.01, (v) => this.doc.updatePlacedComponent(inst.id, { position: { ...inst.position, y: v } })),
+    );
+    this.root.appendChild(
+      this.field('Posição Z (m)', inst.position.z, 0.01, (v) => this.doc.updatePlacedComponent(inst.id, { position: { ...inst.position, z: v } })),
+    );
+    this.root.appendChild(
+      this.field('Rotação (graus)', (inst.rotationZ * 180) / Math.PI, 1, (v) =>
+        this.doc.updatePlacedComponent(inst.id, { rotationZ: (v * Math.PI) / 180 }),
+      ),
+    );
+    this.root.appendChild(this.field('Escala', inst.scale, 0.05, (v) => this.doc.updatePlacedComponent(inst.id, { scale: Math.max(0.01, v) })));
+
+    const dims = document.createElement('p');
+    dims.className = 'hint';
+    dims.textContent = `Tamanho original: ${inst.width.toFixed(2)}×${inst.depth.toFixed(2)}×${inst.height.toFixed(2)}m (antes da escala)`;
+    this.root.appendChild(dims);
+
+    const actions = document.createElement('div');
+    actions.className = 'panel-actions';
+
+    const dupBtn = document.createElement('button');
+    dupBtn.textContent = 'Duplicar';
+    dupBtn.addEventListener('click', () => {
+      this.doc.checkpoint();
+      const copy = this.doc.addPlacedComponent({ ...inst, id: undefined as unknown as string, position: { ...inst.position, x: inst.position.x + inst.width * inst.scale } });
+      this.doc.setSelection([copy.id]);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.textContent = 'Remover';
+    delBtn.className = 'danger';
+    delBtn.addEventListener('click', () => {
+      this.doc.checkpoint();
+      this.doc.removePlacedComponent(inst.id);
+    });
+
+    actions.append(dupBtn, delBtn);
+    this.root.appendChild(actions);
+  }
+
+  private renderModule(mod: ModuleDef): void {
     const nameRow = document.createElement('label');
     nameRow.className = 'field-row';
     const nameSpan = document.createElement('span');

@@ -96,6 +96,22 @@ export function exportDocumentToDxf(doc: CadDocument): string {
     d.drawText(fx + nx + dx / 2, fy + ny + dy / 2, 0.1, 0, `${len.toFixed(2)}m`);
   }
 
+  d.addLayer('components', Drawing.ACI.MAGENTA, 'CONTINUOUS').setActiveLayer('components');
+  for (const inst of doc.placedComponents.values()) {
+    const cos = Math.cos(inst.rotationZ);
+    const sin = Math.sin(inst.rotationZ);
+    const w = inst.width * inst.scale;
+    const dp = inst.depth * inst.scale;
+    const corners: [number, number][] = [
+      [0, 0],
+      [w, 0],
+      [w, dp],
+      [0, dp],
+    ].map(([lx, ly]) => [inst.position.x + lx * cos - ly * sin, inst.position.y + lx * sin + ly * cos]);
+    d.drawPolyline([...corners, corners[0]]);
+    d.drawText(inst.position.x, inst.position.y, 0.08, (inst.rotationZ * 180) / Math.PI, inst.name);
+  }
+
   d.addLayer('reference', Drawing.ACI.BLUE, 'CONTINUOUS').setActiveLayer('reference');
   for (const e of doc.dxfEntities) {
     if (e.kind === 'line') d.drawLine(e.from[0], e.from[1], e.to[0], e.to[1]);

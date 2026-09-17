@@ -1,6 +1,4 @@
 import * as THREE from 'three';
-import type { CadDocument } from '../core/Document';
-import { nextId } from '../core/Document';
 
 /**
  * STEP/IGES import via opencascade.js (a WebAssembly port of the OpenCascade CAD kernel).
@@ -87,7 +85,12 @@ function shapeToGeometry(oc: OC, shape: OC): THREE.BufferGeometry {
   return geometry;
 }
 
-export async function importStepOrIgesFile(doc: CadDocument, file: File): Promise<void> {
+/**
+ * Reads a STEP/IGES file and tessellates it into a single triangle mesh geometry. The caller
+ * (io/component.ts) is responsible for turning that into a document entity — this module only
+ * knows how to talk to the OpenCascade kernel.
+ */
+export async function loadStepOrIgesGeometry(file: File): Promise<THREE.BufferGeometry> {
   let oc: OC;
   try {
     oc = await getOC();
@@ -111,12 +114,7 @@ export async function importStepOrIgesFile(doc: CadDocument, file: File): Promis
     const shape = reader.OneShape();
     const geometry = shapeToGeometry(oc, shape);
     geometry.computeBoundingBox();
-    doc.addReferenceMesh({
-      id: nextId('ref'),
-      name: file.name,
-      sourceFormat: isIges(file.name) ? 'iges' : 'step',
-      geometry,
-    });
+    return geometry;
   } finally {
     try {
       oc.FS.unlink(virtualPath);

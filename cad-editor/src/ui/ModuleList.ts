@@ -65,5 +65,24 @@ export class ModuleList {
       row.addEventListener('click', () => this.doc.setSelection([mod.id]));
       this.root.appendChild(row);
     }
+
+    if (this.doc.placedComponents.size > 0) {
+      const componentsTitle = document.createElement('h3');
+      componentsTitle.textContent = `Componentes 3D no desenho (${this.doc.placedComponents.size})`;
+      this.root.appendChild(componentsTitle);
+
+      for (const inst of this.doc.placedComponents.values()) {
+        const row = document.createElement('div');
+        row.className = 'list-row' + (this.doc.selectedIds.has(inst.id) ? ' selected' : '');
+        const swatch = document.createElement('span');
+        swatch.className = 'swatch';
+        swatch.style.background = '#c060ff';
+        const label = document.createElement('span');
+        label.textContent = inst.name;
+        row.append(swatch, label);
+        row.addEventListener('click', () => this.doc.setSelection([inst.id]));
+        this.root.appendChild(row);
+      }
+    }
   }
 }

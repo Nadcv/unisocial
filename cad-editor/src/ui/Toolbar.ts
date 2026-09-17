@@ -1,10 +1,10 @@
 import type { CadDocument } from '../core/Document';
 import type { Scene3D } from '../view3d/Scene3D';
 import type { Canvas2D, ToolMode } from '../view2d/Canvas2D';
+import type { ComponentLibraryPanel } from './ComponentLibraryPanel';
 import { importDxfIntoDocument, exportDocumentToDxf } from '../io/dxf';
-import { importMeshFile, exportToStl, exportToObj, exportToGltf } from '../io/mesh';
-import { importStepOrIgesFile } from '../io/step';
-import { isDwgFile, UnsupportedDwgError } from '../io/dwg';
+import { exportToStl, exportToObj, exportToGltf } from '../io/mesh';
+import { importFileAsComponent } from '../io/component';
 
 function download(filename: string, content: string | ArrayBuffer | object): void {
   const blob =
@@ -24,7 +24,14 @@ function download(filename: string, content: string | ArrayBuffer | object): voi
 let moduleCounter = 0;
 
 export class Toolbar {
-  constructor(container: HTMLElement, doc: CadDocument, scene3D: Scene3D, canvas2d: Canvas2D, statusEl: HTMLElement) {
+  constructor(
+    container: HTMLElement,
+    doc: CadDocument,
+    scene3D: Scene3D,
+    canvas2d: Canvas2D,
+    componentLibrary: ComponentLibraryPanel,
+    statusEl: HTMLElement,
+  ) {
     const root = document.createElement('div');
     root.className = 'toolbar';
 
@@ -103,38 +110,55 @@ export class Toolbar {
     snapLabel.append(snapCheckbox, document.createTextNode(' Ajustar à grade (5cm / 15°)'));
     root.appendChild(snapLabel);
 
-    // --- Import ---
-    const importInput = document.createElement('input');
-    importInput.type = 'file';
-    importInput.accept = '.dxf,.stl,.obj,.gltf,.glb,.step,.stp,.igs,.iges,.dwg';
-    importInput.style.display = 'none';
-    importInput.addEventListener('change', async () => {
-      const file = importInput.files?.[0];
-      importInput.value = '';
+    // --- Import DXF (2D reference geometry) ---
+    const importDxfInput = document.createElement('input');
+    importDxfInput.type = 'file';
+    importDxfInput.accept = '.dxf';
+    importDxfInput.style.display = 'none';
+    importDxfInput.addEventListener('change', async () => {
+      const file = importDxfInput.files?.[0];
+      importDxfInput.value = '';
       if (!file) return;
       try {
         setStatus(`Importando ${file.name}...`);
-        const lower = file.name.toLowerCase();
-        if (isDwgFile(file.name)) {
-          throw new UnsupportedDwgError();
-        } else if (lower.endsWith('.dxf')) {
-          importDxfIntoDocument(doc, await file.text());
-        } else if (lower.endsWith('.step') || lower.endsWith('.stp') || lower.endsWith('.igs') || lower.endsWith('.iges')) {
-          await importStepOrIgesFile(doc, file);
-        } else {
-          await importMeshFile(doc, file);
-        }
+        importDxfIntoDocument(doc, await file.text());
         setStatus(`Importado: ${file.name}`);
       } catch (err) {
         setStatus((err as Error).message, true);
       }
     });
-    root.appendChild(importInput);
+    root.appendChild(importDxfInput);
 
-    const importBtn = document.createElement('button');
-    importBtn.textContent = 'Importar CAD...';
-    importBtn.addEventListener('click', () => importInput.click());
-    root.appendChild(importBtn);
+    const importDxfBtn = document.createElement('button');
+    importDxfBtn.textContent = 'Importar DXF (2D)...';
+    importDxfBtn.addEventListener('click', () => importDxfInput.click());
+    root.appendChild(importDxfBtn);
+
+    // --- Import 3D component (STL/OBJ/glTF/STEP/IGES → saved to the reusable library) ---
+    const importComponentInput = document.createElement('input');
+    importComponentInput.type = 'file';
+    importComponentInput.accept = '.stl,.obj,.gltf,.glb,.step,.stp,.igs,.iges,.dwg';
+    importComponentInput.style.display = 'none';
+    importComponentInput.addEventListener('change', async () => {
+      const file = importComponentInput.files?.[0];
+      importComponentInput.value = '';
+      if (!file) return;
+      try {
+        setStatus(`Importando ${file.name} (pode levar um instante para peças STEP/IGES)...`);
+        await importFileAsComponent(doc, file);
+        await componentLibrary.refresh();
+        setStatus(`Componente adicionado à biblioteca e colocado no projeto: ${file.name}`);
+      } catch (err) {
+        setStatus((err as Error).message, true);
+      }
+    });
+    root.appendChild(importComponentInput);
+
+    const importComponentBtn = document.createElement('button');
+    importComponentBtn.textContent = 'Importar componente 3D...';
+    importComponentBtn.title = 'STL, OBJ, glTF/GLB, STEP, IGES — salvo na biblioteca de componentes e colocado como um grupo único';
+    importComponentBtn.addEventListener('click', () => importComponentInput.click());
+    root.appendChild(importComponentBtn);
 
     // --- Open project (.json) ---
     const openInput = document.createElement('input');
@@ -189,8 +213,8 @@ export class Toolbar {
       try {
         const format = exportSelect.value;
         if (format === 'dxf') download('desenho.dxf', exportDocumentToDxf(doc));
-        else if (format === 'stl') download('modelo.stl', exportToStl(doc));
-        else if (format === 'obj') download('modelo.obj', exportToObj(doc));
+        else if (format === 'stl') download('modelo.stl', await exportToStl(doc));
+        else if (format === 'obj') download('modelo.obj', await exportToObj(doc));
         else if (format === 'gltf') download('modelo.gltf', await exportToGltf(doc));
         else download('projeto.json', doc.toJSON());
         setStatus(`Exportado como ${format.toUpperCase()}`);
