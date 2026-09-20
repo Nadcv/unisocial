@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>UniAds Studio — Cartões de Visita e Publicidade</title>
+<meta name="description" content="Crie cartões de visita e artes publicitárias profissionais para qualquer segmento: companhias aéreas, casamentos, restaurantes, imobiliárias e muito mais." />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== HEADER ===== -->
+  <header class="site-header">
+    <div class="brand">
+      <span class="brand-mark">Uni<b>Ads</b></span>
+      <span class="brand-sub">Studio</span>
+    </div>
+    <nav class="site-nav">
+      <a href="#categorias" data-nav>Segmentos</a>
+      <a href="#editor" data-nav>Editor</a>
+      <a href="#projetos" data-nav>Meus Projetos</a>
+      <a href="#ajuda" data-nav>Como Funciona</a>
+    </nav>
+    <button id="new-project-btn" class="btn btn-primary">+ Novo Projeto</button>
+  </header>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="hero-text">
+      <span class="eyebrow">Publicidade &amp; Identidade Visual</span>
+      <h1>Cartões de visita e artes publicitárias para <span class="hl">qualquer negócio</span></h1>
+      <p>Monte cartões de visita, posts, stories e flyers prontos para imprimir ou publicar — com templates
+        desenhados para companhias aéreas, casamentos, restaurantes, imobiliárias, saúde, moda, eventos e muito mais.</p>
+      <div class="hero-actions">
+        <a href="#categorias" class="btn btn-primary btn-lg">Ver Segmentos</a>
+        <a href="#editor" class="btn btn-ghost btn-lg">Abrir Editor</a>
+      </div>
+      <div class="hero-stats">
+        <div><strong id="stat-templates">0</strong><span>modelos</span></div>
+        <div><strong id="stat-categories">0</strong><span>segmentos</span></div>
+        <div><strong id="stat-formats">0</strong><span>formatos</span></div>
+      </div>
+    </div>
+    <div class="hero-preview" id="hero-preview" aria-hidden="true"></div>
+  </section>
+
+  <!-- ===== CATEGORIES ===== -->
+  <section id="categorias" class="section">
+    <div class="section-head">
+      <h2>Escolha um segmento</h2>
+      <p>Cada segmento traz paleta, ícones e composição pensados para o setor. Clique para ir direto ao editor com um modelo sugerido.</p>
+    </div>
+    <div id="category-grid" class="category-grid"></div>
+  </section>
+
+  <!-- ===== EDITOR ===== -->
+  <section id="editor" class="section editor-section">
+    <div class="section-head">
+      <h2>Editor</h2>
+      <p>Personalize textos, cores, logotipo e formato. A pré-visualização atualiza em tempo real.</p>
+    </div>
+
+    <div class="editor-grid">
+
+      <!-- Left: controls -->
+      <div class="editor-panel">
+
+        <div class="panel-block">
+          <h3>Formato</h3>
+          <div id="format-tabs" class="format-tabs"></div>
+        </div>
+
+        <div class="panel-block">
+          <h3>Modelo</h3>
+          <div class="template-filter">
+            <select id="template-category-filter"></select>
+          </div>
+          <div id="template-picker" class="template-picker"></div>
+        </div>
+
+        <div class="panel-block">
+          <h3>Conteúdo</h3>
+          <div class="field-grid">
+            <label>Nome
+              <input type="text" id="f-nome" maxlength="40" />
+            </label>
+            <label>Cargo / Função
+              <input type="text" id="f-cargo" maxlength="40" />
+            </label>
+            <label>Empresa / Marca
+              <input type="text" id="f-empresa" maxlength="40" />
+            </label>
+            <label class="span-2">Frase de efeito / Slogan
+              <input type="text" id="f-slogan" maxlength="70" />
+            </label>
+            <label>Telefone
+              <input type="text" id="f-telefone" maxlength="30" />
+            </label>
+            <label>E-mail
+              <input type="text" id="f-email" maxlength="50" />
+            </label>
+            <label>Site
+              <input type="text" id="f-site" maxlength="40" />
+            </label>
+            <label>Instagram / Rede social
+              <input type="text" id="f-instagram" maxlength="30" />
+            </label>
+            <label class="span-2">Endereço / Cidade
+              <input type="text" id="f-endereco" maxlength="60" />
+            </label>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <h3>Logotipo</h3>
+          <div class="logo-row">
+            <input type="file" id="f-logo" accept="image/*" />
+            <button id="remove-logo" class="btn btn-ghost btn-sm" type="button">Remover</button>
+          </div>
+          <p class="hint">Sem logo? O ícone do segmento é usado automaticamente.</p>
+        </div>
+
+        <div class="panel-block">
+          <h3>Cores</h3>
+          <div class="color-row">
+            <label>Primária <input type="color" id="f-color-primary" /></label>
+            <label>Secundária <input type="color" id="f-color-secondary" /></label>
+            <button id="reset-colors" class="btn btn-ghost btn-sm" type="button">Padrão do modelo</button>
+          </div>
+        </div>
+
+        <div class="panel-block actions-block">
+          <button id="save-project" class="btn btn-primary">Salvar Projeto</button>
+          <button id="download-png" class="btn btn-secondary">Baixar PNG</button>
+          <button id="print-board" class="btn btn-secondary">Imprimir</button>
+        </div>
+        <p id="editor-status" class="editor-status" role="status" aria-live="polite"></p>
+      </div>
+
+      <!-- Right: preview -->
+      <div class="editor-preview">
+        <div class="preview-toolbar">
+          <div id="side-tabs" class="side-tabs"></div>
+          <span id="format-label" class="format-label"></span>
+        </div>
+        <div class="preview-stage">
+          <div id="art-board" class="art-board"></div>
+        </div>
+        <div class="preview-meta">
+          <span id="template-name"></span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===== PROJECTS ===== -->
+  <section id="projetos" class="section">
+    <div class="section-head">
+      <h2>Meus Projetos</h2>
+      <p>Salvos neste navegador. Edite, duplique ou exclua quando quiser.</p>
+    </div>
+    <div id="projects-grid" class="projects-grid">
+      <p id="projects-empty" class="empty-note">Você ainda não salvou nenhum projeto. Personalize um cartão no editor e clique em "Salvar Projeto".</p>
+    </div>
+  </section>
+
+  <!-- ===== HOW IT WORKS ===== -->
+  <section id="ajuda" class="section how-section">
+    <div class="section-head">
+      <h2>Como funciona</h2>
+    </div>
+    <ol class="steps">
+      <li><span class="step-num">1</span><div><strong>Escolha o segmento</strong><p>Aviação, casamentos, gastronomia, imóveis, beleza, tecnologia, saúde, eventos, moda, automotivo, educação ou corporativo.</p></div></li>
+      <li><span class="step-num">2</span><div><strong>Selecione o formato</strong><p>Cartão de visita (frente e verso), post para redes sociais, story ou flyer A5.</p></div></li>
+      <li><span class="step-num">3</span><div><strong>Personalize</strong><p>Textos, logotipo e cores — a arte é montada automaticamente respeitando o layout do modelo.</p></div></li>
+      <li><span class="step-num">4</span><div><strong>Exporte</strong><p>Baixe em PNG em alta resolução, imprima direto do navegador ou salve o projeto para editar depois.</p></div></li>
+    </ol>
+  </section>
+
+  <footer class="site-footer">
+    <span>UniAds Studio — parte do ecossistema Unisocial.</span>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
