@@ -511,6 +511,8 @@
     renderFormatTabs();
     renderSideTabs();
     renderBoard();
+    var buyBlock = $("#buy-print-block");
+    if (buyBlock) buyBlock.style.display = getFormat(id).type === "card" ? "" : "none";
   }
 
   /* ---------------------------------------------------------
@@ -705,6 +707,77 @@
   }
 
   /* ---------------------------------------------------------
+     Compra de cartões impressos (Stripe Checkout + Gelato)
+     --------------------------------------------------------- */
+  function boardToPngBase64() {
+    if (typeof window.html2canvas !== "function") {
+      return Promise.reject(new Error("Exportador de imagem indisponível (sem conexão?)."));
+    }
+    return window.html2canvas($("#art-board"), { scale: 3, backgroundColor: "#ffffff", useCORS: true })
+      .then(function (canvas) { return canvas.toDataURL("image/png"); });
+  }
+
+  function openCheckoutModal() {
+    if (getFormat(state.formatId).type !== "card") return;
+    $("#checkout-status").textContent = "";
+    $("#co-email").value = "";
+    $("#checkout-modal").classList.remove("hidden");
+  }
+  function closeCheckoutModal() { $("#checkout-modal").classList.add("hidden"); }
+
+  function submitCheckout(e) {
+    e.preventDefault();
+    var submitBtn = $("#checkout-submit");
+    var statusEl = $("#checkout-status");
+    var country = $("#co-country").value.trim().toUpperCase();
+
+    if (!/^[A-Z]{2}$/.test(country)) {
+      statusEl.textContent = "Código do país deve ter 2 letras (ex: PT, BR, ES).";
+      return;
+    }
+
+    var shipping = {
+      firstName: $("#co-first-name").value.trim(),
+      lastName: $("#co-last-name").value.trim(),
+      addressLine1: $("#co-address1").value.trim(),
+      addressLine2: $("#co-address2").value.trim(),
+      city: $("#co-city").value.trim(),
+      postCode: $("#co-postcode").value.trim(),
+      country: country,
+      phone: $("#co-phone").value.trim(),
+      email: $("#co-email").value.trim()
+    };
+
+    submitBtn.disabled = true;
+    statusEl.textContent = "A preparar a arte final...";
+
+    boardToPngBase64()
+      .then(function (imageBase64) {
+        statusEl.textContent = "A abrir o pagamento...";
+        return fetch("/api/create-checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            templateId: state.templateId,
+            quantity: parseInt($("#co-quantity").value, 10),
+            fields: state.fields,
+            imageBase64: imageBase64,
+            shipping: shipping
+          })
+        });
+      })
+      .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+      .then(function (result) {
+        if (!result.ok || !result.data.url) throw new Error(result.data.error || "Falha ao iniciar o pagamento.");
+        window.location.href = result.data.url;
+      })
+      .catch(function (err) {
+        statusEl.textContent = err.message || "Não foi possível iniciar o pagamento. Tenta novamente.";
+        submitBtn.disabled = false;
+      });
+  }
+
+  /* ---------------------------------------------------------
      Novo projeto
      --------------------------------------------------------- */
   function newProject() {
@@ -744,6 +817,12 @@
     $("#download-png").addEventListener("click", downloadPNG);
     $("#print-board").addEventListener("click", printBoard);
     $("#new-project-btn").addEventListener("click", newProject);
+
+    $("#buy-print-btn").addEventListener("click", openCheckoutModal);
+    $("#checkout-close").addEventListener("click", closeCheckoutModal);
+    $("#checkout-modal").addEventListener("click", function (e) { if (e.target.id === "checkout-modal") closeCheckoutModal(); });
+    $("#checkout-form").addEventListener("submit", submitCheckout);
+    $("#buy-print-block").style.display = getFormat(state.formatId).type === "card" ? "" : "none";
   }
 
   document.addEventListener("DOMContentLoaded", init);

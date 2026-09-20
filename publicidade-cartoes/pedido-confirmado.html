@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Pedido confirmado — UniAds Studio</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+  <header class="site-header">
+    <div class="brand">
+      <a href="index.html" style="text-decoration:none;color:inherit;">
+        <span class="brand-mark">Uni<b>Ads</b></span>
+        <span class="brand-sub">Studio</span>
+      </a>
+    </div>
+  </header>
+
+  <section class="section" style="max-width:560px;">
+    <div id="order-box" class="editor-panel" style="text-align:center;">
+      <p>A confirmar o teu pedido...</p>
+    </div>
+    <p style="text-align:center;margin-top:20px;">
+      <a href="index.html" class="btn btn-ghost">Voltar ao início</a>
+    </p>
+  </section>
+
+  <footer class="site-footer">
+    <span>UniAds Studio — parte do ecossistema Unisocial.</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var params = new URLSearchParams(window.location.search);
+  var sessionId = params.get("session_id");
+  var box = document.getElementById("order-box");
+
+  if (!sessionId) {
+    box.innerHTML = "<p>Sessão de pagamento não encontrada.</p>";
+    return;
+  }
+
+  var STATUS_LABEL = {
+    pending_payment: "A aguardar confirmação do pagamento...",
+    paid: "Pagamento confirmado. A enviar para impressão...",
+    sent_to_print: "Pedido enviado para impressão! Vais receber os cartões no endereço indicado.",
+    failed: "Houve um problema ao processar o teu pedido depois do pagamento. A nossa equipa foi notificada — contacta-nos com o número da sessão se precisares de ajuda.",
+    canceled: "Pedido cancelado."
+  };
+
+  function poll() {
+    fetch("/api/order-status?session_id=" + encodeURIComponent(sessionId))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) {
+          box.innerHTML = "<p>" + data.error + "</p>";
+          return;
+        }
+        var label = STATUS_LABEL[data.status] || data.status;
+        var price = (data.amount_cents / 100).toLocaleString("pt-PT", { style: "currency", currency: (data.currency || "eur").toUpperCase() });
+        box.innerHTML =
+          "<h2>Obrigado pelo teu pedido!</h2>" +
+          "<p>" + label + "</p>" +
+          "<p style=\"color:var(--text-soft);font-size:.85rem;\">" + data.quantity + " cartões · " + price + "</p>";
+        if (data.status === "pending_payment" || data.status === "paid") {
+          window.setTimeout(poll, 3000);
+        }
+      })
+      .catch(function () {
+        box.innerHTML = "<p>Não foi possível consultar o estado do pedido agora. Atualiza a página em alguns segundos.</p>";
+      });
+  }
+
+  poll();
+})();
+</script>
+</body>
+</html>
