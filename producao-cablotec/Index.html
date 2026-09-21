@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Cablotec - Controlo de Produção</title>
+<style>
+  :root {
+    --azul: #1a73e8;
+    --azul-escuro: #0d47a1;
+    --verde: #188038;
+    --vermelho: #c5221f;
+    --laranja: #b06000;
+    --cinza-fundo: #f4f6f8;
+    --cinza-borda: #d7dce1;
+    --texto: #1f2937;
+    --texto-suave: #5f6b7a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--cinza-fundo);
+    color: var(--texto);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  header {
+    background: linear-gradient(135deg, var(--azul), var(--azul-escuro));
+    color: #fff;
+    padding: 20px 16px 24px;
+    text-align: center;
+  }
+  header .marca {
+    margin: 0 0 6px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.95;
+  }
+  header h1 {
+    margin: 0 0 4px;
+    font-size: 1.3rem;
+  }
+  header p {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.9;
+  }
+  .abas {
+    display: inline-flex;
+    margin-top: 12px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 999px;
+    padding: 4px;
+  }
+  .aba {
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    opacity: 0.8;
+  }
+  .aba-ativa { background: #fff; color: var(--azul-escuro); opacity: 1; }
+  main {
+    max-width: 640px;
+    margin: -14px auto 0;
+    padding: 0 12px 40px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .card-titulo {
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 0 0 10px;
+  }
+  label.campo-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: var(--texto);
+  }
+  input[type="text"], input[type="email"], input[type="date"] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+  }
+  select {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+  }
+  textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 70px;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--azul);
+    background: #fff;
+  }
+  .campo-outro { margin-top: 8px; }
+  .duas-colunas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .duas-colunas > div { flex: 1 1 160px; }
+  .ajuda { font-size: 0.78rem; color: var(--texto-suave); margin-top: 4px; }
+  .botao {
+    padding: 12px 14px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    border-radius: 8px;
+    border: 1px solid var(--azul);
+    background: #fff;
+    color: var(--azul);
+    cursor: pointer;
+  }
+  .botao:active { background: #e8f0fe; }
+  .botao-primario { background: var(--azul); color: #fff; }
+  .botao-primario:active { background: var(--azul-escuro); }
+  .botao-verde { border-color: var(--verde); color: var(--verde); }
+  .botao-verde:active { background: #e6f4ea; }
+  .botao-vermelho { border-color: var(--vermelho); color: var(--vermelho); }
+  .botao-vermelho:active { background: #fce8e6; }
+  .botao-largo { width: 100%; }
+  .linha-botoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .linha-botoes .botao { flex: 1 1 auto; }
+  .estado {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    display: none;
+  }
+  .estado.mostrar { display: block; }
+  .estado.sucesso { background: #e6f4ea; color: var(--verde); border: 1px solid #b7e1c1; }
+  .estado.erro { background: #fce8e6; color: var(--vermelho); border: 1px solid #f6bab6; }
+  .estado.info { background: #e8f0fe; color: var(--azul-escuro); border: 1px solid #c6dafc; }
+  .badge {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  .badge-em-curso { background: #e8f0fe; color: var(--azul-escuro); }
+  .badge-terminado { background: #e6f4ea; color: var(--verde); }
+  .badge-atraso { background: #fce8e6; color: var(--vermelho); }
+  .etapas-lista { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .linha-etapa {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--cinza-borda);
+  }
+  .linha-etapa input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 auto; }
+  .linha-etapa .nome-etapa { flex: 1 1 auto; font-size: 0.88rem; }
+  .linha-etapa .data-etapa { font-size: 0.74rem; color: var(--texto-suave); }
+  .linha-etapa.concluida { background: #f2faf4; border-color: #b7e1c1; }
+  .item-lista {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 0.85rem;
+    color: var(--texto);
+    cursor: pointer;
+    margin-bottom: 6px;
+  }
+  .item-lista:active { background: #e8f0fe; }
+  .item-lista .linha1 { font-weight: 700; }
+  .item-lista .linha2 { color: var(--texto-suave); font-size: 0.78rem; margin-top: 2px; }
+  .filtros { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .filtro {
+    flex: 1 1 auto;
+    padding: 8px 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: 999px;
+    border: 1px solid var(--cinza-borda);
+    background: #fff;
+    color: var(--texto-suave);
+    cursor: pointer;
+  }
+  .filtro.filtro-ativo { background: var(--azul); border-color: var(--azul); color: #fff; }
+  .link-drive { font-size: 0.82rem; display: inline-block; margin-top: 8px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marca">Cablotec</div>
+  <h1>Controlo de Produção</h1>
+  <p>Números de série em produção, por etapa</p>
+  <div class="abas">
+    <button type="button" class="aba aba-ativa" id="abaGrupos">Grupos</button>
+    <button type="button" class="aba" id="abaCiclos">Ciclos</button>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <div class="card-titulo">Procurar / criar número de série</div>
+    <label class="campo-label" for="serial">Número de série da máquina</label>
+    <input type="text" id="serial" placeholder="Ex.: SN-123456" autocomplete="off" />
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-primario botao-largo" id="botaoProcurar">Procurar / criar</button>
+    </div>
+    <div class="ajuda">Se o número de série já existir, os dados são carregados. Se não existir, cria-se um registo novo ao guardar.</div>
+  </div>
+
+  <div class="card" id="cardRegisto" hidden>
+    <div class="card-titulo" id="tituloRegisto">Registo</div>
+    <div id="badgesRegisto" style="margin-bottom:12px;"></div>
+
+    <div class="duas-colunas">
+      <div>
+        <label class="campo-label" for="grupo">Grupo/Tipo</label>
+        <select id="grupo">
+          <option value="">Selecione...</option>
+        </select>
+        <input type="text" id="grupo-outro" class="campo-outro" placeholder="Escreva o novo valor..." autocomplete="off" hidden />
+      </div>
+      <div>
+        <label class="campo-label" for="estadoGeral">Estado geral</label>
+        <select id="estadoGeral">
+          <option value="Em curso">Em curso</option>
+          <option value="Terminado">Terminado</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="height:12px"></div>
+
+    <div class="duas-colunas">
+      <div>
+        <label class="campo-label" for="previsaoSaida">Previsão de saída</label>
+        <input type="date" id="previsaoSaida" />
+      </div>
+      <div>
+        <label class="campo-label" for="dataEntrega">Data de entrega</label>
+        <input type="date" id="dataEntrega" />
+      </div>
+    </div>
+
+    <div style="height:12px"></div>
+
+    <label class="campo-label" for="materiaisEmFalta">Materiais em falta</label>
+    <textarea id="materiaisEmFalta" placeholder="Ex.: ligador X, 2x sensor Y..."></textarea>
+
+    <div style="height:10px"></div>
+
+    <label class="campo-label" for="materiaisEntregues">Materiais entregues</label>
+    <textarea id="materiaisEntregues" placeholder="Ex.: material entregue em 12/09..."></textarea>
+
+    <div style="height:14px"></div>
+
+    <label class="campo-label">Etapas de produção</label>
+    <div class="etapas-lista" id="etapasLista"></div>
+
+    <div style="height:14px"></div>
+
+    <button type="button" class="botao botao-verde botao-largo" id="botaoGuardar">Guardar registo</button>
+
+    <div id="linkDriveContainer"></div>
+
+    <div id="historicoContainer" style="margin-top:12px;"></div>
+
+    <div style="height:16px"></div>
+    <div class="card-titulo" style="font-size:0.9rem;">Mudar número de série (só em último caso)</div>
+    <input type="text" id="serialNovo" placeholder="Novo número de série" autocomplete="off" />
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-vermelho botao-largo" id="botaoMudarSerial">Mudar número de série</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-titulo">Lista de números de série em produção</div>
+    <div class="filtros">
+      <button type="button" class="filtro filtro-ativo" data-filtro="emCurso">Em curso</button>
+      <button type="button" class="filtro" data-filtro="terminados">Terminados</button>
+      <button type="button" class="filtro" data-filtro="atraso">Em atraso</button>
+      <button type="button" class="filtro" data-filtro="todos">Todos</button>
+    </div>
+    <div id="listaRegistos"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-titulo">Enviar resumo de produção por e-mail</div>
+    <div class="ajuda" style="margin-bottom:10px;">Envia o estado completo da aba atual (Grupos ou Ciclos) em Excel e PDF, em anexo.</div>
+    <label class="campo-label" for="emailsResumo">E-mail(s) dos destinatários</label>
+    <input type="text" id="emailsResumo" placeholder="exemplo1@empresa.com, exemplo2@empresa.com" autocomplete="off" />
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-primario botao-largo" id="botaoEnviarResumo">Enviar resumo (Excel + PDF)</button>
+    </div>
+  </div>
+
+  <div class="estado" id="estado"></div>
+</main>
+
+<script>
+(function () {
+  var APPS_SCRIPT_URL = '<?= appsScriptUrl ?>';
+  if (APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+    APPS_SCRIPT_URL = '';
+  }
+
+  var FOLDER_ID_RELATORIOS = '<?= folderIdRelatorios ?>';
+  if (FOLDER_ID_RELATORIOS.indexOf('<') !== -1) {
+    FOLDER_ID_RELATORIOS = '';
+  }
+
+  var LISTAS_JSON = '<?!= listasJson ?>';
+  var LISTAS = { gruposProducao: [], ciclosProducao: [] };
+  if (LISTAS_JSON.indexOf('{') === 0) {
+    try {
+      LISTAS = JSON.parse(LISTAS_JSON);
+    } catch (erroListas) {
+      LISTAS = { gruposProducao: [], ciclosProducao: [] };
+    }
+  }
+
+  var ETAPAS = [
+    { chave: 'preparacao', rotulo: 'Preparação' },
+    { chave: 'embalamento', rotulo: 'Embalamento' },
+    { chave: 'desmontagem', rotulo: 'Desmontagem' },
+    { chave: 'montagem', rotulo: 'Montagem' },
+    { chave: 'intervencaoExtra', rotulo: 'Intervenção extra' },
+    { chave: 'corteTubo', rotulo: 'Corte de tubo' },
+    { chave: 'soldaduraHvac', rotulo: 'Montagem e soldadura HVAC' },
+    { chave: 'eletrificacaoGrupo', rotulo: 'Eletrificação do grupo' },
+    { chave: 'eletrificacaoQuadro', rotulo: 'Eletrificação do quadro' },
+    { chave: 'isolamento', rotulo: 'Isolamento' },
+    { chave: 'testeEletrico', rotulo: 'Teste elétrico' },
+    { chave: 'testePressao', rotulo: 'Teste de pressão' },
+    { chave: 'testeVacuo', rotulo: 'Teste de vácuo' }
+  ];
+
+  var TIPO_ATUAL = 'grupos';
+  var abaGrupos = document.getElementById('abaGrupos');
+  var abaCiclos = document.getElementById('abaCiclos');
+
+  function listaAtual() {
+    return TIPO_ATUAL === 'ciclos' ? LISTAS.ciclosProducao : LISTAS.gruposProducao;
+  }
+
+  function atualizarAba() {
+    abaGrupos.className = TIPO_ATUAL === 'grupos' ? 'aba aba-ativa' : 'aba';
+    abaCiclos.className = TIPO_ATUAL === 'ciclos' ? 'aba aba-ativa' : 'aba';
+    preencherSelectGrupo();
+    esconderRegisto();
+    carregarLista();
+  }
+
+  abaGrupos.addEventListener('click', function () { TIPO_ATUAL = 'grupos'; atualizarAba(); });
+  abaCiclos.addEventListener('click', function () { TIPO_ATUAL = 'ciclos'; atualizarAba(); });
+
+  var campoSerial = document.getElementById('serial');
+  var cardRegisto = document.getElementById('cardRegisto');
+  var tituloRegisto = document.getElementById('tituloRegisto');
+  var badgesRegisto = document.getElementById('badgesRegisto');
+  var campoGrupo = document.getElementById('grupo');
+  var campoGrupoOutro = document.getElementById('grupo-outro');
+  var campoEstadoGeral = document.getElementById('estadoGeral');
+  var campoPrevisaoSaida = document.getElementById('previsaoSaida');
+  var campoDataEntrega = document.getElementById('dataEntrega');
+  var campoMateriaisFalta = document.getElementById('materiaisEmFalta');
+  var campoMateriaisEntregues = document.getElementById('materiaisEntregues');
+  var etapasLista = document.getElementById('etapasLista');
+  var linkDriveContainer = document.getElementById('linkDriveContainer');
+  var historicoContainer = document.getElementById('historicoContainer');
+  var campoSerialNovo = document.getElementById('serialNovo');
+
+  function preencherSelectGrupo() {
+    var valores = listaAtual();
+    var opcoes = '<option value="">Selecione...</option>';
+    valores.forEach(function (v) {
+      opcoes = opcoes + '<option value="' + v + '">' + v + '</option>';
+    });
+    opcoes = opcoes + '<option value="__outro__">Outro (escrever)...</option>';
+    campoGrupo.innerHTML = opcoes;
+    campoGrupoOutro.hidden = true;
+    campoGrupoOutro.value = '';
+  }
+
+  campoGrupo.addEventListener('change', function () {
+    campoGrupoOutro.hidden = campoGrupo.value !== '__outro__';
+    if (!campoGrupoOutro.hidden) campoGrupoOutro.focus();
+  });
+
+  function obterValorGrupo() {
+    if (campoGrupo.value === '__outro__') return campoGrupoOutro.value.trim();
+    return campoGrupo.value;
+  }
+
+  function definirValorGrupo(valor) {
+    if (!valor) return;
+    var existe = Array.prototype.some.call(campoGrupo.options, function (o) { return o.value === valor; });
+    if (existe) {
+      campoGrupo.value = valor;
+    } else {
+      campoGrupo.value = '__outro__';
+      campoGrupoOutro.hidden = false;
+      campoGrupoOutro.value = valor;
+    }
+  }
+
+  function montarEtapas(etapasGuardadas) {
+    etapasGuardadas = etapasGuardadas || {};
+    var html = '';
+    ETAPAS.forEach(function (et) {
+      var dataConcluida = (etapasGuardadas[et.chave] || '').toString().trim();
+      var concluida = !!dataConcluida;
+      html = html +
+        '<label class="linha-etapa' + (concluida ? ' concluida' : '') + '" data-chave="' + et.chave + '">' +
+          '<input type="checkbox" data-chave-etapa="' + et.chave + '"' + (concluida ? ' checked' : '') + ' />' +
+          '<span class="nome-etapa">' + et.rotulo + '</span>' +
+          '<span class="data-etapa">' + (concluida ? dataConcluida : '') + '</span>' +
+        '</label>';
+    });
+    etapasLista.innerHTML = html;
+  }
+
+  etapasLista.addEventListener('change', function (ev) {
+    var input = ev.target;
+    if (input.tagName !== 'INPUT' || input.type !== 'checkbox') return;
+    var linha = input.closest('.linha-etapa');
+    if (input.checked) {
+      linha.className = 'linha-etapa concluida';
+    } else {
+      linha.className = 'linha-etapa';
+      linha.querySelector('.data-etapa').textContent = '';
+    }
+  });
+
+  function obterEtapasDoFormulario() {
+    var etapas = {};
+    ETAPAS.forEach(function (et) {
+      var checkbox = etapasLista.querySelector('input[data-chave-etapa="' + et.chave + '"]');
+      etapas[et.chave] = !!(checkbox && checkbox.checked);
+    });
+    return etapas;
+  }
+
+  function montarBadges(dados) {
+    var html = '';
+    html = html + '<span class="badge ' + (dados.estado === 'Terminado' ? 'badge-terminado' : 'badge-em-curso') + '">' + dados.estado + '</span> ';
+    if (dados.emAtraso === 'Sim') {
+      html = html + '<span class="badge badge-atraso">Em atraso</span>';
+    }
+    badgesRegisto.innerHTML = html;
+  }
+
+  function mostrarLinkDrive(serial) {
+    if (!FOLDER_ID_RELATORIOS || !serial) {
+      linkDriveContainer.innerHTML = '';
+      return;
+    }
+    var url = 'https://drive.google.com/drive/search?q=' + encodeURIComponent(serial);
+    linkDriveContainer.innerHTML = '<a class="link-drive" href="' + url + '" target="_blank" rel="noopener">Ver fotos/relatórios deste número de série no Drive →</a>';
+  }
+
+  function mostrarHistorico(serialAnteriores) {
+    if (!serialAnteriores) {
+      historicoContainer.innerHTML = '';
+      return;
+    }
+    historicoContainer.innerHTML = '<div class="ajuda">Números de série anteriores: ' + serialAnteriores + '</div>';
+  }
+
+  function abrirRegistoNovo(serial) {
+    cardRegisto.hidden = false;
+    tituloRegisto.textContent = 'Novo registo: ' + serial;
+    badgesRegisto.innerHTML = '<span class="badge badge-em-curso">Novo</span>';
+    campoGrupo.value = '';
+    campoGrupoOutro.hidden = true;
+    campoGrupoOutro.value = '';
+    campoEstadoGeral.value = 'Em curso';
+    campoPrevisaoSaida.value = '';
+    campoDataEntrega.value = '';
+    campoMateriaisFalta.value = '';
+    campoMateriaisEntregues.value = '';
+    campoSerialNovo.value = '';
+    montarEtapas({});
+    mostrarLinkDrive(serial);
+    mostrarHistorico('');
+  }
+
+  function abrirRegistoExistente(dados) {
+    cardRegisto.hidden = false;
+    tituloRegisto.textContent = 'Registo: ' + dados.serial;
+    montarBadges(dados);
+    definirValorGrupo(dados.grupo);
+    campoEstadoGeral.value = dados.estado === 'Terminado' ? 'Terminado' : 'Em curso';
+    campoPrevisaoSaida.value = dados.previsaoSaida || '';
+    campoDataEntrega.value = dados.dataEntrega || '';
+    campoMateriaisFalta.value = dados.materiaisEmFalta || '';
+    campoMateriaisEntregues.value = dados.materiaisEntregues || '';
+    campoSerialNovo.value = '';
+    montarEtapas(dados.etapas);
+    mostrarLinkDrive(dados.serial);
+    mostrarHistorico(dados.serialAnteriores);
+  }
+
+  function esconderRegisto() {
+    cardRegisto.hidden = true;
+  }
+
+  var botaoProcurar = document.getElementById('botaoProcurar');
+  botaoProcurar.addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Indique o número de série.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    mostrarEstado('A procurar...', 'info');
+    var url = APPS_SCRIPT_URL + '?action=obter&tipo=' + TIPO_ATUAL + '&serial=' + encodeURIComponent(serial);
+
+    fetch(url).then(function (resposta) { return resposta.json(); }).then(function (dados) {
+      esconderEstado();
+      if (dados.status !== 'ok') {
+        mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+        return;
+      }
+      if (!dados.existe) {
+        abrirRegistoNovo(serial);
+      } else {
+        abrirRegistoExistente(dados.dados);
+      }
+    }).catch(function (erro) {
+      mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+    });
+  });
+
+  var botaoGuardar = document.getElementById('botaoGuardar');
+  botaoGuardar.addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Indique o número de série.', 'erro');
+      return;
+    }
+    var grupo = obterValorGrupo();
+    if (!grupo) {
+      mostrarEstado('Selecione o Grupo/Tipo.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = {
+      acao: 'guardarRegisto',
+      tipo: TIPO_ATUAL,
+      serial: serial,
+      grupo: grupo,
+      estado: campoEstadoGeral.value,
+      previsaoSaida: campoPrevisaoSaida.value,
+      dataEntrega: campoDataEntrega.value,
+      materiaisEmFalta: campoMateriaisFalta.value.trim(),
+      materiaisEntregues: campoMateriaisEntregues.value.trim(),
+      etapas: obterEtapasDoFormulario()
+    };
+
+    botaoGuardar.disabled = true;
+    botaoGuardar.textContent = 'A guardar...';
+    mostrarEstado('A guardar registo...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(function (resposta) { return resposta.json(); })
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        mostrarEstado('Registo guardado.', 'sucesso');
+        botaoProcurar.click();
+        carregarLista();
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      })
+      .finally(function () {
+        botaoGuardar.disabled = false;
+        botaoGuardar.textContent = 'Guardar registo';
+      });
+  });
+
+  var botaoMudarSerial = document.getElementById('botaoMudarSerial');
+  botaoMudarSerial.addEventListener('click', function () {
+    var serialAtual = campoSerial.value.trim();
+    var serialNovo = campoSerialNovo.value.trim();
+    if (!serialAtual || !serialNovo) {
+      mostrarEstado('Indique o número de série atual e o novo.', 'erro');
+      return;
+    }
+    if (!window.confirm('Mudar o número de série de "' + serialAtual + '" para "' + serialNovo + '"? Use só em último caso.')) {
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = { acao: 'mudarNumeroSerie', tipo: TIPO_ATUAL, serialAtual: serialAtual, serialNovo: serialNovo };
+    mostrarEstado('A atualizar número de série...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(function (resposta) { return resposta.json(); })
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        mostrarEstado('Número de série atualizado.', 'sucesso');
+        campoSerial.value = serialNovo;
+        botaoProcurar.click();
+        carregarLista();
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      });
+  });
+
+  var filtros = document.querySelectorAll('.filtro');
+  var FILTRO_ATUAL = 'emCurso';
+  var listaRegistos = document.getElementById('listaRegistos');
+
+  filtros.forEach(function (botao) {
+    botao.addEventListener('click', function () {
+      FILTRO_ATUAL = botao.dataset.filtro;
+      filtros.forEach(function (b) { b.className = 'filtro'; });
+      botao.className = 'filtro filtro-ativo';
+      carregarLista();
+    });
+  });
+
+  function carregarLista() {
+    if (!APPS_SCRIPT_URL) return;
+    listaRegistos.innerHTML = '<div class="ajuda">A carregar...</div>';
+    var url = APPS_SCRIPT_URL + '?action=listar&tipo=' + TIPO_ATUAL + '&filtro=' + FILTRO_ATUAL;
+
+    fetch(url).then(function (resposta) { return resposta.json(); }).then(function (dados) {
+      if (dados.status !== 'ok' || !dados.itens || !dados.itens.length) {
+        listaRegistos.innerHTML = '<div class="ajuda">Nenhum registo encontrado.</div>';
+        return;
+      }
+      var html = '';
+      dados.itens.forEach(function (item) {
+        var estadoTexto = item.estado + (item.emAtraso === 'Sim' ? ' · Em atraso' : '');
+        html = html + '<button type="button" class="item-lista" data-serial="' + item.serial.replace(/"/g, '&quot;') + '">' +
+          '<div class="linha1">' + item.serial + (item.grupo ? ' — ' + item.grupo : '') + '</div>' +
+          '<div class="linha2">' + estadoTexto + (item.previsaoSaida ? ' · Previsão: ' + item.previsaoSaida : '') + '</div>' +
+        '</button>';
+      });
+      listaRegistos.innerHTML = html;
+    }).catch(function (erro) {
+      listaRegistos.innerHTML = '<div class="ajuda">Erro ao carregar: ' + erro.message + '</div>';
+    });
+  }
+
+  listaRegistos.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('.item-lista');
+    if (!botao) return;
+    campoSerial.value = botao.dataset.serial;
+    botaoProcurar.click();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  var botaoEnviarResumo = document.getElementById('botaoEnviarResumo');
+  botaoEnviarResumo.addEventListener('click', function () {
+    var emails = document.getElementById('emailsResumo').value.trim();
+    if (!emails) {
+      mostrarEstado('Indique pelo menos um e-mail.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = { acao: 'enviarResumo', tipo: TIPO_ATUAL, emails: emails };
+    botaoEnviarResumo.disabled = true;
+    botaoEnviarResumo.textContent = 'A enviar...';
+    mostrarEstado('A gerar Excel/PDF e a enviar, aguarde...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(function (resposta) { return resposta.json(); })
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        mostrarEstado('Resumo enviado por e-mail.', 'sucesso');
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      })
+      .finally(function () {
+        botaoEnviarResumo.disabled = false;
+        botaoEnviarResumo.textContent = 'Enviar resumo (Excel + PDF)';
+      });
+  });
+
+  function mostrarEstado(texto, tipo) {
+    var el = document.getElementById('estado');
+    el.textContent = texto;
+    el.className = 'estado mostrar ' + tipo;
+  }
+  function esconderEstado() {
+    var el = document.getElementById('estado');
+    el.className = 'estado';
+  }
+
+  preencherSelectGrupo();
+  carregarLista();
+})();
+</script>
+</body>
+</html>
