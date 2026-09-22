@@ -18,14 +18,36 @@ Duas abas na própria Google Sheet (`Grupos` e `Ciclos`), uma linha por número 
 2. Nessa folha, vá a **Extensões → Apps Script**.
 3. Apague o conteúdo de `Código.gs` e cole o conteúdo de `Code.gs` deste projeto.
 4. Crie um ficheiro novo do tipo **HTML**, chamado exatamente `Index`, e cole o conteúdo de `Index.html`.
-5. (Opcional) Em `Code.gs`, confirme que `FOLDER_ID_RELATORIOS` tem o ID da pasta do Drive usada pelo script de "Relatório de Testes" (já vem preenchido com o mesmo ID usado nesse script). Deixe `''` se não quiser o atalho.
-6. **Implementar → Nova implementação → Aplicação Web**. Executar como "Eu", acesso "Qualquer pessoa" (ou conforme a política da empresa). Autorize as permissões pedidas (inclui acesso à folha de cálculo e a enviar e-mail).
-7. Guarde o URL `/exec` gerado — é o link da aplicação.
-8. Para atualizações futuras: depois de colar alterações nos ficheiros, vá a **Implementar → Gerir implementações → editar (lápis) → Nova versão → Implementar**, para o mesmo link ficar atualizado.
+5. (Opcional) Em `Code.gs`, confirme `FOLDER_ID_RELATORIOS` e `APPS_SCRIPT_URL_RELATORIOS` — já vêm preenchidos com o ID da pasta e o URL `/exec` do script de "Relatório de Testes", para os atalhos e a contagem de fotos funcionarem. Deixe `''` em qualquer um dos dois se não quiser essa ligação.
+6. **Implementar → Nova implementação → Aplicação Web**. Executar como "Eu", acesso "Qualquer pessoa" (ou conforme a política da empresa).
+7. Depois de implementar, abra o editor, escolha a função `doGet` no menu de funções e clique em **Executar** uma vez — isto pede a autorização completa (folha de cálculo, e-mail, Drive, gatilhos). Aceite tudo, incluindo o aviso "app não verificada" → Avançado → Aceder.
+8. Volte a **Implementar → Gerir implementações → editar (lápis) → Nova versão → Implementar**, para a autorização ficar ativa no link `/exec`.
+9. Guarde o URL `/exec` gerado — é o link da aplicação.
+10. Para atualizações futuras: depois de colar alterações nos ficheiros, repita o passo 8 (Nova versão), para o mesmo link ficar atualizado.
 
 ## Exportações
 
 O botão "Enviar resumo (Excel + PDF)" exporta o estado atual completo da aba selecionada (Grupos ou Ciclos) diretamente da Google Sheet, em `.xlsx` e `.pdf`, e envia por e-mail em anexo. Não é preciso nenhuma configuração extra — usa a própria folha como fonte de dados.
+
+## Envio automático
+
+No card "Envio automático de resumos", ative o interruptor, indique os e-mails e escolha a frequência (diário às 8h, ou semanal à segunda-feira às 8h). Isto cria um gatilho (trigger) no Apps Script que corre sozinho, sem precisar de ter a página aberta, e envia o resumo de Grupos e de Ciclos (Excel + PDF) automaticamente. Para desativar, desligue o interruptor e guarde outra vez.
+
+## Resumo geral (dashboard)
+
+No topo da página, o card "Resumo geral" mostra, para Grupos e para Ciclos, quantos números de série estão em curso, terminados e em atraso — atualiza-se sozinho sempre que muda de aba ou guarda um registo.
+
+## Dias em produção
+
+Cada registo mostra há quantos dias está em produção (calculado a partir da data de criação), tanto no ecrã do registo como na lista de números de série.
+
+## Notas por etapa
+
+Ao lado de cada etapa há um botão "📝" que mostra um campo de texto curto, para registar o motivo se uma etapa ficar bloqueada ou tiver alguma observação. A nota fica guardada junto com a data de conclusão da etapa.
+
+## Ligação com o script de relatórios
+
+Além do atalho para o Drive, o formulário pergunta ao script de "Relatório de Testes" (via `APPS_SCRIPT_URL_RELATORIOS`) quantas fotos/relatórios já existem para o número de série aberto, e mostra isso por baixo do atalho. Continua a ser uma ligação solta — não há sincronização de dados entre os dois scripts, só esta consulta.
 
 ## Mudar número de série
 

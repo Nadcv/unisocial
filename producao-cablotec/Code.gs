@@ -23,6 +23,24 @@ var EMPRESA = 'Cablotec';
 // ('') se nao quiser este atalho.
 var FOLDER_ID_RELATORIOS = '18H0wf27uzxFdDqdTOQ2f-9P6-zjwbGqO';
 
+// URL /exec do script de "Relatorio de Testes" (opcional). Se preenchido,
+// o formulario pergunta a esse script quantas fotos/relatorios ja existem
+// para o numero de serie aberto, e mostra isso junto ao atalho do Drive.
+// Deixe vazio ('') se nao quiser esta ligacao.
+var APPS_SCRIPT_URL_RELATORIOS = 'https://script.google.com/macros/s/AKfycbzx4t4wIfK958QDR4wCwxp-mWNyJf-ZRLsxj1zRhkMKY15hgwKxrlbNPCb8RGIGhrdeYA/exec';
+
+// Separador usado dentro da celula de cada etapa, para guardar a data de
+// conclusao e uma nota curta opcional na mesma celula (ex.: "2026-09-22
+// 10:00::falta um parafuso").
+var SEPARADOR_NOTA = '::';
+
+// Chave usada nas Propriedades do Script para guardar a configuracao do
+// envio automatico de resumos (e-mails, se esta ativo, e a frequencia).
+var CONFIG_ENVIO_KEY = 'configEnvioAutomatico';
+
+// Nome da funcao chamada pelo gatilho (trigger) de envio automatico.
+var NOME_FUNCAO_TRIGGER = 'enviarResumosAutomaticos';
+
 // Nomes das abas na Google Sheet, uma para cada tipo de producao.
 var ABAS = {
   grupos: 'Grupos',
@@ -97,6 +115,14 @@ function doGet(e) {
     return respostaJson(obterRegisto(e.parameter.tipo, e.parameter.serial));
   }
 
+  if (acao === 'resumo') {
+    return respostaJson(obterResumoGeral());
+  }
+
+  if (acao === 'configEnvio') {
+    return respostaJson(obterConfigEnvioAutomatico());
+  }
+
   var listas = {
     gruposProducao: obterLista('gruposProducao'),
     ciclosProducao: obterLista('ciclosProducao')
@@ -106,6 +132,7 @@ function doGet(e) {
   template.appsScriptUrl = ScriptApp.getService().getUrl();
   template.listasJson = JSON.stringify(listas);
   template.folderIdRelatorios = FOLDER_ID_RELATORIOS || '';
+  template.appsScriptUrlRelatorios = APPS_SCRIPT_URL_RELATORIOS || '';
   var saida = template.evaluate();
   saida.setTitle(EMPRESA + ' - Controlo de Producao');
   saida.addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
@@ -126,6 +153,8 @@ function doPost(e) {
       resposta = mudarNumeroSerie(dados);
     } else if (dados.acao === 'enviarResumo') {
       resposta = enviarResumoProducao(dados);
+    } else if (dados.acao === 'configurarEnvioAutomatico') {
+      resposta = configurarEnvioAutomatico(dados);
     } else {
       throw new Error('Acao desconhecida.');
     }
@@ -202,7 +231,9 @@ function encontrarLinha(aba, serial) {
 function linhaParaObjeto(valores) {
   var etapas = {};
   ETAPAS.forEach(function (et, indice) {
-    etapas[et.chave] = (valores[COL_PRIMEIRA_ETAPA - 1 + indice] || '').toString();
+    var bruto = (valores[COL_PRIMEIRA_ETAPA - 1 + indice] || '').toString();
+    var partes = bruto.split(SEPARADOR_NOTA);
+    etapas[et.chave] = { data: partes[0] || '', nota: partes[1] || '' };
   });
 
   return {
@@ -317,15 +348,19 @@ function guardarRegisto(dados) {
 
     ETAPAS.forEach(function (et, indice) {
       var coluna = COL_PRIMEIRA_ETAPA + indice;
-      var jaTinhaData = (valoresAtuais[coluna - 1] || '').toString().trim();
-      var marcadoAgora = dados.etapas && dados.etapas[et.chave] === true;
+      var brutoAtual = (valoresAtuais[coluna - 1] || '').toString().trim();
+      var dataAtual = brutoAtual.split(SEPARADOR_NOTA)[0];
+      var etapaPedida = (dados.etapas && dados.etapas[et.chave]) || {};
+      var marcadoAgora = etapaPedida.marcado === true;
+      var notaAgora = (etapaPedida.nota || '').toString().trim();
 
-      if (marcadoAgora && !jaTinhaData) {
-        aba.getRange(linha, coluna).setValue(agora);
-      } else if (!marcadoAgora) {
+      if (marcadoAgora) {
+        var dataFinal = dataAtual || agora;
+        var valorFinal = notaAgora ? dataFinal + SEPARADOR_NOTA + notaAgora : dataFinal;
+        aba.getRange(linha, coluna).setValue(valorFinal);
+      } else {
         aba.getRange(linha, coluna).setValue('');
       }
-      // Se marcadoAgora && jaTinhaData, mantem a data original (nao mexe).
     });
   }
 
@@ -336,8 +371,48 @@ function guardarRegisto(dados) {
 
 function aplicarEtapasNovoRegisto(etapasPedidas, agora) {
   return ETAPAS.map(function (et) {
-    return etapasPedidas && etapasPedidas[et.chave] === true ? agora : '';
+    var etapaPedida = (etapasPedidas && etapasPedidas[et.chave]) || {};
+    if (etapaPedida.marcado !== true) return '';
+    var nota = (etapaPedida.nota || '').toString().trim();
+    return nota ? agora + SEPARADOR_NOTA + nota : agora;
   });
+}
+
+/**
+ * Conta, para "Grupos" e para "Ciclos", quantos registos estao em curso,
+ * terminados, e em atraso. Usado pelo painel-resumo no topo do formulario.
+ */
+function obterResumoGeral() {
+  var resultado = {};
+
+  ['grupos', 'ciclos'].forEach(function (tipo) {
+    var aba = obterAba(tipo);
+    var ultimaLinha = aba.getLastRow();
+    var emCurso = 0;
+    var terminados = 0;
+    var atraso = 0;
+
+    if (ultimaLinha >= 2) {
+      var linhas = aba.getRange(2, 1, ultimaLinha - 1, 4).getValues();
+      linhas.forEach(function (linha) {
+        var serial = (linha[0] || '').toString().trim();
+        if (!serial) return;
+        var estado = (linha[2] || '').toString();
+        var emAtraso = (linha[3] || '').toString();
+
+        if (estado === 'Terminado') {
+          terminados = terminados + 1;
+        } else {
+          emCurso = emCurso + 1;
+        }
+        if (emAtraso === 'Sim') atraso = atraso + 1;
+      });
+    }
+
+    resultado[tipo] = { emCurso: emCurso, terminados: terminados, atraso: atraso, total: emCurso + terminados };
+  });
+
+  return { status: 'ok', resumo: resultado };
 }
 
 function calcularEmAtraso(estado, previsaoSaida) {
@@ -419,6 +494,85 @@ function enviarResumoProducao(dados) {
   });
 
   return { status: 'ok', mensagem: 'Resumo enviado por e-mail.' };
+}
+
+/**
+ * Ativa ou desativa o envio automatico (diario ou semanal) do resumo de
+ * producao por e-mail. Guarda a configuracao nas Propriedades do Script
+ * e cria/remove o gatilho (trigger) correspondente.
+ */
+function configurarEnvioAutomatico(dados) {
+  var emails = (dados.emails || '').toString().trim();
+  var ativo = dados.ativo === true;
+  var frequencia = dados.frequencia === 'semanal' ? 'semanal' : 'diario';
+
+  if (ativo && !emails) {
+    throw new Error('Indique pelo menos um e-mail para o envio automatico.');
+  }
+
+  removerTriggersExistentes(NOME_FUNCAO_TRIGGER);
+
+  if (ativo) {
+    var novoTrigger = ScriptApp.newTrigger(NOME_FUNCAO_TRIGGER).timeBased().atHour(8);
+    if (frequencia === 'semanal') {
+      novoTrigger = novoTrigger.onWeekDay(ScriptApp.WeekDay.MONDAY).everyWeeks(1);
+    } else {
+      novoTrigger = novoTrigger.everyDays(1);
+    }
+    novoTrigger.create();
+  }
+
+  guardarConfigEnvioAutomatico({ ativo: ativo, emails: limparListaEmails(emails), frequencia: frequencia });
+
+  return { status: 'ok', mensagem: ativo ? 'Envio automatico ativado.' : 'Envio automatico desativado.' };
+}
+
+function removerTriggersExistentes(nomeFuncao) {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === nomeFuncao) {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+}
+
+function obterConfigEnvioAutomatico() {
+  var propriedades = PropertiesService.getScriptProperties();
+  var guardado = propriedades.getProperty(CONFIG_ENVIO_KEY);
+  if (!guardado) {
+    return { status: 'ok', ativo: false, emails: '', frequencia: 'diario' };
+  }
+  var config = JSON.parse(guardado);
+  return { status: 'ok', ativo: !!config.ativo, emails: config.emails || '', frequencia: config.frequencia || 'diario' };
+}
+
+function guardarConfigEnvioAutomatico(config) {
+  var propriedades = PropertiesService.getScriptProperties();
+  propriedades.setProperty(CONFIG_ENVIO_KEY, JSON.stringify(config));
+}
+
+/**
+ * Chamada automaticamente pelo gatilho diario/semanal (nunca diretamente
+ * pelo formulario). Os gatilhos do Apps Script nao recebem argumentos,
+ * por isso le a configuracao guardada nas Propriedades do Script.
+ */
+function enviarResumosAutomaticos() {
+  var propriedades = PropertiesService.getScriptProperties();
+  var guardado = propriedades.getProperty(CONFIG_ENVIO_KEY);
+  if (!guardado) return;
+
+  var config = JSON.parse(guardado);
+  if (!config.ativo || !config.emails) return;
+
+  ['grupos', 'ciclos'].forEach(function (tipo) {
+    try {
+      var aba = obterAba(tipo);
+      if (aba.getLastRow() < 2) return;
+      enviarResumoProducao({ tipo: tipo, emails: config.emails });
+    } catch (erroEnvio) {
+      // Nao interrompe o envio do outro tipo se um deles falhar.
+    }
+  });
 }
 
 function exportarAbaComoBlob(aba, formato) {

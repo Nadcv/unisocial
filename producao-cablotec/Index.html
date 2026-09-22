@@ -211,6 +211,39 @@
   }
   .filtro.filtro-ativo { background: var(--azul); border-color: var(--azul); color: #fff; }
   .link-drive { font-size: 0.82rem; display: inline-block; margin-top: 8px; }
+  .dashboard-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat-grupo { flex: 1 1 260px; }
+  .stat-grupo-titulo { font-size: 0.78rem; font-weight: 700; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .stat-linha { display: flex; gap: 8px; }
+  .stat-tile {
+    flex: 1 1 0;
+    background: var(--cinza-fundo);
+    border-radius: 8px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .stat-tile .numero { font-size: 1.3rem; font-weight: 800; display: block; }
+  .stat-tile .rotulo { font-size: 0.68rem; color: var(--texto-suave); }
+  .stat-tile.tile-atraso .numero { color: var(--vermelho); }
+  .stat-tile.tile-terminado .numero { color: var(--verde); }
+  .dias-producao { font-size: 0.74rem; color: var(--texto-suave); margin-left: 6px; }
+  .linha-etapa-wrap { margin-bottom: 0; }
+  .botao-nota {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--cinza-borda);
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .nota-etapa {
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+  .switch-linha { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .switch-linha input[type="checkbox"] { width: 20px; height: 20px; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -227,6 +260,13 @@
 </header>
 
 <main>
+  <div class="card" id="cardDashboard">
+    <div class="card-titulo">Resumo geral</div>
+    <div class="dashboard-grid" id="dashboardGrid">
+      <div class="ajuda">A carregar...</div>
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-titulo">Procurar / criar número de série</div>
     <label class="campo-label" for="serial">Número de série da máquina</label>
@@ -323,6 +363,31 @@
     </div>
   </div>
 
+  <div class="card">
+    <div class="card-titulo">Envio automático de resumos</div>
+    <div class="ajuda" style="margin-bottom:10px;">Quando ativo, envia automaticamente o resumo (Grupos + Ciclos, Excel + PDF) para estes e-mails, sem precisar de carregar em nada.</div>
+
+    <div class="switch-linha">
+      <input type="checkbox" id="envioAutomaticoAtivo" />
+      <label for="envioAutomaticoAtivo" style="font-weight:600; font-size:0.9rem;">Ativar envio automático</label>
+    </div>
+
+    <label class="campo-label" for="envioAutomaticoEmails">E-mail(s) para o envio automático</label>
+    <input type="text" id="envioAutomaticoEmails" placeholder="exemplo1@empresa.com, exemplo2@empresa.com" autocomplete="off" />
+
+    <div style="height:12px"></div>
+
+    <label class="campo-label" for="envioAutomaticoFrequencia">Frequência</label>
+    <select id="envioAutomaticoFrequencia">
+      <option value="diario">Todos os dias, às 8h</option>
+      <option value="semanal">Toda a segunda-feira, às 8h</option>
+    </select>
+
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-verde botao-largo" id="botaoGuardarEnvioAutomatico">Guardar configuração</button>
+    </div>
+  </div>
+
   <div class="estado" id="estado"></div>
 </main>
 
@@ -336,6 +401,11 @@
   var FOLDER_ID_RELATORIOS = '<?= folderIdRelatorios ?>';
   if (FOLDER_ID_RELATORIOS.indexOf('<') !== -1) {
     FOLDER_ID_RELATORIOS = '';
+  }
+
+  var APPS_SCRIPT_URL_RELATORIOS = '<?= appsScriptUrlRelatorios ?>';
+  if (APPS_SCRIPT_URL_RELATORIOS.indexOf('https://') !== 0) {
+    APPS_SCRIPT_URL_RELATORIOS = '';
   }
 
   var LISTAS_JSON = '<?!= listasJson ?>';
@@ -378,6 +448,7 @@
     preencherSelectGrupo();
     esconderRegisto();
     carregarLista();
+    carregarDashboard();
   }
 
   abaGrupos.addEventListener('click', function () { TIPO_ATUAL = 'grupos'; atualizarAba(); });
@@ -437,17 +508,33 @@
     etapasGuardadas = etapasGuardadas || {};
     var html = '';
     ETAPAS.forEach(function (et) {
-      var dataConcluida = (etapasGuardadas[et.chave] || '').toString().trim();
+      var guardada = etapasGuardadas[et.chave] || {};
+      var dataConcluida = (guardada.data || '').toString().trim();
+      var nota = (guardada.nota || '').toString().trim();
       var concluida = !!dataConcluida;
       html = html +
-        '<label class="linha-etapa' + (concluida ? ' concluida' : '') + '" data-chave="' + et.chave + '">' +
-          '<input type="checkbox" data-chave-etapa="' + et.chave + '"' + (concluida ? ' checked' : '') + ' />' +
-          '<span class="nome-etapa">' + et.rotulo + '</span>' +
-          '<span class="data-etapa">' + (concluida ? dataConcluida : '') + '</span>' +
-        '</label>';
+        '<div class="linha-etapa-wrap">' +
+          '<label class="linha-etapa' + (concluida ? ' concluida' : '') + '" data-chave="' + et.chave + '">' +
+            '<input type="checkbox" data-chave-etapa="' + et.chave + '"' + (concluida ? ' checked' : '') + ' />' +
+            '<span class="nome-etapa">' + et.rotulo + '</span>' +
+            '<span class="data-etapa">' + (concluida ? dataConcluida : '') + '</span>' +
+            '<button type="button" class="botao-nota" data-chave-nota-botao="' + et.chave + '" title="Adicionar/editar nota">📝</button>' +
+          '</label>' +
+          '<input type="text" class="campo-outro nota-etapa" data-chave-nota-input="' + et.chave + '" placeholder="Nota (opcional)..." value="' + nota.replace(/"/g, '&quot;') + '"' + (nota ? '' : ' hidden') + ' />' +
+        '</div>';
     });
     etapasLista.innerHTML = html;
   }
+
+  etapasLista.addEventListener('click', function (ev) {
+    var botaoNota = ev.target.closest('.botao-nota');
+    if (!botaoNota) return;
+    var chave = botaoNota.dataset.chaveNotaBotao;
+    var campoNota = etapasLista.querySelector('input[data-chave-nota-input="' + chave + '"]');
+    if (!campoNota) return;
+    campoNota.hidden = !campoNota.hidden;
+    if (!campoNota.hidden) campoNota.focus();
+  });
 
   etapasLista.addEventListener('change', function (ev) {
     var input = ev.target;
@@ -465,16 +552,32 @@
     var etapas = {};
     ETAPAS.forEach(function (et) {
       var checkbox = etapasLista.querySelector('input[data-chave-etapa="' + et.chave + '"]');
-      etapas[et.chave] = !!(checkbox && checkbox.checked);
+      var campoNota = etapasLista.querySelector('input[data-chave-nota-input="' + et.chave + '"]');
+      etapas[et.chave] = {
+        marcado: !!(checkbox && checkbox.checked),
+        nota: campoNota ? campoNota.value.trim() : ''
+      };
     });
     return etapas;
+  }
+
+  function calcularDiasEmProducao(criadoEm) {
+    if (!criadoEm) return null;
+    var dataCriado = new Date(criadoEm.replace(' ', 'T'));
+    if (isNaN(dataCriado.getTime())) return null;
+    var diffMs = new Date().getTime() - dataCriado.getTime();
+    return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
   }
 
   function montarBadges(dados) {
     var html = '';
     html = html + '<span class="badge ' + (dados.estado === 'Terminado' ? 'badge-terminado' : 'badge-em-curso') + '">' + dados.estado + '</span> ';
     if (dados.emAtraso === 'Sim') {
-      html = html + '<span class="badge badge-atraso">Em atraso</span>';
+      html = html + '<span class="badge badge-atraso">Em atraso</span> ';
+    }
+    var dias = calcularDiasEmProducao(dados.criadoEm);
+    if (dias !== null) {
+      html = html + '<span class="dias-producao">' + dias + (dias === 1 ? ' dia' : ' dias') + ' em produção</span>';
     }
     badgesRegisto.innerHTML = html;
   }
@@ -485,7 +588,20 @@
       return;
     }
     var url = 'https://drive.google.com/drive/search?q=' + encodeURIComponent(serial);
-    linkDriveContainer.innerHTML = '<a class="link-drive" href="' + url + '" target="_blank" rel="noopener">Ver fotos/relatórios deste número de série no Drive →</a>';
+    linkDriveContainer.innerHTML = '<a class="link-drive" href="' + url + '" target="_blank" rel="noopener">Ver fotos/relatórios deste número de série no Drive →</a>' +
+      '<div class="ajuda" id="contagemFotosRelatorios"></div>';
+
+    if (!APPS_SCRIPT_URL_RELATORIOS) return;
+    var urlContagem = APPS_SCRIPT_URL_RELATORIOS + '?action=contarFotos&serial=' + encodeURIComponent(serial);
+    fetch(urlContagem).then(function (resposta) { return resposta.json(); }).then(function (dados) {
+      var el = document.getElementById('contagemFotosRelatorios');
+      if (!el || dados.status !== 'ok') return;
+      if (dados.totalEnvios === 0) {
+        el.textContent = 'Ainda não há relatórios enviados para este número de série.';
+      } else {
+        el.textContent = dados.totalFotos + ' foto(s) em ' + dados.totalEnvios + ' relatório(s) enviado(s).';
+      }
+    }).catch(function () { /* atalho e opcional, falha em silencio */ });
   }
 
   function mostrarHistorico(serialAnteriores) {
@@ -609,6 +725,7 @@
         mostrarEstado('Registo guardado.', 'sucesso');
         botaoProcurar.click();
         carregarLista();
+        carregarDashboard();
       })
       .catch(function (erro) {
         mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
@@ -649,6 +766,7 @@
         campoSerial.value = serialNovo;
         botaoProcurar.click();
         carregarLista();
+        carregarDashboard();
       })
       .catch(function (erro) {
         mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
@@ -681,6 +799,8 @@
       var html = '';
       dados.itens.forEach(function (item) {
         var estadoTexto = item.estado + (item.emAtraso === 'Sim' ? ' · Em atraso' : '');
+        var dias = calcularDiasEmProducao(item.criadoEm);
+        if (dias !== null) estadoTexto = estadoTexto + ' · ' + dias + (dias === 1 ? ' dia' : ' dias');
         html = html + '<button type="button" class="item-lista" data-serial="' + item.serial.replace(/"/g, '&quot;') + '">' +
           '<div class="linha1">' + item.serial + (item.grupo ? ' — ' + item.grupo : '') + '</div>' +
           '<div class="linha2">' + estadoTexto + (item.previsaoSaida ? ' · Previsão: ' + item.previsaoSaida : '') + '</div>' +
@@ -699,6 +819,43 @@
     botaoProcurar.click();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
+
+  var dashboardGrid = document.getElementById('dashboardGrid');
+
+  function montarStatTile(numero, rotulo, classeExtra) {
+    return '<div class="stat-tile' + (classeExtra ? ' ' + classeExtra : '') + '">' +
+      '<span class="numero">' + numero + '</span>' +
+      '<span class="rotulo">' + rotulo + '</span>' +
+    '</div>';
+  }
+
+  function carregarDashboard() {
+    if (!APPS_SCRIPT_URL) return;
+    var url = APPS_SCRIPT_URL + '?action=resumo';
+
+    fetch(url).then(function (resposta) { return resposta.json(); }).then(function (dados) {
+      if (dados.status !== 'ok' || !dados.resumo) {
+        dashboardGrid.innerHTML = '<div class="ajuda">Erro ao carregar o resumo.</div>';
+        return;
+      }
+      var html = '';
+      ['grupos', 'ciclos'].forEach(function (tipo) {
+        var r = dados.resumo[tipo];
+        var nomeTipo = tipo === 'ciclos' ? 'Ciclos' : 'Grupos';
+        html = html + '<div class="stat-grupo">' +
+          '<div class="stat-grupo-titulo">' + nomeTipo + '</div>' +
+          '<div class="stat-linha">' +
+            montarStatTile(r.emCurso, 'Em curso') +
+            montarStatTile(r.terminados, 'Terminados', 'tile-terminado') +
+            montarStatTile(r.atraso, 'Em atraso', 'tile-atraso') +
+          '</div>' +
+        '</div>';
+      });
+      dashboardGrid.innerHTML = html;
+    }).catch(function () {
+      dashboardGrid.innerHTML = '<div class="ajuda">Erro de ligação ao carregar o resumo.</div>';
+    });
+  }
 
   var botaoEnviarResumo = document.getElementById('botaoEnviarResumo');
   botaoEnviarResumo.addEventListener('click', function () {
@@ -735,6 +892,60 @@
       });
   });
 
+  var campoEnvioAutomaticoAtivo = document.getElementById('envioAutomaticoAtivo');
+  var campoEnvioAutomaticoEmails = document.getElementById('envioAutomaticoEmails');
+  var campoEnvioAutomaticoFrequencia = document.getElementById('envioAutomaticoFrequencia');
+  var botaoGuardarEnvioAutomatico = document.getElementById('botaoGuardarEnvioAutomatico');
+
+  function carregarConfigEnvioAutomatico() {
+    if (!APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=configEnvio').then(function (resposta) { return resposta.json(); }).then(function (dados) {
+      if (dados.status !== 'ok') return;
+      campoEnvioAutomaticoAtivo.checked = !!dados.ativo;
+      campoEnvioAutomaticoEmails.value = dados.emails || '';
+      campoEnvioAutomaticoFrequencia.value = dados.frequencia === 'semanal' ? 'semanal' : 'diario';
+    }).catch(function () { /* falha em silencio, mantem os valores por defeito */ });
+  }
+
+  botaoGuardarEnvioAutomatico.addEventListener('click', function () {
+    var ativo = campoEnvioAutomaticoAtivo.checked;
+    var emails = campoEnvioAutomaticoEmails.value.trim();
+    if (ativo && !emails) {
+      mostrarEstado('Indique pelo menos um e-mail para o envio automático.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = {
+      acao: 'configurarEnvioAutomatico',
+      ativo: ativo,
+      emails: emails,
+      frequencia: campoEnvioAutomaticoFrequencia.value
+    };
+
+    botaoGuardarEnvioAutomatico.disabled = true;
+    mostrarEstado('A guardar configuração...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(function (resposta) { return resposta.json(); })
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        mostrarEstado(dados.mensagem, 'sucesso');
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      })
+      .finally(function () {
+        botaoGuardarEnvioAutomatico.disabled = false;
+      });
+  });
+
   function mostrarEstado(texto, tipo) {
     var el = document.getElementById('estado');
     el.textContent = texto;
@@ -747,6 +958,8 @@
 
   preencherSelectGrupo();
   carregarLista();
+  carregarDashboard();
+  carregarConfigEnvioAutomatico();
 })();
 </script>
 </body>

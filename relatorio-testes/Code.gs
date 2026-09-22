@@ -109,6 +109,10 @@ function doGet(e) {
     return listarEnviosAnteriores(e.parameter);
   }
 
+  if (acao === 'contarFotos') {
+    return contarFotos(e.parameter);
+  }
+
   var tipoParametro = e && e.parameter ? e.parameter.tipo : '';
   var tipoRelatorio = tipoParametro === 'ciclos' ? 'ciclos' : 'testes';
   var tituloPagina = tipoRelatorio === 'ciclos' ? 'Relatorio de Ciclos' : 'Relatorio de Testes';
@@ -517,6 +521,52 @@ function listarEnviosAnteriores(parametros) {
     });
 
     resposta = { status: 'ok', itens: itens };
+  } catch (erro) {
+    resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
+  }
+
+  var saida = ContentService.createTextOutput(JSON.stringify(resposta));
+  saida.setMimeType(ContentService.MimeType.JSON);
+  return saida;
+}
+
+/**
+ * Responde em JSON com o numero de relatorios ja enviados e o total de
+ * fotografias guardadas para um numero de serie. Usado pelo script de
+ * "Controlo de Producao" para mostrar quantas fotos ja existem, sem ter
+ * de abrir o Drive.
+ */
+function contarFotos(parametros) {
+  var resposta;
+  try {
+    var serial = (parametros.serial || '').toString().trim();
+    if (!serial) {
+      throw new Error('Numero de serie em falta.');
+    }
+
+    var raiz = DriveApp.getFolderById(FOLDER_ID);
+    var prefixoSerial = sanitizeNome(serial);
+    var totalEnvios = 0;
+    var totalFotos = 0;
+
+    var pastas = raiz.getFolders();
+    while (pastas.hasNext()) {
+      var pasta = pastas.next();
+      var nome = pasta.getName();
+      var ehDesteSerial =
+        nome.indexOf('SN_' + prefixoSerial + '_Grupo') === 0 ||
+        nome.indexOf('CICLO_' + prefixoSerial + '_Grupo') === 0;
+      if (!ehDesteSerial) continue;
+
+      totalEnvios = totalEnvios + 1;
+      var ficheiros = pasta.getFiles();
+      while (ficheiros.hasNext()) {
+        ficheiros.next();
+        totalFotos = totalFotos + 1;
+      }
+    }
+
+    resposta = { status: 'ok', totalEnvios: totalEnvios, totalFotos: totalFotos };
   } catch (erro) {
     resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
   }
