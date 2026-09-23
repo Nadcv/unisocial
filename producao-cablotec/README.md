@@ -31,7 +31,17 @@ O botão "Enviar resumo (Excel + PDF)" exporta o estado atual completo da aba se
 
 ## Envio automático
 
-No card "Envio automático de resumos", ative o interruptor, indique os e-mails e escolha a frequência (diário às 8h, ou semanal à segunda-feira às 8h). Isto cria um gatilho (trigger) no Apps Script que corre sozinho, sem precisar de ter a página aberta, e envia o resumo de Grupos e de Ciclos (Excel + PDF) automaticamente. Para desativar, desligue o interruptor e guarde outra vez.
+No card "Envio automático de resumos", ative o interruptor, indique os e-mails e escolha quando enviar:
+
+- **Todos os dias**, a uma hora à escolha.
+- **Toda a semana**, num dia e hora à escolha (ex.: toda sexta-feira às 17h).
+- **Uma única vez**, numa data e hora exatas (ex.: só amanhã às 9h) — depois de disparar, desativa-se sozinho.
+
+Isto cria um gatilho (trigger) no Apps Script que corre sozinho, sem precisar de ter a página aberta, e envia o resumo de Grupos e de Ciclos (Excel + PDF) automaticamente. Para desativar antes da hora, desligue o interruptor e guarde outra vez.
+
+## Materiais por modelo (elétrica e frio)
+
+Dentro de cada registo, depois de escolher o Grupo/Tipo, aparecem duas tabelas — "Materiais — Parte elétrica" e "Materiais — Parte de frio" — com os materiais (código, descrição, quantidade) desse modelo. Esta estrutura é **permanente por modelo** (fica guardada numa aba `MateriaisPadrao`, partilhada por todos os números de série desse Grupo/Tipo): ao identificar o modelo, a tabela já aparece preenchida automaticamente; adicionar ou remover um material ali atualiza logo a estrutura desse modelo para sempre (não é só para aquele número de série). Para começar, adicione os materiais uma vez por modelo — nos números de série seguintes desse mesmo modelo, a tabela já vem pronta.
 
 ## Resumo geral (dashboard)
 

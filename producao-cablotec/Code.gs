@@ -47,6 +47,23 @@ var ABAS = {
   ciclos: 'Ciclos'
 };
 
+// Aba onde fica guardada a estrutura permanente de materiais (eletrica e
+// frio) de cada modelo (Grupo ou Ciclo). E a mesma aba para os dois tipos,
+// distinguida pela coluna "Tipo".
+var ABA_MATERIAIS = 'MateriaisPadrao';
+
+var CABECALHOS_MATERIAIS = ['Tipo', 'Modelo', 'Categoria', 'Codigo', 'Descricao', 'Quantidade', 'Criado em'];
+
+var COL_MAT = {
+  TIPO: 1,
+  MODELO: 2,
+  CATEGORIA: 3,
+  CODIGO: 4,
+  DESCRICAO: 5,
+  QUANTIDADE: 6,
+  CRIADO: 7
+};
+
 // Colunas fixas (antes das etapas), pela ordem em que aparecem na folha.
 var COLUNAS_BASE = [
   'Numero de serie',
@@ -123,6 +140,10 @@ function doGet(e) {
     return respostaJson(obterConfigEnvioAutomatico());
   }
 
+  if (acao === 'materiaisPadrao') {
+    return respostaJson(listarMateriaisPadrao(e.parameter.tipo, e.parameter.modelo));
+  }
+
   var listas = {
     gruposProducao: obterLista('gruposProducao'),
     ciclosProducao: obterLista('ciclosProducao')
@@ -155,6 +176,10 @@ function doPost(e) {
       resposta = enviarResumoProducao(dados);
     } else if (dados.acao === 'configurarEnvioAutomatico') {
       resposta = configurarEnvioAutomatico(dados);
+    } else if (dados.acao === 'adicionarMaterialPadrao') {
+      resposta = adicionarMaterialPadrao(dados);
+    } else if (dados.acao === 'removerMaterialPadrao') {
+      resposta = removerMaterialPadrao(dados);
     } else {
       throw new Error('Acao desconhecida.');
     }
@@ -202,6 +227,142 @@ function obterAba(tipo) {
   aba.getRange(2, COL_PRIMEIRA_ETAPA, 1000, ETAPAS.length).setNumberFormat('@');
 
   return aba;
+}
+
+/**
+ * Devolve (criando se necessario) a aba onde fica a estrutura permanente
+ * de materiais por modelo.
+ */
+function obterAbaMateriais() {
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.getSheetByName(ABA_MATERIAIS);
+  if (aba) return aba;
+
+  aba = folha.insertSheet(ABA_MATERIAIS);
+  aba.getRange(1, 1, 1, CABECALHOS_MATERIAIS.length).setValues([CABECALHOS_MATERIAIS]);
+  aba.setFrozenRows(1);
+  aba.getRange(1, 1, 1, CABECALHOS_MATERIAIS.length).setFontWeight('bold');
+  aba.getRange(2, COL_MAT.CRIADO, 2000, 1).setNumberFormat('@');
+  return aba;
+}
+
+/**
+ * Responde com a estrutura de materiais (eletrica + frio) permanente de um
+ * modelo (Grupo ou Ciclo). Usado para preencher a tabela automaticamente
+ * assim que o Grupo/Tipo e identificado no formulario.
+ */
+function listarMateriaisPadrao(tipo, modelo) {
+  var modeloLimpo = (modelo || '').toString().trim();
+  if (!modeloLimpo) {
+    return { status: 'ok', itens: [] };
+  }
+
+  var aba = obterAbaMateriais();
+  var ultimaLinha = aba.getLastRow();
+  if (ultimaLinha < 2) return { status: 'ok', itens: [] };
+
+  var valores = aba.getRange(2, 1, ultimaLinha - 1, CABECALHOS_MATERIAIS.length).getValues();
+  var itens = [];
+
+  for (var i = 0; i < valores.length; i++) {
+    var linha = valores[i];
+    if ((linha[COL_MAT.TIPO - 1] || '') !== tipo) continue;
+    if ((linha[COL_MAT.MODELO - 1] || '').toString().trim().toLowerCase() !== modeloLimpo.toLowerCase()) continue;
+
+    itens.push({
+      categoria: (linha[COL_MAT.CATEGORIA - 1] || '').toString(),
+      codigo: (linha[COL_MAT.CODIGO - 1] || '').toString(),
+      descricao: (linha[COL_MAT.DESCRICAO - 1] || '').toString(),
+      quantidade: (linha[COL_MAT.QUANTIDADE - 1] || '').toString()
+    });
+  }
+
+  itens.sort(function (a, b) {
+    if (a.categoria !== b.categoria) return a.categoria.localeCompare(b.categoria);
+    return a.codigo.localeCompare(b.codigo);
+  });
+
+  return { status: 'ok', itens: itens };
+}
+
+/**
+ * Acrescenta (ou atualiza, se o codigo ja existir para o mesmo
+ * modelo+categoria) um material na estrutura permanente de um modelo.
+ */
+function adicionarMaterialPadrao(dados) {
+  var tipo = (dados.tipo || '').toString().trim();
+  var modelo = (dados.modelo || '').toString().trim();
+  var categoria = (dados.categoria || '').toString().trim();
+  var codigo = (dados.codigo || '').toString().trim();
+  var descricao = (dados.descricao || '').toString().trim();
+  var quantidade = (dados.quantidade || '').toString().trim();
+
+  if (!tipo || !modelo || !categoria || !codigo) {
+    throw new Error('Indique modelo, categoria e codigo do material.');
+  }
+
+  var aba = obterAbaMateriais();
+  var ultimaLinha = aba.getLastRow();
+
+  if (ultimaLinha >= 2) {
+    var valores = aba.getRange(2, 1, ultimaLinha - 1, CABECALHOS_MATERIAIS.length).getValues();
+    for (var i = 0; i < valores.length; i++) {
+      var linha = valores[i];
+      var mesmoTipo = (linha[COL_MAT.TIPO - 1] || '') === tipo;
+      var mesmoModelo = (linha[COL_MAT.MODELO - 1] || '').toString().trim().toLowerCase() === modelo.toLowerCase();
+      var mesmaCategoria = (linha[COL_MAT.CATEGORIA - 1] || '') === categoria;
+      var mesmoCodigo = (linha[COL_MAT.CODIGO - 1] || '').toString().trim().toLowerCase() === codigo.toLowerCase();
+
+      if (mesmoTipo && mesmoModelo && mesmaCategoria && mesmoCodigo) {
+        var linhaFolha = i + 2;
+        aba.getRange(linhaFolha, COL_MAT.DESCRICAO).setValue(descricao);
+        aba.getRange(linhaFolha, COL_MAT.QUANTIDADE).setValue(quantidade);
+        return { status: 'ok', mensagem: 'Material atualizado.' };
+      }
+    }
+  }
+
+  var agora = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm');
+  var novaLinha = [tipo, modelo, categoria, codigo, descricao, quantidade, agora];
+  aba.getRange(aba.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+
+  return { status: 'ok', mensagem: 'Material adicionado.' };
+}
+
+/**
+ * Remove um material da estrutura permanente de um modelo, pelo codigo.
+ */
+function removerMaterialPadrao(dados) {
+  var tipo = (dados.tipo || '').toString().trim();
+  var modelo = (dados.modelo || '').toString().trim();
+  var categoria = (dados.categoria || '').toString().trim();
+  var codigo = (dados.codigo || '').toString().trim();
+
+  if (!tipo || !modelo || !categoria || !codigo) {
+    throw new Error('Indique modelo, categoria e codigo do material.');
+  }
+
+  var aba = obterAbaMateriais();
+  var ultimaLinha = aba.getLastRow();
+  if (ultimaLinha < 2) {
+    throw new Error('Material nao encontrado.');
+  }
+
+  var valores = aba.getRange(2, 1, ultimaLinha - 1, CABECALHOS_MATERIAIS.length).getValues();
+  for (var i = 0; i < valores.length; i++) {
+    var linha = valores[i];
+    var mesmoTipo = (linha[COL_MAT.TIPO - 1] || '') === tipo;
+    var mesmoModelo = (linha[COL_MAT.MODELO - 1] || '').toString().trim().toLowerCase() === modelo.toLowerCase();
+    var mesmaCategoria = (linha[COL_MAT.CATEGORIA - 1] || '') === categoria;
+    var mesmoCodigo = (linha[COL_MAT.CODIGO - 1] || '').toString().trim().toLowerCase() === codigo.toLowerCase();
+
+    if (mesmoTipo && mesmoModelo && mesmaCategoria && mesmoCodigo) {
+      aba.deleteRow(i + 2);
+      return { status: 'ok', mensagem: 'Material removido.' };
+    }
+  }
+
+  throw new Error('Material nao encontrado.');
 }
 
 /**
@@ -497,32 +658,69 @@ function enviarResumoProducao(dados) {
 }
 
 /**
- * Ativa ou desativa o envio automatico (diario ou semanal) do resumo de
- * producao por e-mail. Guarda a configuracao nas Propriedades do Script
- * e cria/remove o gatilho (trigger) correspondente.
+ * Ativa ou desativa o envio automatico do resumo de producao por e-mail.
+ * Suporta tres tipos de agendamento, escolhidos livremente:
+ *  - "diario": todos os dias, a uma hora/minuto escolhidos.
+ *  - "semanal": um dia da semana escolhido, a uma hora/minuto escolhidos.
+ *  - "unico": uma unica vez, numa data e hora exatas escolhidas.
+ * Guarda a configuracao nas Propriedades do Script e cria/remove o
+ * gatilho (trigger) correspondente.
  */
 function configurarEnvioAutomatico(dados) {
   var emails = (dados.emails || '').toString().trim();
   var ativo = dados.ativo === true;
-  var frequencia = dados.frequencia === 'semanal' ? 'semanal' : 'diario';
+  var frequencia = ['diario', 'semanal', 'unico'].indexOf(dados.frequencia) !== -1 ? dados.frequencia : 'diario';
+  var hora = Math.min(23, Math.max(0, parseInt(dados.hora, 10) || 0));
+  var minuto = Math.min(59, Math.max(0, parseInt(dados.minuto, 10) || 0));
+  var diaSemana = (dados.diaSemana || 'MONDAY').toString().trim();
+  var dataHora = (dados.dataHora || '').toString().trim();
 
   if (ativo && !emails) {
     throw new Error('Indique pelo menos um e-mail para o envio automatico.');
+  }
+  if (ativo && frequencia === 'unico') {
+    if (!dataHora) {
+      throw new Error('Escolha a data e a hora para o envio unico.');
+    }
+    var dataAlvo = new Date(dataHora);
+    if (isNaN(dataAlvo.getTime())) {
+      throw new Error('Data/hora invalida.');
+    }
+    if (dataAlvo.getTime() <= new Date().getTime()) {
+      throw new Error('Escolha uma data/hora no futuro.');
+    }
+  }
+  if (ativo && frequencia === 'semanal' && !ScriptApp.WeekDay[diaSemana]) {
+    throw new Error('Dia da semana invalido.');
   }
 
   removerTriggersExistentes(NOME_FUNCAO_TRIGGER);
 
   if (ativo) {
-    var novoTrigger = ScriptApp.newTrigger(NOME_FUNCAO_TRIGGER).timeBased().atHour(8);
-    if (frequencia === 'semanal') {
-      novoTrigger = novoTrigger.onWeekDay(ScriptApp.WeekDay.MONDAY).everyWeeks(1);
+    if (frequencia === 'unico') {
+      ScriptApp.newTrigger(NOME_FUNCAO_TRIGGER).timeBased().at(new Date(dataHora)).create();
+    } else if (frequencia === 'semanal') {
+      ScriptApp.newTrigger(NOME_FUNCAO_TRIGGER).timeBased()
+        .atHour(hora).nearMinute(minuto)
+        .onWeekDay(ScriptApp.WeekDay[diaSemana]).everyWeeks(1)
+        .create();
     } else {
-      novoTrigger = novoTrigger.everyDays(1);
+      ScriptApp.newTrigger(NOME_FUNCAO_TRIGGER).timeBased()
+        .atHour(hora).nearMinute(minuto)
+        .everyDays(1)
+        .create();
     }
-    novoTrigger.create();
   }
 
-  guardarConfigEnvioAutomatico({ ativo: ativo, emails: limparListaEmails(emails), frequencia: frequencia });
+  guardarConfigEnvioAutomatico({
+    ativo: ativo,
+    emails: limparListaEmails(emails),
+    frequencia: frequencia,
+    hora: hora,
+    minuto: minuto,
+    diaSemana: diaSemana,
+    dataHora: dataHora
+  });
 
   return { status: 'ok', mensagem: ativo ? 'Envio automatico ativado.' : 'Envio automatico desativado.' };
 }
@@ -539,11 +737,20 @@ function removerTriggersExistentes(nomeFuncao) {
 function obterConfigEnvioAutomatico() {
   var propriedades = PropertiesService.getScriptProperties();
   var guardado = propriedades.getProperty(CONFIG_ENVIO_KEY);
-  if (!guardado) {
-    return { status: 'ok', ativo: false, emails: '', frequencia: 'diario' };
-  }
+  var padrao = { status: 'ok', ativo: false, emails: '', frequencia: 'diario', hora: 8, minuto: 0, diaSemana: 'MONDAY', dataHora: '' };
+  if (!guardado) return padrao;
+
   var config = JSON.parse(guardado);
-  return { status: 'ok', ativo: !!config.ativo, emails: config.emails || '', frequencia: config.frequencia || 'diario' };
+  return {
+    status: 'ok',
+    ativo: !!config.ativo,
+    emails: config.emails || '',
+    frequencia: config.frequencia || 'diario',
+    hora: typeof config.hora === 'number' ? config.hora : 8,
+    minuto: typeof config.minuto === 'number' ? config.minuto : 0,
+    diaSemana: config.diaSemana || 'MONDAY',
+    dataHora: config.dataHora || ''
+  };
 }
 
 function guardarConfigEnvioAutomatico(config) {
@@ -552,9 +759,10 @@ function guardarConfigEnvioAutomatico(config) {
 }
 
 /**
- * Chamada automaticamente pelo gatilho diario/semanal (nunca diretamente
- * pelo formulario). Os gatilhos do Apps Script nao recebem argumentos,
- * por isso le a configuracao guardada nas Propriedades do Script.
+ * Chamada automaticamente pelo gatilho (diario, semanal ou unico), nunca
+ * diretamente pelo formulario. Os gatilhos do Apps Script nao recebem
+ * argumentos, por isso le a configuracao guardada nas Propriedades do
+ * Script. Um envio "unico" desativa-se sozinho depois de disparar.
  */
 function enviarResumosAutomaticos() {
   var propriedades = PropertiesService.getScriptProperties();
@@ -573,6 +781,11 @@ function enviarResumosAutomaticos() {
       // Nao interrompe o envio do outro tipo se um deles falhar.
     }
   });
+
+  if (config.frequencia === 'unico') {
+    config.ativo = false;
+    guardarConfigEnvioAutomatico(config);
+  }
 }
 
 function exportarAbaComoBlob(aba, formato) {

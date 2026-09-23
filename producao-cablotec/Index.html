@@ -244,6 +244,44 @@
   }
   .switch-linha { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   .switch-linha input[type="checkbox"] { width: 20px; height: 20px; }
+  .materiais-lista { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; margin-bottom: 8px; }
+  .item-material {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--cinza-borda);
+    font-size: 0.82rem;
+  }
+  .item-material .codigo-material { font-weight: 700; flex: 0 0 auto; }
+  .item-material .descricao-material { flex: 1 1 auto; color: var(--texto-suave); }
+  .item-material .qtd-material { flex: 0 0 auto; color: var(--texto-suave); }
+  .item-material button {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(197,34,31,0.1);
+    color: var(--vermelho);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+  }
+  .materiais-add-linha { display: flex; gap: 6px; flex-wrap: wrap; }
+  .materiais-add-linha input { flex: 1 1 90px; padding: 10px; font-size: 0.85rem; }
+  .botao-add-material {
+    flex: 0 0 auto;
+    width: 40px;
+    border-radius: 8px;
+    border: 1px solid var(--azul);
+    background: var(--azul);
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -321,6 +359,28 @@
     <label class="campo-label" for="materiaisEntregues">Materiais entregues</label>
     <textarea id="materiaisEntregues" placeholder="Ex.: material entregue em 12/09..."></textarea>
 
+    <div style="height:16px"></div>
+
+    <label class="campo-label">Materiais — Parte elétrica <span class="ajuda" style="margin:0;">(estrutura permanente deste modelo)</span></label>
+    <div class="materiais-lista" id="materiaisEletricaLista"></div>
+    <div class="materiais-add-linha">
+      <input type="text" id="matEletricaCodigo" placeholder="Código" autocomplete="off" />
+      <input type="text" id="matEletricaDescricao" placeholder="Descrição" autocomplete="off" />
+      <input type="text" id="matEletricaQuantidade" placeholder="Qtd." autocomplete="off" />
+      <button type="button" class="botao-add-material" id="botaoAddMatEletrica">+</button>
+    </div>
+
+    <div style="height:14px"></div>
+
+    <label class="campo-label">Materiais — Parte de frio <span class="ajuda" style="margin:0;">(estrutura permanente deste modelo)</span></label>
+    <div class="materiais-lista" id="materiaisFrioLista"></div>
+    <div class="materiais-add-linha">
+      <input type="text" id="matFrioCodigo" placeholder="Código" autocomplete="off" />
+      <input type="text" id="matFrioDescricao" placeholder="Descrição" autocomplete="off" />
+      <input type="text" id="matFrioQuantidade" placeholder="Qtd." autocomplete="off" />
+      <button type="button" class="botao-add-material" id="botaoAddMatFrio">+</button>
+    </div>
+
     <div style="height:14px"></div>
 
     <label class="campo-label">Etapas de produção</label>
@@ -377,11 +437,38 @@
 
     <div style="height:12px"></div>
 
-    <label class="campo-label" for="envioAutomaticoFrequencia">Frequência</label>
+    <label class="campo-label" for="envioAutomaticoFrequencia">Quando enviar</label>
     <select id="envioAutomaticoFrequencia">
-      <option value="diario">Todos os dias, às 8h</option>
-      <option value="semanal">Toda a segunda-feira, às 8h</option>
+      <option value="diario">Todos os dias</option>
+      <option value="semanal">Toda a semana, num dia à escolha</option>
+      <option value="unico">Uma única vez, numa data/hora à escolha</option>
     </select>
+
+    <div style="height:12px"></div>
+
+    <div class="duas-colunas" id="linhaHoraEnvio">
+      <div>
+        <label class="campo-label" for="envioAutomaticoDiaSemana">Dia da semana</label>
+        <select id="envioAutomaticoDiaSemana">
+          <option value="MONDAY">Segunda-feira</option>
+          <option value="TUESDAY">Terça-feira</option>
+          <option value="WEDNESDAY">Quarta-feira</option>
+          <option value="THURSDAY">Quinta-feira</option>
+          <option value="FRIDAY">Sexta-feira</option>
+          <option value="SATURDAY">Sábado</option>
+          <option value="SUNDAY">Domingo</option>
+        </select>
+      </div>
+      <div>
+        <label class="campo-label" for="envioAutomaticoHora">Hora</label>
+        <input type="time" id="envioAutomaticoHora" value="08:00" />
+      </div>
+    </div>
+
+    <div id="linhaDataUnica" hidden>
+      <label class="campo-label" for="envioAutomaticoDataHora">Data e hora exatas</label>
+      <input type="datetime-local" id="envioAutomaticoDataHora" />
+    </div>
 
     <div class="linha-botoes">
       <button type="button" class="botao botao-verde botao-largo" id="botaoGuardarEnvioAutomatico">Guardar configuração</button>
@@ -485,7 +572,10 @@
   campoGrupo.addEventListener('change', function () {
     campoGrupoOutro.hidden = campoGrupo.value !== '__outro__';
     if (!campoGrupoOutro.hidden) campoGrupoOutro.focus();
+    recarregarMateriaisPeloGrupoAtual();
   });
+
+  campoGrupoOutro.addEventListener('blur', recarregarMateriaisPeloGrupoAtual);
 
   function obterValorGrupo() {
     if (campoGrupo.value === '__outro__') return campoGrupoOutro.value.trim();
@@ -503,6 +593,151 @@
       campoGrupoOutro.value = valor;
     }
   }
+
+  // ---------------------------------------------------------------------
+  // Materiais (estrutura permanente por modelo): assim que o Grupo/Tipo e
+  // identificado, a tabela de materiais eletricos e de frio desse modelo
+  // e carregada automaticamente. Adicionar/remover aqui altera logo a
+  // estrutura permanente do modelo (nao e so deste numero de serie).
+  // ---------------------------------------------------------------------
+  var materiaisEletricaLista = document.getElementById('materiaisEletricaLista');
+  var materiaisFrioLista = document.getElementById('materiaisFrioLista');
+
+  function montarListaMateriais(container, itens, categoria) {
+    if (!itens.length) {
+      container.innerHTML = '<div class="ajuda">Nenhum material registado para este modelo ainda.</div>';
+      return;
+    }
+    var html = '';
+    itens.forEach(function (item) {
+      html = html +
+        '<div class="item-material">' +
+          '<span class="codigo-material">' + item.codigo + '</span>' +
+          '<span class="descricao-material">' + (item.descricao || '') + '</span>' +
+          '<span class="qtd-material">' + (item.quantidade || '') + '</span>' +
+          '<button type="button" data-categoria="' + categoria + '" data-codigo="' + item.codigo.replace(/"/g, '&quot;') + '" aria-label="Remover">✕</button>' +
+        '</div>';
+    });
+    container.innerHTML = html;
+  }
+
+  function carregarMateriaisPadrao() {
+    var grupo = obterValorGrupo();
+    if (!grupo || !APPS_SCRIPT_URL) {
+      materiaisEletricaLista.innerHTML = '';
+      materiaisFrioLista.innerHTML = '';
+      return;
+    }
+
+    var url = APPS_SCRIPT_URL + '?action=materiaisPadrao&tipo=' + TIPO_ATUAL + '&modelo=' + encodeURIComponent(grupo);
+    fetch(url).then(function (resposta) { return resposta.json(); }).then(function (dados) {
+      if (dados.status !== 'ok') return;
+      var eletrica = dados.itens.filter(function (i) { return i.categoria === 'Eletrica'; });
+      var frio = dados.itens.filter(function (i) { return i.categoria === 'Frio'; });
+      montarListaMateriais(materiaisEletricaLista, eletrica, 'Eletrica');
+      montarListaMateriais(materiaisFrioLista, frio, 'Frio');
+    }).catch(function () {
+      materiaisEletricaLista.innerHTML = '<div class="ajuda">Erro ao carregar materiais.</div>';
+      materiaisFrioLista.innerHTML = '<div class="ajuda">Erro ao carregar materiais.</div>';
+    });
+  }
+
+  function recarregarMateriaisPeloGrupoAtual() {
+    carregarMateriaisPadrao();
+  }
+
+  function adicionarMaterial(categoria, campoCodigo, campoDescricao, campoQuantidade) {
+    var grupo = obterValorGrupo();
+    if (!grupo) {
+      mostrarEstado('Selecione primeiro o Grupo/Tipo.', 'erro');
+      return;
+    }
+    var codigo = campoCodigo.value.trim();
+    if (!codigo) {
+      mostrarEstado('Indique o código do material.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = {
+      acao: 'adicionarMaterialPadrao',
+      tipo: TIPO_ATUAL,
+      modelo: grupo,
+      categoria: categoria,
+      codigo: codigo,
+      descricao: campoDescricao.value.trim(),
+      quantidade: campoQuantidade.value.trim()
+    };
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(function (resposta) { return resposta.json(); })
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        campoCodigo.value = '';
+        campoDescricao.value = '';
+        campoQuantidade.value = '';
+        carregarMateriaisPadrao();
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      });
+  }
+
+  document.getElementById('botaoAddMatEletrica').addEventListener('click', function () {
+    adicionarMaterial(
+      'Eletrica',
+      document.getElementById('matEletricaCodigo'),
+      document.getElementById('matEletricaDescricao'),
+      document.getElementById('matEletricaQuantidade')
+    );
+  });
+
+  document.getElementById('botaoAddMatFrio').addEventListener('click', function () {
+    adicionarMaterial(
+      'Frio',
+      document.getElementById('matFrioCodigo'),
+      document.getElementById('matFrioDescricao'),
+      document.getElementById('matFrioQuantidade')
+    );
+  });
+
+  function removerMaterial(categoria, codigo) {
+    var grupo = obterValorGrupo();
+    if (!grupo || !APPS_SCRIPT_URL) return;
+    if (!window.confirm('Remover o material "' + codigo + '" da estrutura deste modelo?')) return;
+
+    var payload = { acao: 'removerMaterialPadrao', tipo: TIPO_ATUAL, modelo: grupo, categoria: categoria, codigo: codigo };
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(function (resposta) { return resposta.json(); })
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        carregarMateriaisPadrao();
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      });
+  }
+
+  materiaisEletricaLista.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('button');
+    if (!botao) return;
+    removerMaterial(botao.dataset.categoria, botao.dataset.codigo);
+  });
+
+  materiaisFrioLista.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('button');
+    if (!botao) return;
+    removerMaterial(botao.dataset.categoria, botao.dataset.codigo);
+  });
 
   function montarEtapas(etapasGuardadas) {
     etapasGuardadas = etapasGuardadas || {};
@@ -628,6 +863,7 @@
     montarEtapas({});
     mostrarLinkDrive(serial);
     mostrarHistorico('');
+    carregarMateriaisPadrao();
   }
 
   function abrirRegistoExistente(dados) {
@@ -644,6 +880,7 @@
     montarEtapas(dados.etapas);
     mostrarLinkDrive(dados.serial);
     mostrarHistorico(dados.serialAnteriores);
+    carregarMateriaisPadrao();
   }
 
   function esconderRegisto() {
@@ -895,7 +1132,22 @@
   var campoEnvioAutomaticoAtivo = document.getElementById('envioAutomaticoAtivo');
   var campoEnvioAutomaticoEmails = document.getElementById('envioAutomaticoEmails');
   var campoEnvioAutomaticoFrequencia = document.getElementById('envioAutomaticoFrequencia');
+  var campoEnvioAutomaticoDiaSemana = document.getElementById('envioAutomaticoDiaSemana');
+  var campoEnvioAutomaticoHora = document.getElementById('envioAutomaticoHora');
+  var campoEnvioAutomaticoDataHora = document.getElementById('envioAutomaticoDataHora');
+  var linhaHoraEnvio = document.getElementById('linhaHoraEnvio');
+  var linhaDataUnica = document.getElementById('linhaDataUnica');
   var botaoGuardarEnvioAutomatico = document.getElementById('botaoGuardarEnvioAutomatico');
+
+  function atualizarCamposFrequencia() {
+    var frequencia = campoEnvioAutomaticoFrequencia.value;
+    linhaDataUnica.hidden = frequencia !== 'unico';
+    linhaHoraEnvio.hidden = frequencia === 'unico';
+    var campoDia = linhaHoraEnvio.querySelector('#envioAutomaticoDiaSemana').parentElement;
+    campoDia.hidden = frequencia !== 'semanal';
+  }
+
+  campoEnvioAutomaticoFrequencia.addEventListener('change', atualizarCamposFrequencia);
 
   function carregarConfigEnvioAutomatico() {
     if (!APPS_SCRIPT_URL) return;
@@ -903,15 +1155,27 @@
       if (dados.status !== 'ok') return;
       campoEnvioAutomaticoAtivo.checked = !!dados.ativo;
       campoEnvioAutomaticoEmails.value = dados.emails || '';
-      campoEnvioAutomaticoFrequencia.value = dados.frequencia === 'semanal' ? 'semanal' : 'diario';
+      campoEnvioAutomaticoFrequencia.value = dados.frequencia || 'diario';
+      campoEnvioAutomaticoDiaSemana.value = dados.diaSemana || 'MONDAY';
+      var hora = typeof dados.hora === 'number' ? dados.hora : 8;
+      var minuto = typeof dados.minuto === 'number' ? dados.minuto : 0;
+      campoEnvioAutomaticoHora.value = (hora < 10 ? '0' : '') + hora + ':' + (minuto < 10 ? '0' : '') + minuto;
+      campoEnvioAutomaticoDataHora.value = dados.dataHora || '';
+      atualizarCamposFrequencia();
     }).catch(function () { /* falha em silencio, mantem os valores por defeito */ });
   }
 
   botaoGuardarEnvioAutomatico.addEventListener('click', function () {
     var ativo = campoEnvioAutomaticoAtivo.checked;
     var emails = campoEnvioAutomaticoEmails.value.trim();
+    var frequencia = campoEnvioAutomaticoFrequencia.value;
+
     if (ativo && !emails) {
       mostrarEstado('Indique pelo menos um e-mail para o envio automático.', 'erro');
+      return;
+    }
+    if (ativo && frequencia === 'unico' && !campoEnvioAutomaticoDataHora.value) {
+      mostrarEstado('Escolha a data e a hora do envio único.', 'erro');
       return;
     }
     if (!APPS_SCRIPT_URL) {
@@ -919,11 +1183,17 @@
       return;
     }
 
+    var horaMinuto = (campoEnvioAutomaticoHora.value || '08:00').split(':');
+
     var payload = {
       acao: 'configurarEnvioAutomatico',
       ativo: ativo,
       emails: emails,
-      frequencia: campoEnvioAutomaticoFrequencia.value
+      frequencia: frequencia,
+      hora: parseInt(horaMinuto[0], 10) || 0,
+      minuto: parseInt(horaMinuto[1], 10) || 0,
+      diaSemana: campoEnvioAutomaticoDiaSemana.value,
+      dataHora: campoEnvioAutomaticoDataHora.value
     };
 
     botaoGuardarEnvioAutomatico.disabled = true;
