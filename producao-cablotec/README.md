@@ -43,6 +43,8 @@ Isto cria um gatilho (trigger) no Apps Script que corre sozinho, sem precisar de
 
 Dentro de cada registo, depois de escolher o Grupo/Tipo, aparecem duas tabelas — "Materiais — Parte elétrica" e "Materiais — Parte de frio" — com os materiais (código, descrição, quantidade) desse modelo. Esta estrutura é **permanente por modelo** (fica guardada numa aba `MateriaisPadrao`, partilhada por todos os números de série desse Grupo/Tipo): ao identificar o modelo, a tabela já aparece preenchida automaticamente; adicionar ou remover um material ali atualiza logo a estrutura desse modelo para sempre (não é só para aquele número de série). Para começar, adicione os materiais uma vez por modelo — nos números de série seguintes desse mesmo modelo, a tabela já vem pronta.
 
+Os botões "⬇ Baixar tabela (Excel)" e "⬇ Baixar tabela (PDF)" descarregam a tabela completa (elétrica + frio) do modelo aberto, diretamente para o telemóvel/computador — abrem num separador novo e o download começa sozinho.
+
 ## Resumo geral (dashboard)
 
 No topo da página, o card "Resumo geral" mostra, para Grupos e para Ciclos, quantos números de série estão em curso, terminados e em atraso — atualiza-se sozinho sempre que muda de aba ou guarda um registo.

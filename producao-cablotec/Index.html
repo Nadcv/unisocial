@@ -381,6 +381,12 @@
       <button type="button" class="botao-add-material" id="botaoAddMatFrio">+</button>
     </div>
 
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-largo" id="botaoBaixarMateriaisExcel">⬇ Baixar tabela (Excel)</button>
+      <button type="button" class="botao botao-largo" id="botaoBaixarMateriaisPdf">⬇ Baixar tabela (PDF)</button>
+    </div>
+    <div class="ajuda">Descarrega a tabela completa (elétrica + frio) deste modelo.</div>
+
     <div style="height:14px"></div>
 
     <label class="campo-label">Etapas de produção</label>
@@ -738,6 +744,23 @@
     if (!botao) return;
     removerMaterial(botao.dataset.categoria, botao.dataset.codigo);
   });
+
+  function baixarTabelaMateriais(formato) {
+    var grupo = obterValorGrupo();
+    if (!grupo) {
+      mostrarEstado('Selecione primeiro o Grupo/Tipo.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+    var url = APPS_SCRIPT_URL + '?action=baixarMateriais&tipo=' + TIPO_ATUAL + '&modelo=' + encodeURIComponent(grupo) + '&formato=' + formato;
+    window.open(url, '_blank');
+  }
+
+  document.getElementById('botaoBaixarMateriaisExcel').addEventListener('click', function () { baixarTabelaMateriais('xlsx'); });
+  document.getElementById('botaoBaixarMateriaisPdf').addEventListener('click', function () { baixarTabelaMateriais('pdf'); });
 
   function montarEtapas(etapasGuardadas) {
     etapasGuardadas = etapasGuardadas || {};

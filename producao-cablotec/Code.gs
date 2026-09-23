@@ -144,6 +144,10 @@ function doGet(e) {
     return respostaJson(listarMateriaisPadrao(e.parameter.tipo, e.parameter.modelo));
   }
 
+  if (acao === 'baixarMateriais') {
+    return baixarMateriais(e.parameter);
+  }
+
   var listas = {
     gruposProducao: obterLista('gruposProducao'),
     ciclosProducao: obterLista('ciclosProducao')
@@ -363,6 +367,70 @@ function removerMaterialPadrao(dados) {
   }
 
   throw new Error('Material nao encontrado.');
+}
+
+/**
+ * Gera a tabela de materiais (eletrica + frio) de um modelo em Excel ou
+ * PDF, e devolve uma pagina HTML que despoleta logo o download no
+ * telemovel/computador do operador (sem deixar ficheiros no Drive).
+ */
+function baixarMateriais(parametros) {
+  var tipo = (parametros.tipo || '').toString().trim();
+  var modelo = (parametros.modelo || '').toString().trim();
+  var formato = parametros.formato === 'pdf' ? 'pdf' : 'xlsx';
+
+  if (!modelo) {
+    return HtmlService.createHtmlOutput('<p>Numero de modelo em falta.</p>');
+  }
+
+  var abaTemp = null;
+  try {
+    var nomeTipo = tipo === 'ciclos' ? 'Ciclos' : 'Grupos';
+    var itens = listarMateriaisPadrao(tipo, modelo).itens;
+    abaTemp = criarAbaTemporariaMateriais(itens, nomeTipo, modelo);
+
+    var blob = exportarAbaComoBlob(abaTemp, formato);
+    var base64 = Utilities.base64Encode(blob.getBytes());
+    var mimeType = formato === 'pdf'
+      ? 'application/pdf'
+      : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    var nomeFicheiro = 'Materiais_' + nomeTipo + '_' + sanitizeNomeFicheiro(modelo) + '.' + formato;
+
+    var html = '<html><body onload="document.getElementById(\'l\').click();">' +
+      '<a id="l" href="data:' + mimeType + ';base64,' + base64 + '" download="' + nomeFicheiro + '">A transferir...</a>' +
+      '<p>Se o download nao comecar sozinho, toque no link acima. Pode fechar esta janela depois.</p>' +
+      '</body></html>';
+    return HtmlService.createHtmlOutput(html);
+  } catch (erro) {
+    var mensagem = erro && erro.message ? erro.message : String(erro);
+    return HtmlService.createHtmlOutput('<p>Erro ao gerar o ficheiro: ' + mensagem + '</p>');
+  } finally {
+    if (abaTemp) {
+      SpreadsheetApp.getActiveSpreadsheet().deleteSheet(abaTemp);
+    }
+  }
+}
+
+function criarAbaTemporariaMateriais(itens, nomeTipo, modelo) {
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.insertSheet('_tmp_materiais_' + new Date().getTime());
+
+  aba.getRange(1, 1, 1, 4).merge().setValue('Materiais - ' + nomeTipo + ' ' + modelo).setFontWeight('bold').setFontSize(12);
+  aba.getRange(2, 1, 1, 4).setValues([['Categoria', 'Codigo', 'Descricao', 'Quantidade']]).setFontWeight('bold');
+
+  if (itens.length) {
+    var linhas = itens.map(function (item) {
+      return [item.categoria, item.codigo, item.descricao, item.quantidade];
+    });
+    aba.getRange(3, 1, linhas.length, 4).setValues(linhas);
+  }
+
+  aba.autoResizeColumns(1, 4);
+  return aba;
+}
+
+function sanitizeNomeFicheiro(texto) {
+  return texto.toString().replace(/[^a-zA-Z0-9_-]+/g, '_');
 }
 
 /**
