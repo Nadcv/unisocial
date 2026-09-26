@@ -308,7 +308,25 @@
     const first = $('#modalBody input, #modalBody select, #modalBody button, #modalBody a');
     if (first) first.focus();
   }
-  function closeModal() { $('#modal').classList.remove('open'); $('#modal').setAttribute('aria-hidden', 'true'); }
+  function closeModal() {
+    $('#modal').classList.remove('open'); $('#modal').setAttribute('aria-hidden', 'true');
+    if (closeModal.onClose) { const f = closeModal.onClose; closeModal.onClose = null; f(); }
+  }
+
+  // Confirmação dentro da página (window.confirm não funciona em todos os sítios onde o site é aberto).
+  function confirmar(msg, sim = 'Confirmar') {
+    return new Promise((resolve) => {
+      closeModal();
+      openModal(`
+        <p style="margin-top:0">${esc(msg)}</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn" data-close-modal>Voltar</button>
+          <button class="btn primary" id="confirmOk">${esc(sim)}</button>
+        </div>`);
+      closeModal.onClose = () => resolve(false);
+      $('#confirmOk').addEventListener('click', () => { closeModal.onClose = null; closeModal(); resolve(true); });
+    });
+  }
 
   // ---------- Router ----------
   const routes = {
@@ -701,7 +719,7 @@
     });
     body.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-cancel-res]'); if (!b) return;
-      if (!confirm('Cancelar esta reserva? Se já a pagou online, o valor é reembolsado.')) return;
+      if (!(await confirmar('Cancelar esta reserva? Se já a pagou online, o valor é reembolsado.', 'Cancelar reserva'))) return;
       try {
         const res = await busy(b, () => api.cancelarReserva(cli.email, cli.ref, b.dataset.cancelRes));
         pub = res.publico;
@@ -779,7 +797,7 @@
       $('#gLogout').addEventListener('click', () => { setPass(''); gestao = null; viewGestao(el); });
     } else {
       $('#resetData').addEventListener('click', async () => {
-        if (!confirm('Apagar todos os dados e repor a demonstração?')) return;
+        if (!(await confirmar('Apagar todos os dados e repor a demonstração?', 'Repor dados'))) return;
         await api.repor();
         cli.carrinho = []; saveCli();
         await adminCall();
@@ -835,9 +853,9 @@
         <td><select data-enc="${esc(e.id)}" aria-label="Estado" ${e.estado === 'Cancelada' ? 'disabled' : ''}>${opcoesEstado(Core.ESTADOS_ENCOMENDA, e.estado)}</select></td>
       </tr>`).join('')}
     </table></div>` : '<div class="empty">Ainda não há encomendas.</div>';
-    body.onchange = (ev) => {
+    body.onchange = async (ev) => {
       const s = ev.target.closest('[data-enc]'); if (!s) return;
-      if (s.value === 'Cancelada' && !confirm('Cancelar a encomenda? O stock será reposto e, se foi paga online, o valor é reembolsado.')) { redraw(); return; }
+      if (s.value === 'Cancelada' && !(await confirmar('Cancelar a encomenda? O stock será reposto e, se foi paga online, o valor é reembolsado.', 'Cancelar encomenda'))) { redraw(); return; }
       s.disabled = true;
       acao('estadoEncomenda', { id: s.dataset.enc, estado: s.value }, redraw, 'Estado atualizado');
     };
@@ -855,9 +873,9 @@
         <td><select data-res="${esc(r.id)}" aria-label="Estado">${opcoesEstado(Core.ESTADOS_RESERVA, r.estado)}</select></td>
       </tr>`).join('')}
     </table></div>` : '<div class="empty">Ainda não há reservas.</div>';
-    body.onchange = (ev) => {
+    body.onchange = async (ev) => {
       const s = ev.target.closest('[data-res]'); if (!s) return;
-      if (s.value === 'Cancelada' && !confirm('Cancelar a reserva? Se foi paga online, o valor é reembolsado.')) { redraw(); return; }
+      if (s.value === 'Cancelada' && !(await confirmar('Cancelar a reserva? Se foi paga online, o valor é reembolsado.', 'Cancelar reserva'))) { redraw(); return; }
       s.disabled = true;
       acao('estadoReserva', { id: s.dataset.res, estado: s.value }, redraw, 'Estado atualizado');
     };
@@ -874,11 +892,11 @@
           <td style="white-space:nowrap"><button class="btn sm" data-edit-prod="${esc(p.id)}">Editar</button> <button class="btn sm danger" data-del-prod="${esc(p.id)}">Apagar</button></td>
         </tr>`).join('')}
       </table></div>`;
-    body.onclick = (e) => {
+    body.onclick = async (e) => {
       if (e.target.closest('#novoProd')) return editProduto(null, redraw);
       const ed = e.target.closest('[data-edit-prod]'); if (ed) return editProduto(ed.dataset.editProd, redraw);
       const del = e.target.closest('[data-del-prod]');
-      if (del && confirm('Apagar este produto?')) acao('apagarProduto', { id: del.dataset.delProd }, redraw, 'Produto apagado');
+      if (del && await confirmar('Apagar este produto?', 'Apagar')) acao('apagarProduto', { id: del.dataset.delProd }, redraw, 'Produto apagado');
     };
   }
 
@@ -931,11 +949,11 @@
           <td style="white-space:nowrap"><button class="btn sm" data-edit-alu="${esc(a.id)}">Editar</button> <button class="btn sm danger" data-del-alu="${esc(a.id)}">Apagar</button></td>
         </tr>`).join('')}
       </table></div>`;
-    body.onclick = (e) => {
+    body.onclick = async (e) => {
       if (e.target.closest('#novoAlu')) return editAluguer(null, redraw);
       const ed = e.target.closest('[data-edit-alu]'); if (ed) return editAluguer(ed.dataset.editAlu, redraw);
       const del = e.target.closest('[data-del-alu]');
-      if (del && confirm('Apagar este aluguer?')) acao('apagarAluguer', { id: del.dataset.delAlu }, redraw, 'Aluguer apagado');
+      if (del && await confirmar('Apagar este aluguer?', 'Apagar')) acao('apagarAluguer', { id: del.dataset.delAlu }, redraw, 'Aluguer apagado');
     };
   }
 
