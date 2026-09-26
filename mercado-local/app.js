@@ -21,6 +21,8 @@
       criarReserva: (d) => call('apiCriarReserva', d),
       minhaConta: (email, ref) => call('apiMinhaConta', email, ref),
       cancelarReserva: (email, ref, id) => call('apiCancelarReserva', email, ref, id),
+      verificarPagamento: (ref) => call('apiVerificarPagamento', ref),
+      cancelarPagamento: (ref) => call('apiCancelarPagamento', ref),
       admin: (pass, acao, args) => call('apiAdmin', pass, acao || null, args || null)
     };
   }
@@ -41,14 +43,20 @@
         resolve(JSON.parse(JSON.stringify(out)));
       } catch (e) { reject(e); }
     });
-    const adminData = (d) => ({ encomendas: d.encomendas, reservas: d.reservas, publico: Core.publico(d) });
+    // Na demonstração o pagamento online é simulado (sem Stripe).
+    const publico = (d) => ({ ...Core.publico(d), pagamentoOnline: true });
+    const adminData = (d) => ({ encomendas: d.encomendas, reservas: d.reservas, publico: publico(d) });
+    const estado = (d, ref) => Core.estadoPagamento(Core.findRef(d, ref).item);
     return {
       remoto: false,
-      init: () => run((d) => Core.publico(d)),
-      criarEncomenda: (x) => run((d) => ({ result: Core.criarEncomenda(d, x).result, publico: Core.publico(d) })),
-      criarReserva: (x) => run((d) => ({ result: Core.criarReserva(d, x).result, publico: Core.publico(d) })),
+      init: () => run((d) => publico(d)),
+      criarEncomenda: (x) => run((d) => ({ result: Core.criarEncomenda(d, x).result, publico: publico(d) })),
+      criarReserva: (x) => run((d) => ({ result: Core.criarReserva(d, x).result, publico: publico(d) })),
       minhaConta: (email, ref) => run((d) => Core.minhaConta(d, email, ref).result),
-      cancelarReserva: (email, ref, id) => run((d) => ({ result: Core.cancelarReserva(d, email, ref, id).result, publico: Core.publico(d) })),
+      cancelarReserva: (email, ref, id) => run((d) => ({ result: Core.cancelarReserva(d, email, ref, id).result, publico: publico(d) })),
+      verificarPagamento: (ref) => run((d) => estado(d, ref)),
+      cancelarPagamento: (ref) => run((d) => { Core.pagamentoFalhado(d, ref); return estado(d, ref); }),
+      simularPagamento: (ref) => run((d) => { Core.pagamentoConfirmado(d, ref, 'demo'); return estado(d, ref); }),
       admin: (pass, acao, args) => run((d) => { if (acao) Core.admin(d, acao, args); return adminData(d); }),
       repor: () => { db = Core.seed(true); persist(); return Promise.resolve(); }
     };
@@ -178,9 +186,9 @@
         </div>
         <div class="field" id="moradaField" hidden><label for="c-morada">Morada</label><textarea id="c-morada" name="morada" rows="2"></textarea></div>
         <div class="summary" id="checkoutSummary"></div>
+        ${pagamentoField('Pagar na entrega ou recolha', 'MB WAY, Multibanco ou numerário')}
         <div id="checkoutErr"></div>
         <button class="btn primary" style="width:100%" type="submit">Confirmar encomenda</button>
-        <p class="small muted">Pagamento na entrega ou recolha (MB Way, multibanco ou numerário).</p>
       </form>`);
     const form = $('#checkoutForm');
     const upd = () => {
@@ -202,7 +210,10 @@
         const res = await busy(form.querySelector('[type=submit]'), () => api.criarEncomenda(pedido));
         const enc = res.result;
         pub = res.publico;
-        cli.carrinho = []; cli.email = enc.email; cli.ref = enc.id; saveCli();
+        cli.email = enc.email; cli.ref = enc.id;
+        // Com pagamento online, o carrinho só é esvaziado quando o pagamento for confirmado.
+        if (enc.estado === Core.AGUARDA) { saveCli(); pedirPagamento(enc, res.checkoutUrl); render(); return; }
+        cli.carrinho = []; saveCli();
         updateCartBadge();
         openModal(`
           <h2>✅ Encomenda recebida</h2>
@@ -215,6 +226,72 @@
         $('#checkoutErr').innerHTML = errBox(e);
         refreshPublic();
       }
+    });
+  }
+
+  // ---------- Pagamento online ----------
+  function pagamentoField(offline, offlineNota) {
+    if (!pub.pagamentoOnline) return `<p class="small muted">Pagamento: ${esc(offline.toLowerCase())} (${esc(offlineNota)}).</p>`;
+    return `
+      <fieldset class="field pay-choice">
+        <legend>Pagamento</legend>
+        <label><input type="radio" name="pagamento" value="Online" checked>
+          <span><strong>Pagar agora online</strong><br><span class="small muted">Cartão, MB WAY, Multibanco, Apple Pay ou Google Pay</span></span></label>
+        <label><input type="radio" name="pagamento" value="Na entrega">
+          <span><strong>${esc(offline)}</strong><br><span class="small muted">${esc(offlineNota)}</span></span></label>
+      </fieldset>`;
+  }
+
+  function botaoPagar(item, url) {
+    if (url) return `<a class="btn primary" href="${esc(url)}" target="_top" rel="noopener">Pagar ${money(item.total)}</a>`;
+    if (!api.remoto) return `<button class="btn primary" data-simular-pag="${esc(item.id)}">Pagar ${money(item.total)} (simulação)</button>`;
+    return '';
+  }
+
+  // Depois de criar uma encomenda/reserva com pagamento online.
+  function pedirPagamento(item, url) {
+    const tipo = item.linhas ? 'encomenda' : 'reserva';
+    openModal(`
+      <h2>💳 Falta o pagamento</h2>
+      <p>A sua ${tipo} <strong>${esc(item.id)}</strong> fica guardada durante 30 minutos enquanto conclui o pagamento de <strong>${money(item.total)}</strong>.</p>
+      ${item.caucao ? `<p class="small muted">A caução de ${money(item.caucao)} é paga no levantamento.</p>` : ''}
+      <p>${botaoPagar(item, url)}</p>
+      ${url ? `<p class="small muted">Vai ser encaminhado para a página segura do Stripe. Se não abrir, <a href="${esc(url)}" target="_blank" rel="noopener">abra numa nova janela</a>.</p>` : ''}
+      ${api.remoto ? '' : `<p class="small muted">Modo demonstração: nenhum pagamento real é feito. <button class="btn sm" data-cancelar-pag="${esc(item.id)}">Simular desistência</button></p>`}`);
+  }
+
+  // Mostra o resultado de um pagamento (ao voltar do Stripe ou na simulação).
+  function mostrarPagamento(st) {
+    const tipo = st.tipo === 'encomenda' ? 'encomenda' : 'reserva';
+    if (st.pagamento === Core.PAG.PAGO && tipo === 'encomenda' && cli.ref === st.id) {
+      cli.carrinho = []; saveCli(); updateCartBadge();
+    }
+    const msgs = {
+      [Core.PAG.PAGO]: `<h2>✅ Pagamento confirmado</h2><p>Recebemos ${money(st.total)}. A sua ${tipo} <strong>${esc(st.id)}</strong> está ${tipo === 'encomenda' ? 'a ser preparada' : 'a aguardar a confirmação do proprietário'}.</p>`,
+      [Core.PAG.PENDENTE]: `<h2>⏳ A aguardar o pagamento</h2><p>Ainda não recebemos o pagamento da ${tipo} <strong>${esc(st.id)}</strong>. Se escolheu Multibanco, pague a referência indicada: a confirmação chega automaticamente.</p><p>${botaoPagar(st, st.pagamentoUrl)}</p>`,
+      [Core.PAG.NAO_PAGO]: `<h2>Pagamento não concluído</h2><p>A ${tipo} <strong>${esc(st.id)}</strong> foi anulada e nada foi cobrado.${tipo === 'encomenda' ? ' Os artigos continuam no carrinho.' : ''}</p>`,
+      [Core.PAG.REEMBOLSADO]: `<h2>Pagamento reembolsado</h2><p>A ${tipo} <strong>${esc(st.id)}</strong> foi cancelada e o valor foi devolvido.</p>`
+    };
+    openModal(`${msgs[st.pagamento] || `<h2>${esc(st.estado)}</h2>`}<p><a class="btn" href="#/conta" data-close-modal>A minha conta</a></p>`);
+  }
+
+  async function acaoPagamento(fn, ref) {
+    try {
+      const st = await fn(ref);
+      await refreshPublic();
+      mostrarPagamento(st);
+      render();
+    } catch (e) { openModal(errBox(e)); }
+  }
+
+  // O Stripe devolve o cliente a ...?pagamento=REF (ou &cancelado=1).
+  function verificarRetornoPagamento() {
+    if (!REMOTO || !google.script.url) return;
+    google.script.url.getLocation((loc) => {
+      const ref = loc.parameter && loc.parameter.pagamento;
+      if (!ref) return;
+      openModal('<p>A confirmar o pagamento…</p>');
+      acaoPagamento(loc.parameter.cancelado === '1' ? api.cancelarPagamento : api.verificarPagamento, ref);
     });
   }
 
@@ -442,6 +519,7 @@
               <div class="field"><label for="b-tel">Telefone</label><input id="b-tel" name="telefone" type="tel"></div>
             </div>
             <div class="field"><label for="b-notas">Notas (opcional)</label><textarea id="b-notas" name="notas" rows="2" placeholder="Hora de levantamento, pedidos especiais…"></textarea></div>
+            ${pagamentoField('Pagar no levantamento', 'MB WAY, Multibanco ou numerário')}
             <div id="bookErr"></div>
             <button class="btn primary" style="width:100%" type="submit">Pedir reserva</button>
           </form>
@@ -529,7 +607,8 @@
         const r = res.result;
         pub = res.publico;
         cli.email = r.email; cli.ref = r.id; saveCli();
-        openModal(`
+        if (r.estado === Core.AGUARDA) pedirPagamento(r, res.checkoutUrl);
+        else openModal(`
           <h2>📅 Pedido de reserva enviado</h2>
           <p>${esc(a.nome)}<br>${fmtDate(r.inicio)} → ${fmtDate(r.fim)} (${plural(r.dias, 'dia', 'dias')})<br>
           Total: <strong>${money(r.total + r.caucao)}</strong> (inclui caução de ${money(r.caucao)})</p>
@@ -551,9 +630,17 @@
   }
 
   function estadoTag(e) {
-    const cls = { Cancelada: 'danger', Pendente: 'warn', Recebida: 'warn' }[e] || '';
+    const cls = { Cancelada: 'danger', Pendente: 'warn', Recebida: 'warn', [Core.AGUARDA]: 'warn' }[e] || '';
     return `<span class="tag ${cls}">${esc(e)}</span>`;
   }
+  function pagTag(p) {
+    if (!p || p === Core.PAG.ENTREGA) return `<div class="small muted">${esc(p || Core.PAG.ENTREGA)}</div>`;
+    const cls = { [Core.PAG.PAGO]: '', [Core.PAG.PENDENTE]: 'warn', [Core.PAG.NAO_PAGO]: 'danger', [Core.PAG.REEMBOLSADO]: 'danger' }[p] ?? '';
+    return `<div><span class="tag ${cls}">💳 ${esc(p)}</span></div>`;
+  }
+  // Uma encomenda/reserva a aguardar pagamento só pode ser cancelada.
+  const opcoesEstado = (estados, atual) => (atual === Core.AGUARDA ? [Core.AGUARDA, 'Cancelada'] : estados.filter((s) => s !== Core.AGUARDA))
+    .map((s) => `<option ${s === atual ? 'selected' : ''}>${s}</option>`).join('');
   function itemNome(r) {
     const a = pub.alugueres.find((x) => x.id === r.itemId);
     return a ? `${esc(a.emoji)} ${esc(a.nome)}` : esc(r.itemNome || '(removido)');
@@ -581,9 +668,9 @@
             ${ress.map((r) => `<tr>
               <td>${esc(r.id)}</td><td>${itemNome(r)}</td>
               <td>${fmtDate(r.inicio)} → ${fmtDate(r.fim)}</td>
-              <td>${money(r.total)}<div class="small muted">+ caução ${money(r.caucao)}</div></td>
+              <td>${money(r.total)}<div class="small muted">+ caução ${money(r.caucao)}</div>${pagTag(r.pagamento)}</td>
               <td>${estadoTag(r.estado)}</td>
-              <td>${['Pendente', 'Confirmada'].includes(r.estado) && r.fim >= hoje ? `<button class="btn sm danger" data-cancel-res="${esc(r.id)}">Cancelar</button>` : ''}</td>
+              <td style="white-space:nowrap">${r.estado === Core.AGUARDA ? botaoPagar(r, r.pagamentoUrl) + ' ' : ''}${[Core.AGUARDA, 'Pendente', 'Confirmada'].includes(r.estado) && r.fim >= hoje ? `<button class="btn sm danger" data-cancel-res="${esc(r.id)}">Cancelar</button>` : ''}</td>
             </tr>`).join('')}
           </table></div>` : '<div class="empty">Sem reservas. <a href="#/alugueres">Reservar agora</a></div>'}
         </section>
@@ -594,7 +681,8 @@
             ${encs.map((e) => `<tr>
               <td>${esc(e.id)}</td><td>${fmtDateTime(e.criadaEm)}</td>
               <td>${e.linhas.map((l) => `${l.qtd}× ${esc(l.nome)}`).join('<br>')}</td>
-              <td>${esc(e.entrega)}</td><td>${money(e.total)}</td><td>${estadoTag(e.estado)}</td>
+              <td>${esc(e.entrega)}</td><td>${money(e.total)}${pagTag(e.pagamento)}</td>
+              <td>${estadoTag(e.estado)}${e.estado === Core.AGUARDA ? `<div style="margin-top:6px">${botaoPagar(e, e.pagamentoUrl)}</div>` : ''}</td>
             </tr>`).join('')}
           </table></div>` : '<div class="empty">Sem encomendas. <a href="#/produtos">Ver produtos</a></div>'}
         </section>`;
@@ -613,7 +701,7 @@
     });
     body.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-cancel-res]'); if (!b) return;
-      if (!confirm('Cancelar esta reserva?')) return;
+      if (!confirm('Cancelar esta reserva? Se já a pagou online, o valor é reembolsado.')) return;
       try {
         const res = await busy(b, () => api.cancelarReserva(cli.email, cli.ref, b.dataset.cancelRes));
         pub = res.publico;
@@ -708,8 +796,10 @@
   }
 
   function gResumo(body) {
-    const encAtivas = gestao.encomendas.filter((e) => e.estado !== 'Cancelada');
-    const resAtivas = gestao.reservas.filter((r) => r.estado !== 'Cancelada');
+    // Encomendas/reservas por pagar online não contam como receita.
+    const conta = (x) => x.estado !== 'Cancelada' && x.estado !== Core.AGUARDA;
+    const encAtivas = gestao.encomendas.filter(conta);
+    const resAtivas = gestao.reservas.filter(conta);
     const vendas = encAtivas.reduce((s, e) => s + e.total, 0);
     const alug = resAtivas.reduce((s, r) => s + r.total, 0);
     const pend = gestao.reservas.filter((r) => r.estado === 'Pendente').length;
@@ -741,13 +831,13 @@
         <td>${esc(e.nome)}<div class="small muted">${esc(e.email)}${e.telefone ? '<br>' + esc(e.telefone) : ''}</div></td>
         <td>${e.linhas.map((l) => `${l.qtd}× ${esc(l.nome)}`).join('<br>')}</td>
         <td>${esc(e.entrega)}${e.morada ? `<div class="small muted">${esc(e.morada)}</div>` : ''}</td>
-        <td>${money(e.total)}</td>
-        <td><select data-enc="${esc(e.id)}" aria-label="Estado" ${e.estado === 'Cancelada' ? 'disabled' : ''}>${Core.ESTADOS_ENCOMENDA.map((s) => `<option ${s === e.estado ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+        <td>${money(e.total)}${pagTag(e.pagamento)}</td>
+        <td><select data-enc="${esc(e.id)}" aria-label="Estado" ${e.estado === 'Cancelada' ? 'disabled' : ''}>${opcoesEstado(Core.ESTADOS_ENCOMENDA, e.estado)}</select></td>
       </tr>`).join('')}
     </table></div>` : '<div class="empty">Ainda não há encomendas.</div>';
     body.onchange = (ev) => {
       const s = ev.target.closest('[data-enc]'); if (!s) return;
-      if (s.value === 'Cancelada' && !confirm('Cancelar a encomenda? O stock será reposto.')) { redraw(); return; }
+      if (s.value === 'Cancelada' && !confirm('Cancelar a encomenda? O stock será reposto e, se foi paga online, o valor é reembolsado.')) { redraw(); return; }
       s.disabled = true;
       acao('estadoEncomenda', { id: s.dataset.enc, estado: s.value }, redraw, 'Estado atualizado');
     };
@@ -761,12 +851,13 @@
         <td>${esc(r.id)}</td><td>${itemNome(r)}</td>
         <td>${esc(r.nome)}<div class="small muted">${esc(r.email)}${r.telefone ? '<br>' + esc(r.telefone) : ''}</div>${r.notas ? `<div class="small">“${esc(r.notas)}”</div>` : ''}</td>
         <td>${fmtDate(r.inicio)} → ${fmtDate(r.fim)}<div class="small muted">${plural(r.dias, 'dia', 'dias')}</div></td>
-        <td>${money(r.total)}<div class="small muted">caução ${money(r.caucao)}</div></td>
-        <td><select data-res="${esc(r.id)}" aria-label="Estado">${Core.ESTADOS_RESERVA.map((s) => `<option ${s === r.estado ? 'selected' : ''}>${s}</option>`).join('')}</select></td>
+        <td>${money(r.total)}<div class="small muted">caução ${money(r.caucao)}</div>${pagTag(r.pagamento)}</td>
+        <td><select data-res="${esc(r.id)}" aria-label="Estado">${opcoesEstado(Core.ESTADOS_RESERVA, r.estado)}</select></td>
       </tr>`).join('')}
     </table></div>` : '<div class="empty">Ainda não há reservas.</div>';
     body.onchange = (ev) => {
       const s = ev.target.closest('[data-res]'); if (!s) return;
+      if (s.value === 'Cancelada' && !confirm('Cancelar a reserva? Se foi paga online, o valor é reembolsado.')) { redraw(); return; }
       s.disabled = true;
       acao('estadoReserva', { id: s.dataset.res, estado: s.value }, redraw, 'Estado atualizado');
     };
@@ -891,6 +982,10 @@
     const q = e.target.closest('[data-qty]');
     if (q) { const l = cli.carrinho.find((x) => x.id === q.dataset.qty); if (l) setQty(l.id, l.qtd + Number(q.dataset.d)); return; }
     if (e.target.closest('#checkoutBtn')) { openCheckout(); return; }
+    const sim = e.target.closest('[data-simular-pag]');
+    if (sim) { acaoPagamento(api.simularPagamento, sim.dataset.simularPag); return; }
+    const desist = e.target.closest('[data-cancelar-pag]');
+    if (desist) { acaoPagamento(api.cancelarPagamento, desist.dataset.cancelarPag); return; }
     if (e.target.closest('[data-close-drawer]')) closeCart();
     if (e.target.closest('[data-close-modal]')) closeModal();
   });
@@ -904,6 +999,7 @@
     // Remove do carrinho produtos que já não existem.
     cli.carrinho = cli.carrinho.filter((l) => pub.produtos.some((p) => p.id === l.id));
     saveCli(); updateCartBadge(); render();
+    verificarRetornoPagamento();
   }, (e) => {
     $('#app').innerHTML = `${errBox(e)}<p><button class="btn" onclick="location.reload()">Tentar novamente</button></p>`;
   });

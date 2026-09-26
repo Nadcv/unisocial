@@ -3,15 +3,20 @@
 // (modo real, dados numa Google Sheet — este ficheiro é copiado como Core.gs).
 //
 // Todas as funções recebem `db` = { produtos, alugueres, reservas, encomendas },
-// alteram-no quando é caso disso e devolvem { result, changed }, em que
-// `changed` lista as tabelas que têm de ser gravadas.
+// alteram-no quando é caso disso e devolvem { result, changed, efeitos }:
+//   changed  — tabelas que têm de ser gravadas;
+//   efeitos  — { reembolsar: [itens], expirar: [itens] }, pagamentos online que
+//              o servidor tem de reembolsar ou cujo checkout tem de fechar.
 
 var Core = (function () {
   var TAXA_ENTREGA = 3.5;
   var ENTREGA_GRATIS_A_PARTIR = 40;
   var MAX_DIAS_RESERVA = 90;
-  var ESTADOS_ENCOMENDA = ['Recebida', 'Preparada', 'Entregue', 'Cancelada'];
-  var ESTADOS_RESERVA = ['Pendente', 'Confirmada', 'Concluída', 'Cancelada'];
+  var AGUARDA = 'Aguarda pagamento';
+  var ESTADOS_ENCOMENDA = [AGUARDA, 'Recebida', 'Preparada', 'Entregue', 'Cancelada'];
+  var ESTADOS_RESERVA = [AGUARDA, 'Pendente', 'Confirmada', 'Concluída', 'Cancelada'];
+  // Campo `pagamento` de encomendas e reservas.
+  var PAG = { ENTREGA: 'Na entrega', PENDENTE: 'Pendente', PAGO: 'Pago', NAO_PAGO: 'Não pago', REEMBOLSADO: 'Reembolsado' };
 
   // ---------- Datas (sempre 'AAAA-MM-DD' no fuso horário local) ----------
   function toISO(d) {
@@ -70,6 +75,7 @@ var Core = (function () {
     d = d || {};
     var c = cliente(d);
     var entrega = d.entrega === 'Entrega' ? 'Entrega' : 'Recolha';
+    var online = d.pagamento === 'Online';
     var morada = str(d.morada, 300);
     if (entrega === 'Entrega' && !morada) fail('Indique a morada de entrega.');
     var pedido = Array.isArray(d.linhas) ? d.linhas : [];
@@ -92,7 +98,9 @@ var Core = (function () {
       id: uid('E'), criadaEm: new Date().toISOString(),
       nome: c.nome, email: c.email, telefone: c.telefone, entrega: entrega, morada: entrega === 'Entrega' ? morada : '',
       linhas: linhas, resumo: resumoLinhas(linhas),
-      subtotal: subtotal, taxa: taxa, total: round2(subtotal + taxa), estado: 'Recebida'
+      subtotal: subtotal, taxa: taxa, total: round2(subtotal + taxa),
+      estado: online ? AGUARDA : 'Recebida', pagamento: online ? PAG.PENDENTE : PAG.ENTREGA,
+      pagamentoId: '', pagamentoRef: '', pagamentoUrl: ''
     };
     db.encomendas.unshift(enc);
     return { result: enc, changed: ['Encomendas', 'Produtos'] };
@@ -112,11 +120,13 @@ var Core = (function () {
     if (dias > MAX_DIAS_RESERVA) fail('Máximo de ' + MAX_DIAS_RESERVA + ' dias por reserva.');
     if (!rangeIsFree(ocupacoes(db), a.id, ini, fim)) fail('O período escolhido inclui dias já reservados.');
 
+    var online = d.pagamento === 'Online';
     var r = {
       id: uid('R'), itemId: a.id, itemNome: a.nome, inicio: ini, fim: fim, dias: dias,
       total: round2(a.precoDia * dias), caucao: a.caucao,
       nome: c.nome, email: c.email, telefone: c.telefone, notas: str(d.notas, 500),
-      estado: 'Pendente', criadaEm: new Date().toISOString()
+      estado: online ? AGUARDA : 'Pendente', criadaEm: new Date().toISOString(),
+      pagamento: online ? PAG.PENDENTE : PAG.ENTREGA, pagamentoId: '', pagamentoRef: '', pagamentoUrl: ''
     };
     db.reservas.unshift(r);
     return { result: r, changed: ['Reservas'] };
@@ -147,8 +157,69 @@ var Core = (function () {
     if (!r || r.email !== email) fail('Reserva não encontrada.');
     if (r.estado === 'Cancelada' || r.estado === 'Concluída') fail('Esta reserva já não pode ser cancelada.');
     if (r.fim < todayISO()) fail('Esta reserva já terminou.');
-    r.estado = 'Cancelada';
-    return { result: r, changed: ['Reservas'] };
+    return { result: r, changed: ['Reservas'], efeitos: cancelar(db, r) };
+  }
+
+  // Cancela uma encomenda ou reserva: repõe o stock (encomendas) e indica
+  // o que fazer ao pagamento online (reembolsar se pago, fechar se pendente).
+  function cancelar(db, item) {
+    var efeitos = { reembolsar: [], expirar: [] };
+    if (item.estado === 'Cancelada') return efeitos;
+    if (item.linhas) {
+      item.linhas.forEach(function (l) { var p = find(db.produtos, l.id); if (p) p.stock += l.qtd; });
+    }
+    item.estado = 'Cancelada';
+    if (item.pagamento === PAG.PAGO) { item.pagamento = PAG.REEMBOLSADO; efeitos.reembolsar.push(item); }
+    else if (item.pagamento === PAG.PENDENTE) { item.pagamento = PAG.NAO_PAGO; efeitos.expirar.push(item); }
+    return efeitos;
+  }
+
+  // ---------- Pagamento online ----------
+  function findRef(db, ref) {
+    var e = find(db.encomendas, ref);
+    if (e) return { item: e, tabela: 'Encomendas' };
+    var r = find(db.reservas, ref);
+    if (r) return { item: r, tabela: 'Reservas' };
+    fail('Referência não encontrada.');
+  }
+  function tabelas(t) { return t === 'Encomendas' ? ['Encomendas', 'Produtos'] : ['Reservas']; }
+
+  // Estado visível a quem tem a referência (sem dados pessoais).
+  function estadoPagamento(item) {
+    return { id: item.id, tipo: item.linhas ? 'encomenda' : 'reserva', estado: item.estado, pagamento: item.pagamento, total: item.total, pagamentoUrl: item.estado === AGUARDA ? item.pagamentoUrl : '' };
+  }
+
+  // Guarda os dados do checkout criado no fornecedor de pagamentos.
+  function registarCheckout(db, ref, id, url) {
+    var f = findRef(db, ref);
+    f.item.pagamentoId = str(id, 200);
+    f.item.pagamentoUrl = str(url, 1000);
+    return { result: f.item, changed: [f.tabela] };
+  }
+
+  function pagamentoConfirmado(db, ref, pagamentoRef) {
+    var f = findRef(db, ref), it = f.item;
+    var efeitos = { reembolsar: [], expirar: [] };
+    if (it.pagamento === PAG.PAGO || it.pagamento === PAG.REEMBOLSADO) return { result: it, changed: [] };
+    it.pagamentoRef = str(pagamentoRef, 200);
+    it.pagamentoUrl = '';
+    if (it.estado === 'Cancelada') {
+      // Pago depois de cancelado (ex.: Multibanco pago fora de prazo): devolve o dinheiro.
+      it.pagamento = PAG.REEMBOLSADO;
+      efeitos.reembolsar.push(it);
+    } else {
+      it.pagamento = PAG.PAGO;
+      if (it.estado === AGUARDA) it.estado = it.linhas ? 'Recebida' : 'Pendente';
+    }
+    return { result: it, changed: [f.tabela], efeitos: efeitos };
+  }
+
+  function pagamentoFalhado(db, ref) {
+    var f = findRef(db, ref), it = f.item;
+    if (it.estado !== AGUARDA) return { result: it, changed: [] };
+    var efeitos = cancelar(db, it);
+    it.pagamentoUrl = '';
+    return { result: it, changed: tabelas(f.tabela), efeitos: efeitos };
   }
 
   // ---------- Gestão ----------
@@ -159,27 +230,31 @@ var Core = (function () {
     return fn(db, args);
   }
 
+  // "Aguarda pagamento" só muda com o pagamento (ou com o cancelamento).
+  function validarEstado(item, novo, estados) {
+    if (estados.indexOf(novo) === -1 || novo === AGUARDA) fail('Estado inválido.');
+    if (item.estado === AGUARDA && novo !== 'Cancelada') fail('Aguarda o pagamento online; só pode ser cancelada.');
+  }
+
   var ADMIN = {
     estadoEncomenda: function (db, a) {
       var e = find(db.encomendas, a.id);
       if (!e) fail('Encomenda não encontrada.');
-      if (ESTADOS_ENCOMENDA.indexOf(a.estado) === -1) fail('Estado inválido.');
+      validarEstado(e, a.estado, ESTADOS_ENCOMENDA);
       if (e.estado === 'Cancelada') fail('Uma encomenda cancelada não pode ser reaberta.');
-      var changed = ['Encomendas'];
-      if (a.estado === 'Cancelada') {
-        e.linhas.forEach(function (l) { var p = find(db.produtos, l.id); if (p) p.stock += l.qtd; });
-        changed.push('Produtos');
-      }
+      if (a.estado === 'Cancelada') return { result: e, changed: ['Encomendas', 'Produtos'], efeitos: cancelar(db, e) };
       e.estado = a.estado;
-      return { result: e, changed: changed };
+      return { result: e, changed: ['Encomendas'] };
     },
     estadoReserva: function (db, a) {
       var r = find(db.reservas, a.id);
       if (!r) fail('Reserva não encontrada.');
-      if (ESTADOS_RESERVA.indexOf(a.estado) === -1) fail('Estado inválido.');
-      if (r.estado === 'Cancelada' && a.estado !== 'Cancelada' && !rangeIsFree(ocupacoes(db), r.itemId, r.inicio, r.fim, r.id)) {
-        fail('As datas já estão ocupadas por outra reserva.');
+      validarEstado(r, a.estado, ESTADOS_RESERVA);
+      if (r.estado === 'Cancelada' && a.estado !== 'Cancelada') {
+        if (r.pagamento === PAG.REEMBOLSADO || r.pagamento === PAG.NAO_PAGO) fail('O pagamento online desta reserva foi anulado; peça ao cliente uma nova reserva.');
+        if (!rangeIsFree(ocupacoes(db), r.itemId, r.inicio, r.fim, r.id)) fail('As datas já estão ocupadas por outra reserva.');
       }
+      if (a.estado === 'Cancelada') return { result: r, changed: ['Reservas'], efeitos: cancelar(db, r) };
       r.estado = a.estado;
       return { result: r, changed: ['Reservas'] };
     },
@@ -241,7 +316,8 @@ var Core = (function () {
         db.reservas.push({
           id: uid('R'), itemId: a.id, itemNome: a.nome, inicio: toISO(ini), fim: toISO(addDays(ini, x[2] - 1)), dias: x[2],
           total: a.precoDia * x[2], caucao: a.caucao, nome: 'Reserva de exemplo', email: 'exemplo@mercadolocal.pt',
-          telefone: '', notas: '', estado: 'Confirmada', criadaEm: new Date().toISOString()
+          telefone: '', notas: '', estado: 'Confirmada', criadaEm: new Date().toISOString(),
+          pagamento: PAG.ENTREGA, pagamentoId: '', pagamentoRef: '', pagamentoUrl: ''
         });
       });
     }
@@ -250,10 +326,12 @@ var Core = (function () {
 
   return {
     TAXA_ENTREGA: TAXA_ENTREGA, ENTREGA_GRATIS_A_PARTIR: ENTREGA_GRATIS_A_PARTIR,
-    ESTADOS_ENCOMENDA: ESTADOS_ENCOMENDA, ESTADOS_RESERVA: ESTADOS_RESERVA,
+    ESTADOS_ENCOMENDA: ESTADOS_ENCOMENDA, ESTADOS_RESERVA: ESTADOS_RESERVA, AGUARDA: AGUARDA, PAG: PAG,
     toISO: toISO, fromISO: fromISO, addDays: addDays, daysBetweenInclusive: daysBetweenInclusive, todayISO: todayISO,
     validEmail: validEmail, busyDays: busyDays, rangeIsFree: rangeIsFree,
     publico: publico, criarEncomenda: criarEncomenda, criarReserva: criarReserva,
-    minhaConta: minhaConta, cancelarReserva: cancelarReserva, admin: admin, seed: seed
+    minhaConta: minhaConta, cancelarReserva: cancelarReserva, admin: admin, seed: seed,
+    findRef: findRef, estadoPagamento: estadoPagamento, registarCheckout: registarCheckout,
+    pagamentoConfirmado: pagamentoConfirmado, pagamentoFalhado: pagamentoFalhado
   };
 })();

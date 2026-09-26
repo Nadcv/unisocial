@@ -11,6 +11,9 @@ Site para:
   ocupados; o cliente escolhe o início e o fim, vê o preço (preço/dia ×
   dias + caução) e envia o pedido. Não é possível reservar dias já
   ocupados nem datas passadas.
+- **Pagamento online** (opcional, via [Stripe](https://stripe.com)): cartão,
+  MB WAY, Multibanco, Apple Pay e Google Pay. O cliente pode sempre
+  escolher pagar na entrega/recolha ou no levantamento.
 - **A minha conta**: com o email e a referência de uma encomenda ou
   reserva, o cliente vê o seu histórico e pode cancelar reservas futuras.
 - **Gestão** (protegida por palavra-passe): resumo (vendas, receita de
@@ -75,6 +78,54 @@ Sem esta propriedade a loja funciona, mas a Gestão fica bloqueada. Após
 Depois de alterar o código, use **Implementar → Gerir implementações →
 ✏️ → Versão: Nova versão** para manter o mesmo URL.
 
+### Passo 5 (opcional) — Pagamento online com Stripe
+
+1. Crie uma conta em [stripe.com](https://stripe.com) e ative-a para
+   Portugal. Em **Definições → Métodos de pagamento**, ative os métodos
+   que quer aceitar (Cartões, **MB WAY**, **Multibanco**, Apple Pay,
+   Google Pay).
+2. Em **Programadores → Chaves de API**, copie a **chave secreta**
+   (`sk_test_…` para testes, `sk_live_…` para pagamentos reais).
+3. No Apps Script, adicione a propriedade do script `STRIPE_SECRET_KEY`
+   com essa chave.
+4. Volte a executar a função `configurar`. Ela valida a chave e cria um
+   acionador que verifica os pagamentos pendentes a cada 10 minutos.
+
+Comece com a chave `sk_test_…` e o cartão de teste `4242 4242 4242 4242`
+(qualquer data futura e CVC). Quando tudo estiver a funcionar, troque
+pela chave `sk_live_…`.
+
+Como funciona:
+
+- **Ao encomendar ou reservar com "Pagar agora online"**, o stock ou as
+  datas ficam guardados e o cliente é encaminhado para a página segura do
+  Stripe. O site nunca vê nem guarda dados de cartões.
+- **Quando o cliente volta ao site**, o servidor pergunta ao Stripe se o
+  pagamento foi feito. A confirmação nunca vem do navegador. Se foi pago,
+  a encomenda passa a **Recebida** (reservas: **Pendente**, à espera da
+  confirmação do proprietário).
+- **Se o cliente desistir ou não pagar em 30 minutos**, a encomenda ou
+  reserva é anulada e o stock e as datas ficam de novo livres.
+- **Multibanco**: o cliente recebe uma referência e pode pagar mais
+  tarde. O acionador de 10 minutos confirma o pagamento quando chegar.
+  Enquanto isso, a encomenda fica em **Aguarda pagamento**.
+- **Reembolsos automáticos**: se a Gestão cancelar uma encomenda ou
+  reserva paga online, ou se o cliente cancelar uma reserva paga, o valor
+  é devolvido pelo Stripe. Se o reembolso falhar, o cancelamento não é
+  gravado e aparece o erro.
+- **Alugueres**: online paga-se o aluguer. A caução é paga no
+  levantamento.
+- **Taxas**: o Stripe cobra uma comissão por pagamento. Consulte os
+  valores em vigor em [stripe.com/pt/pricing](https://stripe.com/pt/pricing).
+
+Na Sheet, as folhas **Encomendas** e **Reservas** têm as colunas
+`pagamento` (Na entrega / Pendente / Pago / Não pago / Reembolsado),
+`pagamentoId` (sessão do Stripe) e `pagamentoRef` (pagamento no Stripe,
+para o encontrar no painel).
+
+Se o endereço de retorno do Stripe não for o URL `/exec` da aplicação,
+defina a propriedade `APP_URL` com o URL correto.
+
 ### A Google Sheet
 
 Tem quatro folhas: **Produtos**, **Alugueres**, **Reservas** e
@@ -100,7 +151,8 @@ python3 -m http.server 8000
 ```
 
 A Gestão não pede palavra-passe e tem um botão **Repor dados de
-demonstração**.
+demonstração**. O pagamento online é simulado: não é feita nenhuma
+cobrança.
 
 ## Desenvolvimento
 
@@ -126,8 +178,6 @@ e volte a colar os ficheiros alterados no Apps Script.
 
 ## Limitações
 
-- Não há pagamento online: a encomenda indica pagamento na entrega ou na
-  recolha.
 - Não são enviados emails de confirmação. O cliente guarda a referência
   mostrada no ecrã.
 - A Google Sheet é adequada para um mercado local (dezenas de pedidos por
