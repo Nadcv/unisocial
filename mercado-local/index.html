@@ -53,6 +53,16 @@
   <p class="muted" id="modoDemo">Demonstração: os dados ficam guardados apenas neste navegador.</p>
 </footer>
 
+<script>
+// Se o site falhar ao arrancar, mostra o erro em vez de uma página vazia.
+window.addEventListener('error', function (e) {
+  var app = document.getElementById('app');
+  if (!app || app.querySelector('.card, form, table')) return;
+  app.innerHTML = '<div class="alert err">Erro ao carregar o site: ' +
+    String(e.message || e.error || 'desconhecido').replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }) +
+    '</div><p><button class="btn" onclick="location.reload()">Tentar novamente</button></p>';
+});
+</script>
 <script src="data.js"></script>
 <script src="core.js"></script>
 <script src="app.js"></script>

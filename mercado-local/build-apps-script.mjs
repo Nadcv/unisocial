@@ -15,7 +15,8 @@ const inlineScript = (f) => {
 let html = read('index.html');
 const substituicoes = [
   ['<link rel="stylesheet" href="styles.css" />', () => `<style>\n${read('styles.css')}</style>`],
-  ['<script src="data.js"></script>\n', () => ''], // no Apps Script os dados vêm da Sheet
+  // No Apps Script os dados vêm da Sheet; a marca diz ao app.js para usar sempre o servidor.
+  ['<script src="data.js"></script>\n', () => '<script>window.MERCADO_APPS_SCRIPT = true;</script>\n'],
   ['<script src="core.js"></script>', () => inlineScript('core.js')],
   ['<script src="app.js"></script>', () => inlineScript('app.js')]
 ];

@@ -6,14 +6,26 @@
   // Sheet (google.script.run). Caso contrário, funciona em modo demonstração
   // com os dados no localStorage deste navegador. Ambos usam as mesmas regras
   // de core.js e devolvem Promises com a mesma forma.
-  const REMOTO = typeof google !== 'undefined' && google.script && google.script.run;
+  // A versão do Apps Script marca-se com MERCADO_APPS_SCRIPT (ver
+  // build-apps-script.mjs): o google.script pode ainda não existir quando este
+  // código arranca, por isso não chega testar se ele já está definido.
+  const temGAS = () => typeof google !== 'undefined' && !!(google.script && google.script.run);
+  const REMOTO = window.MERCADO_APPS_SCRIPT === true || temGAS();
 
   function remoteBackend() {
-    const call = (fn, ...args) => new Promise((resolve, reject) => {
+    const esperarGAS = () => new Promise((resolve, reject) => {
+      const inicio = Date.now();
+      (function tentar() {
+        if (temGAS()) return resolve();
+        if (Date.now() - inicio > 15000) return reject(new Error('Não foi possível ligar ao servidor. Recarregue a página.'));
+        setTimeout(tentar, 50);
+      })();
+    });
+    const call = (fn, ...args) => esperarGAS().then(() => new Promise((resolve, reject) => {
       google.script.run
         .withSuccessHandler(resolve)
         .withFailureHandler((e) => reject(new Error((e && e.message) || String(e))))[fn](...args);
-    });
+    }));
     return {
       remoto: true,
       init: () => call('apiPublico'),
@@ -286,7 +298,7 @@
 
   // O Stripe devolve o cliente a ...?pagamento=REF (ou &cancelado=1).
   function verificarRetornoPagamento() {
-    if (!REMOTO || !google.script.url) return;
+    if (!REMOTO || !temGAS() || !google.script.url) return;
     google.script.url.getLocation((loc) => {
       const ref = loc.parameter && loc.parameter.pagamento;
       if (!ref) return;

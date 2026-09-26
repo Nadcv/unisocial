@@ -320,6 +320,17 @@ th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: u
 </footer>
 
 <script>
+// Se o site falhar ao arrancar, mostra o erro em vez de uma página vazia.
+window.addEventListener('error', function (e) {
+  var app = document.getElementById('app');
+  if (!app || app.querySelector('.card, form, table')) return;
+  app.innerHTML = '<div class="alert err">Erro ao carregar o site: ' +
+    String(e.message || e.error || 'desconhecido').replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }) +
+    '</div><p><button class="btn" onclick="location.reload()">Tentar novamente</button></p>';
+});
+</script>
+<script>window.MERCADO_APPS_SCRIPT = true;</script>
+<script>
 // Regras de negócio do Mercado Local, partilhadas entre o navegador
 // (modo demonstração, dados no localStorage) e o Google Apps Script
 // (modo real, dados numa Google Sheet — incluído em apps-script/Code.gs).
@@ -667,14 +678,26 @@ var Core = (function () {
   // Sheet (google.script.run). Caso contrário, funciona em modo demonstração
   // com os dados no localStorage deste navegador. Ambos usam as mesmas regras
   // de core.js e devolvem Promises com a mesma forma.
-  const REMOTO = typeof google !== 'undefined' && google.script && google.script.run;
+  // A versão do Apps Script marca-se com MERCADO_APPS_SCRIPT (ver
+  // build-apps-script.mjs): o google.script pode ainda não existir quando este
+  // código arranca, por isso não chega testar se ele já está definido.
+  const temGAS = () => typeof google !== 'undefined' && !!(google.script && google.script.run);
+  const REMOTO = window.MERCADO_APPS_SCRIPT === true || temGAS();
 
   function remoteBackend() {
-    const call = (fn, ...args) => new Promise((resolve, reject) => {
+    const esperarGAS = () => new Promise((resolve, reject) => {
+      const inicio = Date.now();
+      (function tentar() {
+        if (temGAS()) return resolve();
+        if (Date.now() - inicio > 15000) return reject(new Error('Não foi possível ligar ao servidor. Recarregue a página.'));
+        setTimeout(tentar, 50);
+      })();
+    });
+    const call = (fn, ...args) => esperarGAS().then(() => new Promise((resolve, reject) => {
       google.script.run
         .withSuccessHandler(resolve)
         .withFailureHandler((e) => reject(new Error((e && e.message) || String(e))))[fn](...args);
-    });
+    }));
     return {
       remoto: true,
       init: () => call('apiPublico'),
@@ -947,7 +970,7 @@ var Core = (function () {
 
   // O Stripe devolve o cliente a ...?pagamento=REF (ou &cancelado=1).
   function verificarRetornoPagamento() {
-    if (!REMOTO || !google.script.url) return;
+    if (!REMOTO || !temGAS() || !google.script.url) return;
     google.script.url.getLocation((loc) => {
       const ref = loc.parameter && loc.parameter.pagamento;
       if (!ref) return;
