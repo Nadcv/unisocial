@@ -236,7 +236,7 @@
       <fieldset class="field pay-choice">
         <legend>Pagamento</legend>
         <label><input type="radio" name="pagamento" value="Online" checked>
-          <span><strong>Pagar agora online</strong><br><span class="small muted">Cartão, MB WAY, Multibanco, Apple Pay ou Google Pay</span></span></label>
+          <span><strong>Pagar agora online</strong><br><span class="small muted">Cartão, MB WAY, Multibanco, Klarna (pagar em prestações), Apple Pay ou Google Pay</span></span></label>
         <label><input type="radio" name="pagamento" value="Na entrega">
           <span><strong>${esc(offline)}</strong><br><span class="small muted">${esc(offlineNota)}</span></span></label>
       </fieldset>`;

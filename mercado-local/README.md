@@ -12,7 +12,8 @@ Site para:
   dias + caução) e envia o pedido. Não é possível reservar dias já
   ocupados nem datas passadas.
 - **Pagamento online** (opcional, via [Stripe](https://stripe.com)): cartão,
-  MB WAY, Multibanco, Apple Pay e Google Pay. O cliente pode sempre
+  MB WAY, Multibanco, Klarna (pagar em prestações), Apple Pay e Google
+  Pay. O cliente pode sempre
   escolher pagar na entrega/recolha ou no levantamento.
 - **A minha conta**: com o email e a referência de uma encomenda ou
   reserva, o cliente vê o seu histórico e pode cancelar reservas futuras.
@@ -82,8 +83,9 @@ Depois de alterar o código, use **Implementar → Gerir implementações →
 
 1. Crie uma conta em [stripe.com](https://stripe.com) e ative-a para
    Portugal. Em **Definições → Métodos de pagamento**, ative os métodos
-   que quer aceitar (Cartões, **MB WAY**, **Multibanco**, Apple Pay,
-   Google Pay).
+   que quer aceitar (Cartões, **MB WAY**, **Multibanco**, **Klarna**,
+   Apple Pay, Google Pay). O site não fixa os métodos: o Stripe mostra
+   ao cliente os que estiverem ativos no painel.
 2. Em **Programadores → Chaves de API**, copie a **chave secreta**
    (`sk_test_…` para testes, `sk_live_…` para pagamentos reais).
 3. No Apps Script, adicione a propriedade do script `STRIPE_SECRET_KEY`
@@ -94,6 +96,21 @@ Depois de alterar o código, use **Implementar → Gerir implementações →
 Comece com a chave `sk_test_…` e o cartão de teste `4242 4242 4242 4242`
 (qualquer data futura e CVC). Quando tudo estiver a funcionar, troque
 pela chave `sk_live_…`.
+
+**Klarna** (comprar agora, pagar depois): basta ativá-lo em **Métodos de
+pagamento**. O mercado recebe o valor total de uma vez e o cliente paga
+as prestações diretamente à Klarna, que assume o risco de não pagamento.
+Tenha em conta:
+
+- O Stripe só mostra o Klarna quando a compra cumpre as condições da
+  Klarna (valor mínimo e máximo, país do cliente). Nos outros casos o
+  cliente vê apenas os restantes métodos.
+- A comissão do Klarna é mais alta do que a dos cartões. Confirme os
+  valores em [stripe.com/pt/pricing](https://stripe.com/pt/pricing).
+- Os reembolsos automáticos do site também funcionam com o Klarna: a
+  Klarna ajusta ou anula as prestações do cliente.
+- Para testar em modo de teste, escolha Klarna no checkout e siga os
+  dados de teste que a página da Klarna indica.
 
 Como funciona:
 
