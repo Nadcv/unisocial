@@ -1,3 +1,4 @@
+// GERADO por build-apps-script.mjs a partir de data.js — não editar aqui.
 // Produtos e alugueres iniciais. No navegador são usados na primeira visita
 // (modo demonstração); no Apps Script (copiado como Dados.gs) preenchem a
 // Google Sheet quando ela é criada.
