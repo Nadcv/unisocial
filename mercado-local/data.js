@@ -1,5 +1,5 @@
 // Produtos e alugueres iniciais. No navegador são usados na primeira visita
-// (modo demonstração); no Apps Script (copiado como Dados.gs) preenchem a
+// (modo demonstração); no Apps Script (incluídos em apps-script/Code.gs) preenchem a
 // Google Sheet quando ela é criada.
 var SEED = {
   produtos: [

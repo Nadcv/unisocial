@@ -39,14 +39,11 @@ Apps Script. Não é preciso servidor próprio nem criar a Sheet à mão.
 
 1. Aceda a [script.google.com](https://script.google.com) → **Novo projeto**
    e dê-lhe o nome `Mercado Local`.
-2. Substitua o conteúdo de `Code.gs` pelo de
+2. Substitua todo o conteúdo de `Code.gs` pelo de
    [`apps-script/Code.gs`](apps-script/Code.gs).
-3. Crie mais dois ficheiros de script (**+** → **Script**) chamados
-   `Core` e `Dados`, e cole neles
-   [`apps-script/Core.gs`](apps-script/Core.gs) e
-   [`apps-script/Dados.gs`](apps-script/Dados.gs).
-4. Crie um ficheiro HTML (**+** → **HTML**) chamado `Index` e cole
+3. Crie um ficheiro HTML (**+** → **HTML**) chamado `Index` e cole
    [`apps-script/Index.html`](apps-script/Index.html).
+4. Guarde (💾).
 
 ### Passo 2 — Palavra-passe da Gestão
 
@@ -180,12 +177,12 @@ cobrança.
 | `data.js` | Produtos e alugueres iniciais |
 | `core.js` | Regras de negócio (stock, preços, reservas, estados), usadas no navegador e no Apps Script |
 | `app.js` | Interface; usa `google.script.run` quando servido pelo Apps Script, senão `localStorage` |
-| `apps-script/Code.gs` | Backend: leitura/escrita da Google Sheet e funções `api*` |
-| `build-apps-script.mjs` | Gera `apps-script/Index.html`, `Core.gs` e `Dados.gs` |
+| `servidor.gs` | Backend no Apps Script: leitura/escrita da Google Sheet, Stripe e funções `api*` |
+| `build-apps-script.mjs` | Gera `apps-script/Code.gs` e `apps-script/Index.html` |
 
-Os ficheiros `apps-script/Index.html`, `Core.gs` e `Dados.gs` são
-gerados. Depois de alterar `index.html`, `styles.css`, `core.js`,
-`app.js` ou `data.js`, execute:
+Os ficheiros da pasta `apps-script/` são gerados. Depois de alterar
+`index.html`, `styles.css`, `core.js`, `app.js`, `data.js` ou
+`servidor.gs`, execute:
 
 ```bash
 node build-apps-script.mjs

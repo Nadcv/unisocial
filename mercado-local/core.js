@@ -1,6 +1,6 @@
 // Regras de negócio do Mercado Local, partilhadas entre o navegador
 // (modo demonstração, dados no localStorage) e o Google Apps Script
-// (modo real, dados numa Google Sheet — este ficheiro é copiado como Core.gs).
+// (modo real, dados numa Google Sheet — incluído em apps-script/Code.gs).
 //
 // Todas as funções recebem `db` = { produtos, alugueres, reservas, encomendas },
 // alteram-no quando é caso disso e devolvem { result, changed, efeitos }:
@@ -300,7 +300,7 @@ var Core = (function () {
     }
   };
 
-  // Base de dados inicial a partir de SEED (data.js / Dados.gs).
+  // Base de dados inicial a partir de SEED (data.js).
   function seed(comReservasExemplo) {
     var db = {
       produtos: JSON.parse(JSON.stringify(SEED.produtos)),

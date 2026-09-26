@@ -1,7 +1,6 @@
-// Gera os ficheiros para colar no Google Apps Script a partir do site:
+// Gera os 2 ficheiros para colar no Google Apps Script:
+//   apps-script/Code.gs     (data.js + core.js + servidor.gs)
 //   apps-script/Index.html  (index.html com CSS e JS embutidos)
-//   apps-script/Core.gs     (cópia de core.js)
-//   apps-script/Dados.gs    (cópia de data.js)
 // Uso: node build-apps-script.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -25,8 +24,10 @@ for (const [de, para] of substituicoes) {
   html = html.replace(de, para);
 }
 
-const aviso = (f) => `// GERADO por build-apps-script.mjs a partir de ${f} — não editar aqui.\n`;
 writeFileSync(new URL('apps-script/Index.html', dir), `<!-- GERADO por build-apps-script.mjs — não editar aqui. -->\n${html}`);
-writeFileSync(new URL('apps-script/Core.gs', dir), aviso('core.js') + read('core.js'));
-writeFileSync(new URL('apps-script/Dados.gs', dir), aviso('data.js') + read('data.js'));
+// No Apps Script todos os ficheiros .gs partilham o mesmo âmbito global, por isso
+// juntá-los num só ficheiro é equivalente e poupa passos a quem publica.
+const partes = ['data.js', 'core.js', 'servidor.gs'].map((f) => `// ===== ${f} =====\n${read(f).trim()}\n`);
+writeFileSync(new URL('apps-script/Code.gs', dir),
+  '// GERADO por build-apps-script.mjs a partir de data.js, core.js e servidor.gs — não editar aqui.\n\n' + partes.join('\n'));
 console.log('apps-script/ atualizado.');
