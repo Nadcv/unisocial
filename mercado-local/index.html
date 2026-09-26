@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mercado Local</title>
+<meta name="description" content="Produtos locais e reserva de alugueres e equipamento." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="#/" class="brand">🌿 Mercado Local</a>
+    <nav class="mainnav" id="mainnav">
+      <a href="#/" data-route="">Início</a>
+      <a href="#/produtos" data-route="produtos">Produtos</a>
+      <a href="#/alugueres" data-route="alugueres">Alugueres</a>
+      <a href="#/conta" data-route="conta">A minha conta</a>
+      <a href="#/gestao" data-route="gestao">Gestão</a>
+    </nav>
+    <button class="cart-btn" id="cartBtn" aria-label="Abrir carrinho">
+      🛒 <span id="cartCount" class="badge">0</span>
+    </button>
+  </div>
+</header>
+
+<main id="app" tabindex="-1"></main>
+
+<aside class="drawer" id="cartDrawer" aria-hidden="true">
+  <div class="drawer-panel" role="dialog" aria-label="Carrinho">
+    <div class="drawer-head">
+      <h2>Carrinho</h2>
+      <button class="icon-btn" data-close-drawer aria-label="Fechar">✕</button>
+    </div>
+    <div id="cartBody" class="drawer-body"></div>
+  </div>
+  <div class="drawer-backdrop" data-close-drawer></div>
+</aside>
+
+<div class="modal" id="modal" aria-hidden="true">
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-panel" role="dialog" aria-modal="true">
+    <button class="icon-btn modal-close" data-close-modal aria-label="Fechar">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<footer class="footer">
+  <p>Mercado Local — produtos da região e alugueres entre vizinhos.</p>
+  <p class="muted">Demonstração: os dados ficam guardados apenas neste navegador.</p>
+</footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
