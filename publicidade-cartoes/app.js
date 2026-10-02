@@ -182,13 +182,29 @@
   ];
 
   var FORMATS = [
-    { id: "card", label: "Cartão de Visita", type: "card" },
+    { id: "card", label: "Cartão de Visita", type: "card", sellable: true, quantities: [100, 250, 500] },
     { id: "post", label: "Post Instagram", type: "ad" },
     { id: "story", label: "Story", type: "ad" },
-    { id: "flyer", label: "Flyer A5", type: "ad" }
+    { id: "flyer", label: "Flyer A5", type: "ad" },
+    { id: "convite", label: "Convite", type: "convite", sellable: true, quantities: [5, 10, 20, 50, 100], allowDigital: true }
   ];
 
   var FIELD_KEYS = ["nome", "cargo", "empresa", "slogan", "telefone", "email", "site", "instagram", "endereco"];
+
+  // Os mesmos campos do cartão são reaproveitados para o convite, só com rótulos e
+  // significado diferentes (evita duplicar toda a infraestrutura de estado/formulário).
+  var FIELD_LABELS = {
+    default: {
+      nome: "Nome", cargo: "Cargo / Função", empresa: "Empresa / Marca",
+      slogan: "Frase de efeito / Slogan", telefone: "Telefone", email: "E-mail",
+      site: "Site", instagram: "Instagram / Rede social", endereco: "Endereço / Cidade"
+    },
+    convite: {
+      nome: "Título do convite", cargo: "Data e hora", empresa: "Anfitriões",
+      slogan: "Mensagem / Frase", telefone: "Telefone para RSVP", email: "E-mail para RSVP",
+      site: "Site do evento", instagram: "Instagram do evento", endereco: "Local do evento"
+    }
+  };
 
   /* ---------------------------------------------------------
      Estado
@@ -325,6 +341,7 @@
       btn.addEventListener("click", function () { state.side = btn.getAttribute("data-side"); renderBoard(); renderSideTabs(); });
     });
     $("#format-label").textContent = getFormat(state.formatId).label;
+    applyFieldLabels();
   }
 
   /* ---------------------------------------------------------
@@ -338,6 +355,15 @@
     var tpl = getTemplate(state.templateId);
     $("#f-color-primary").value = state.colorOverride.primary || tpl.colors.primary;
     $("#f-color-secondary").value = state.colorOverride.secondary || (tpl.colors.secondary || tpl.colors.primary);
+  }
+
+  function applyFieldLabels() {
+    var format = getFormat(state.formatId);
+    var labels = FIELD_LABELS[format.type] || FIELD_LABELS.default;
+    FIELD_KEYS.forEach(function (k) {
+      var span = $('[data-field-label="' + k + '"]');
+      if (span) span.textContent = labels[k] || FIELD_LABELS.default[k];
+    });
   }
 
   function bindForm() {
@@ -442,6 +468,28 @@
       "</div></div>";
   }
 
+  function buildInviteBoard(tpl, colors, f) {
+    var rsvpRows = [
+      ["phone", f.telefone], ["mail", f.email], ["globe", f.site], ["instagram", f.instagram]
+    ].filter(function (r) { return r[1]; }).map(function (r) {
+      return '<span class="cb-row"><span class="icon-wrap">' + iconSVG(r[0]) + "</span>" + escapeHtml(r[1]) + "</span>";
+    }).join("");
+
+    return '<div class="invite-board">' +
+      '<div class="bg-pattern pattern-' + tpl.pattern + '"></div>' +
+      '<div class="invite-inner">' +
+      logoOrIcon(tpl, colors, 40, "invite-icon") +
+      '<div class="invite-title">' + escapeHtml(f.nome || "Título do Convite") + "</div>" +
+      (f.slogan ? '<div class="invite-message">' + escapeHtml(f.slogan) + "</div>" : "") +
+      '<div class="invite-meta">' +
+      (f.cargo ? '<div class="invite-date">' + escapeHtml(f.cargo) + "</div>" : "") +
+      (f.endereco ? '<div class="invite-location"><span class="icon-wrap">' + iconSVG("pin") + "</span>" + escapeHtml(f.endereco) + "</div>" : "") +
+      "</div>" +
+      (f.empresa ? '<div class="invite-hosts">' + escapeHtml(f.empresa) + "</div>" : "") +
+      (rsvpRows ? '<div class="invite-rsvp">' + rsvpRows + "</div>" : "") +
+      "</div></div>";
+  }
+
   /* ---------------------------------------------------------
      Render principal do board
      --------------------------------------------------------- */
@@ -471,6 +519,8 @@
         var isFront = el.classList.contains("front");
         el.classList.toggle("active", (isFront && state.side === "front") || (!isFront && state.side === "back"));
       });
+    } else if (format.type === "convite") {
+      board.innerHTML = buildInviteBoard(tpl, colors, f);
     } else {
       board.innerHTML = buildAdBoard(tpl, colors, f);
     }
@@ -512,7 +562,7 @@
     renderSideTabs();
     renderBoard();
     var buyBlock = $("#buy-print-block");
-    if (buyBlock) buyBlock.style.display = getFormat(id).type === "card" ? "" : "none";
+    if (buyBlock) buyBlock.style.display = getFormat(id).sellable ? "" : "none";
   }
 
   /* ---------------------------------------------------------
@@ -717,10 +767,37 @@
       .then(function (canvas) { return canvas.toDataURL("image/png"); });
   }
 
+  var BUY_LABEL = { card: "Comprar cartões impressos", convite: "Comprar convites" };
+
+  function currentDeliveryMethod() {
+    var checked = document.querySelector('input[name="delivery-method"]:checked');
+    return checked ? checked.value : "print";
+  }
+
+  function populateQuantityOptions(format) {
+    var sel = $("#co-quantity");
+    sel.innerHTML = (format.quantities || []).map(function (q) {
+      return '<option value="' + q + '">' + q + " unidades</option>";
+    }).join("");
+  }
+
+  function applyDeliveryMethodUI() {
+    var format = getFormat(state.formatId);
+    var isDigital = format.allowDigital && currentDeliveryMethod() === "digital";
+    $("#shipping-fields").classList.toggle("hidden", isDigital);
+    $("#co-quantity-row").classList.toggle("hidden", isDigital);
+  }
+
   function openCheckoutModal() {
-    if (getFormat(state.formatId).type !== "card") return;
+    var format = getFormat(state.formatId);
+    if (!format.sellable) return;
     $("#checkout-status").textContent = "";
     $("#co-email").value = "";
+    $("#checkout-title").textContent = BUY_LABEL[format.id] || ("Comprar " + format.label);
+    populateQuantityOptions(format);
+    $("#co-delivery-print").checked = true;
+    $("#delivery-method-row").classList.toggle("hidden", !format.allowDigital);
+    applyDeliveryMethodUI();
     $("#checkout-modal").classList.remove("hidden");
   }
   function closeCheckoutModal() { $("#checkout-modal").classList.add("hidden"); }
@@ -729,24 +806,41 @@
     e.preventDefault();
     var submitBtn = $("#checkout-submit");
     var statusEl = $("#checkout-status");
-    var country = $("#co-country").value.trim().toUpperCase();
+    var format = getFormat(state.formatId);
+    var deliveryMethod = format.allowDigital ? currentDeliveryMethod() : "print";
+    var isDigital = deliveryMethod === "digital";
 
-    if (!/^[A-Z]{2}$/.test(country)) {
-      statusEl.textContent = "Código do país deve ter 2 letras (ex: PT, BR, ES).";
+    var email = $("#co-email").value.trim();
+    if (!email) {
+      statusEl.textContent = "Indica um e-mail de contacto.";
       return;
     }
 
-    var shipping = {
-      firstName: $("#co-first-name").value.trim(),
-      lastName: $("#co-last-name").value.trim(),
-      addressLine1: $("#co-address1").value.trim(),
-      addressLine2: $("#co-address2").value.trim(),
-      city: $("#co-city").value.trim(),
-      postCode: $("#co-postcode").value.trim(),
-      country: country,
-      phone: $("#co-phone").value.trim(),
-      email: $("#co-email").value.trim()
-    };
+    var shipping = { email: email };
+
+    if (!isDigital) {
+      var country = $("#co-country").value.trim().toUpperCase();
+      if (!/^[A-Z]{2}$/.test(country)) {
+        statusEl.textContent = "Código do país deve ter 2 letras (ex: PT, BR, ES).";
+        return;
+      }
+      shipping.firstName = $("#co-first-name").value.trim();
+      shipping.lastName = $("#co-last-name").value.trim();
+      shipping.addressLine1 = $("#co-address1").value.trim();
+      shipping.addressLine2 = $("#co-address2").value.trim();
+      shipping.city = $("#co-city").value.trim();
+      shipping.postCode = $("#co-postcode").value.trim();
+      shipping.country = country;
+      shipping.phone = $("#co-phone").value.trim();
+
+      var requiredLabels = { firstName: "Nome", lastName: "Apelido", addressLine1: "Morada", city: "Cidade", postCode: "Código Postal" };
+      for (var key in requiredLabels) {
+        if (!shipping[key]) {
+          statusEl.textContent = "Campo em falta: " + requiredLabels[key] + ".";
+          return;
+        }
+      }
+    }
 
     submitBtn.disabled = true;
     statusEl.textContent = "A preparar a arte final...";
@@ -759,7 +853,9 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             templateId: state.templateId,
-            quantity: parseInt($("#co-quantity").value, 10),
+            format: format.id,
+            deliveryMethod: deliveryMethod,
+            quantity: isDigital ? 1 : parseInt($("#co-quantity").value, 10),
             fields: state.fields,
             imageBase64: imageBase64,
             shipping: shipping
@@ -822,7 +918,10 @@
     $("#checkout-close").addEventListener("click", closeCheckoutModal);
     $("#checkout-modal").addEventListener("click", function (e) { if (e.target.id === "checkout-modal") closeCheckoutModal(); });
     $("#checkout-form").addEventListener("submit", submitCheckout);
-    $("#buy-print-block").style.display = getFormat(state.formatId).type === "card" ? "" : "none";
+    $all('input[name="delivery-method"]').forEach(function (radio) {
+      radio.addEventListener("change", applyDeliveryMethodUI);
+    });
+    $("#buy-print-block").style.display = getFormat(state.formatId).sellable ? "" : "none";
   }
 
   document.addEventListener("DOMContentLoaded", init);

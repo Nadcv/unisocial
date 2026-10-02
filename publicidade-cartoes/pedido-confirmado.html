@@ -44,11 +44,14 @@
 
   var STATUS_LABEL = {
     pending_payment: "A aguardar confirmação do pagamento...",
-    paid: "Pagamento confirmado. A enviar para impressão...",
-    sent_to_print: "Pedido enviado para impressão! Vais receber os cartões no endereço indicado.",
+    paid: "Pagamento confirmado. A preparar o teu pedido...",
+    sent_to_print: "Pedido enviado para impressão! Vais receber no endereço indicado.",
+    delivered: "O teu convite digital está pronto! Também enviámos o link por e-mail.",
     failed: "Houve um problema ao processar o teu pedido depois do pagamento. A nossa equipa foi notificada — contacta-nos com o número da sessão se precisares de ajuda.",
     canceled: "Pedido cancelado."
   };
+
+  var UNIT_LABEL = { card: "cartões", convite: "convites", "convite-digital": "convite digital" };
 
   function poll() {
     fetch("/api/order-status?session_id=" + encodeURIComponent(sessionId))
@@ -60,10 +63,15 @@
         }
         var label = STATUS_LABEL[data.status] || data.status;
         var price = (data.amount_cents / 100).toLocaleString("pt-PT", { style: "currency", currency: (data.currency || "eur").toUpperCase() });
+        var unit = UNIT_LABEL[data.product_format] || "unidades";
+        var downloadBtn = (data.status === "delivered" && data.image_url)
+          ? '<p style="margin-top:16px;"><a class="btn btn-primary" href="' + data.image_url + '" target="_blank" rel="noopener">Descarregar convite</a></p>'
+          : "";
         box.innerHTML =
           "<h2>Obrigado pelo teu pedido!</h2>" +
           "<p>" + label + "</p>" +
-          "<p style=\"color:var(--text-soft);font-size:.85rem;\">" + data.quantity + " cartões · " + price + "</p>";
+          "<p style=\"color:var(--text-soft);font-size:.85rem;\">" + data.quantity + " " + unit + " · " + price + "</p>" +
+          downloadBtn;
         if (data.status === "pending_payment" || data.status === "paid") {
           window.setTimeout(poll, 3000);
         }

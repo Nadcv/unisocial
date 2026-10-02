@@ -30,8 +30,9 @@
     <div class="hero-text">
       <span class="eyebrow">Publicidade &amp; Identidade Visual</span>
       <h1>Cartões de visita e artes publicitárias para <span class="hl">qualquer negócio</span></h1>
-      <p>Monte cartões de visita, posts, stories e flyers prontos para imprimir ou publicar — com templates
-        desenhados para companhias aéreas, casamentos, restaurantes, imobiliárias, saúde, moda, eventos e muito mais.</p>
+      <p>Monte cartões de visita, posts, stories, flyers e convites de evento prontos para imprimir,
+        enviar por e-mail ou publicar — com templates desenhados para companhias aéreas, casamentos,
+        restaurantes, imobiliárias, saúde, moda, eventos e muito mais.</p>
       <div class="hero-actions">
         <a href="#categorias" class="btn btn-primary btn-lg">Ver Segmentos</a>
         <a href="#editor" class="btn btn-ghost btn-lg">Abrir Editor</a>
@@ -82,31 +83,31 @@
         <div class="panel-block">
           <h3>Conteúdo</h3>
           <div class="field-grid">
-            <label>Nome
+            <label><span data-field-label="nome">Nome</span>
               <input type="text" id="f-nome" maxlength="40" />
             </label>
-            <label>Cargo / Função
+            <label><span data-field-label="cargo">Cargo / Função</span>
               <input type="text" id="f-cargo" maxlength="40" />
             </label>
-            <label>Empresa / Marca
+            <label><span data-field-label="empresa">Empresa / Marca</span>
               <input type="text" id="f-empresa" maxlength="40" />
             </label>
-            <label class="span-2">Frase de efeito / Slogan
+            <label class="span-2"><span data-field-label="slogan">Frase de efeito / Slogan</span>
               <input type="text" id="f-slogan" maxlength="70" />
             </label>
-            <label>Telefone
+            <label><span data-field-label="telefone">Telefone</span>
               <input type="text" id="f-telefone" maxlength="30" />
             </label>
-            <label>E-mail
+            <label><span data-field-label="email">E-mail</span>
               <input type="text" id="f-email" maxlength="50" />
             </label>
-            <label>Site
+            <label><span data-field-label="site">Site</span>
               <input type="text" id="f-site" maxlength="40" />
             </label>
-            <label>Instagram / Rede social
+            <label><span data-field-label="instagram">Instagram / Rede social</span>
               <input type="text" id="f-instagram" maxlength="30" />
             </label>
-            <label class="span-2">Endereço / Cidade
+            <label class="span-2"><span data-field-label="endereco">Endereço / Cidade</span>
               <input type="text" id="f-endereco" maxlength="60" />
             </label>
           </div>
@@ -136,9 +137,9 @@
           <button id="print-board" class="btn btn-secondary">Imprimir</button>
         </div>
         <div class="panel-block" id="buy-print-block">
-          <h3>Cartões físicos</h3>
-          <p class="hint" style="margin-top:0;">Manda imprimir e entregar em casa (disponível só para o formato Cartão de Visita).</p>
-          <button id="buy-print-btn" class="btn btn-primary" type="button">Comprar cartões impressos</button>
+          <h3>Comprar</h3>
+          <p class="hint" style="margin-top:0;">Manda imprimir e entregar em casa, ou (para convites) recebe por download/e-mail.</p>
+          <button id="buy-print-btn" class="btn btn-primary" type="button">Comprar</button>
         </div>
         <p id="editor-status" class="editor-status" role="status" aria-live="polite"></p>
       </div>
@@ -178,7 +179,7 @@
     </div>
     <ol class="steps">
       <li><span class="step-num">1</span><div><strong>Escolha o segmento</strong><p>Aviação, casamentos, gastronomia, imóveis, beleza, tecnologia, saúde, eventos, moda, automotivo, educação ou corporativo.</p></div></li>
-      <li><span class="step-num">2</span><div><strong>Selecione o formato</strong><p>Cartão de visita (frente e verso), post para redes sociais, story ou flyer A5.</p></div></li>
+      <li><span class="step-num">2</span><div><strong>Selecione o formato</strong><p>Cartão de visita (frente e verso), post para redes sociais, story, flyer A5 ou convite de evento.</p></div></li>
       <li><span class="step-num">3</span><div><strong>Personalize</strong><p>Textos, logotipo e cores — a arte é montada automaticamente respeitando o layout do modelo.</p></div></li>
       <li><span class="step-num">4</span><div><strong>Exporte</strong><p>Baixe em PNG em alta resolução, imprima direto do navegador ou salve o projeto para editar depois.</p></div></li>
     </ol>
@@ -192,28 +193,32 @@
   <div id="checkout-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
     <div class="modal-box">
       <button id="checkout-close" class="modal-close" type="button" aria-label="Fechar">&times;</button>
-      <h2 id="checkout-title">Comprar cartões impressos</h2>
-      <p class="hint">Impressão e envio por um parceiro externo (Gelato). O pagamento é processado de forma segura pela Stripe.</p>
+      <h2 id="checkout-title">Comprar</h2>
+      <p class="hint">Impressão e envio por um parceiro externo (Gelato), ou entrega digital por download/e-mail. O pagamento é processado de forma segura pela Stripe.</p>
 
       <form id="checkout-form">
-        <label>Quantidade
-          <select id="co-quantity">
-            <option value="100">100 unidades</option>
-            <option value="250">250 unidades</option>
-            <option value="500">500 unidades</option>
-          </select>
+        <div id="delivery-method-row" class="delivery-method-row hidden">
+          <label class="radio-label"><input type="radio" name="delivery-method" id="co-delivery-print" value="print" checked /> Impresso (enviado para casa)</label>
+          <label class="radio-label"><input type="radio" name="delivery-method" id="co-delivery-digital" value="digital" /> Digital (download + e-mail)</label>
+        </div>
+
+        <label id="co-quantity-row">Quantidade
+          <select id="co-quantity"></select>
         </label>
 
         <div class="field-grid" style="margin-top:14px;">
-          <label>Nome <input type="text" id="co-first-name" required /></label>
-          <label>Apelido <input type="text" id="co-last-name" required /></label>
-          <label class="span-2">Morada <input type="text" id="co-address1" required /></label>
-          <label class="span-2">Complemento (opcional) <input type="text" id="co-address2" /></label>
-          <label>Cidade <input type="text" id="co-city" required /></label>
-          <label>Código Postal <input type="text" id="co-postcode" required /></label>
-          <label>País (código, ex: PT) <input type="text" id="co-country" maxlength="2" placeholder="PT" required /></label>
-          <label>Telefone (opcional) <input type="text" id="co-phone" /></label>
           <label class="span-2">E-mail <input type="email" id="co-email" required /></label>
+        </div>
+
+        <div id="shipping-fields" class="field-grid" style="margin-top:14px;">
+          <label>Nome <input type="text" id="co-first-name" /></label>
+          <label>Apelido <input type="text" id="co-last-name" /></label>
+          <label class="span-2">Morada <input type="text" id="co-address1" /></label>
+          <label class="span-2">Complemento (opcional) <input type="text" id="co-address2" /></label>
+          <label>Cidade <input type="text" id="co-city" /></label>
+          <label>Código Postal <input type="text" id="co-postcode" /></label>
+          <label>País (código, ex: PT) <input type="text" id="co-country" maxlength="2" placeholder="PT" /></label>
+          <label>Telefone (opcional) <input type="text" id="co-phone" /></label>
         </div>
 
         <button type="submit" id="checkout-submit" class="btn btn-primary btn-lg" style="width:100%;margin-top:18px;">

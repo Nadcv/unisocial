@@ -1,4 +1,4 @@
-var { getSupabaseAdmin } = require("./lib/supabase");
+var { getSupabaseAdmin } = require("../lib/supabase");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "GET") {
@@ -16,7 +16,7 @@ module.exports = async function handler(req, res) {
     var supabase = getSupabaseAdmin();
     var result = await supabase
       .from("orders")
-      .select("status, quantity, template_id, amount_cents, currency, created_at")
+      .select("status, quantity, template_id, product_format, amount_cents, currency, image_url, created_at")
       .eq("stripe_session_id", sessionId)
       .single();
 

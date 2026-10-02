@@ -1,6 +1,7 @@
 var Stripe = require("stripe");
-var { getSupabaseAdmin } = require("./lib/supabase");
-var { createGelatoOrder } = require("./lib/gelato");
+var { getSupabaseAdmin } = require("../lib/supabase");
+var { createGelatoOrder } = require("../lib/gelato");
+var { sendEmail, digitalInviteEmailHtml } = require("../lib/email");
 
 function readRawBody(req) {
   return new Promise(function (resolve, reject) {
@@ -50,16 +51,33 @@ module.exports = async function handler(req, res) {
     var order = fetchResult.data;
 
     if (order.status !== "pending_payment") {
-      // Evento repetido (Stripe reenvia webhooks) — já processado, não duplicar a encomenda na Gelato.
+      // Evento repetido (Stripe reenvia webhooks) — já processado, não duplicar a encomenda.
       res.status(200).json({ received: true });
       return;
     }
 
     await supabase.from("orders").update({ status: "paid", updated_at: new Date().toISOString() }).eq("id", orderId);
 
+    // "convite-digital" nunca passa pela Gelato — é entregue por download (image_url já guardado)
+    // e por e-mail com o mesmo link.
+    if (order.product_format === "convite-digital") {
+      await supabase
+        .from("orders")
+        .update({ status: "delivered", updated_at: new Date().toISOString() })
+        .eq("id", orderId);
+      await sendEmail(
+        order.contact_email,
+        "O teu convite digital está pronto!",
+        digitalInviteEmailHtml(order.image_url)
+      );
+      res.status(200).json({ received: true });
+      return;
+    }
+
     var addr = order.shipping_address;
     var gelatoOrder = await createGelatoOrder({
       orderId: order.id,
+      format: order.product_format,
       currency: order.currency,
       quantity: order.quantity,
       imageUrl: order.image_url,
