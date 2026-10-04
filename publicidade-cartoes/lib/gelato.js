@@ -8,7 +8,10 @@ var ORDER_API_BASE = "https://order.gelatoapis.com/v4";
 // UID do produto Gelato por formato. GELATO_PRODUCT_UID (sem sufixo) continua a
 // funcionar como o UID do cartão de visita, por compatibilidade.
 var UID_ENV_BY_FORMAT = {
-  convite: "GELATO_PRODUCT_UID_CONVITE"
+  convite: "GELATO_PRODUCT_UID_CONVITE",
+  // "aniversario" é fisicamente o mesmo produto do "convite" (mesmo tamanho/papel, só muda
+  // a arte) — reaproveita o mesmo UID, não precisa de nenhuma variável de ambiente nova.
+  aniversario: "GELATO_PRODUCT_UID_CONVITE"
 };
 
 function productUidForFormat(format) {

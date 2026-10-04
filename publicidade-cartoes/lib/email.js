@@ -20,11 +20,12 @@ async function sendEmail(to, subject, html) {
   }
 }
 
-function digitalInviteEmailHtml(downloadUrl) {
+function digitalInviteEmailHtml(downloadUrl, label) {
+  label = label || "ficheiro";
   return (
     '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;color:#111;">' +
-    '<h2 style="margin:0 0 12px;">O teu convite digital está pronto!</h2>' +
-    "<p>Obrigado pela compra. Podes descarregar o teu convite personalizado no link abaixo.</p>" +
+    '<h2 style="margin:0 0 12px;">O teu ' + label + " digital está pronto!</h2>" +
+    "<p>Obrigado pela compra. Podes descarregar o teu " + label + " personalizado no link abaixo.</p>" +
     '<p style="text-align:center;margin:24px 0;">' +
     '<a href="' + downloadUrl + '" style="display:inline-block;background:#4e8cff;color:#fff;text-decoration:none;' +
     'padding:12px 28px;border-radius:8px;font-weight:600;">Descarregar convite</a></p>' +

@@ -2,13 +2,17 @@ var Stripe = require("stripe");
 var { getSupabaseAdmin, uploadPrintFile } = require("../lib/supabase");
 var { priceForQuantity, getAllowedQuantities } = require("../lib/price");
 
-var ALLOWED_FORMATS = ["card", "convite"];
+var ALLOWED_FORMATS = ["card", "convite", "aniversario"];
+// Formatos que podem ser entregues 100% digital (sem Gelato, sem morada) — ver stripe-webhook.js.
+var DIGITAL_CAPABLE_FORMATS = ["convite", "aniversario"];
 var REQUIRED_SHIPPING_FIELDS = ["firstName", "lastName", "addressLine1", "city", "postCode", "country", "email"];
 
 var PRODUCT_NAME = {
   card: "Cartões de visita impressos",
   convite: "Convites impressos",
-  "convite-digital": "Convite digital"
+  "convite-digital": "Convite digital",
+  aniversario: "Cartões de aniversário impressos",
+  "aniversario-digital": "Cartão de aniversário digital"
 };
 
 module.exports = async function handler(req, res) {
@@ -21,8 +25,8 @@ module.exports = async function handler(req, res) {
     var body = req.body || {};
     var templateId = String(body.templateId || "").slice(0, 60);
     var format = ALLOWED_FORMATS.indexOf(body.format) !== -1 ? body.format : "card";
-    // Entrega digital só existe para convites (sem passar pela Gelato, entregue por download/e-mail).
-    var isDigital = format === "convite" && body.deliveryMethod === "digital";
+    // Entrega digital só existe para alguns formatos (sem passar pela Gelato, entregue por download/e-mail).
+    var isDigital = DIGITAL_CAPABLE_FORMATS.indexOf(format) !== -1 && body.deliveryMethod === "digital";
     var productFormat = isDigital ? "convite-digital" : format;
     var quantity = isDigital ? 1 : parseInt(body.quantity, 10);
     var fields = body.fields && typeof body.fields === "object" ? body.fields : {};

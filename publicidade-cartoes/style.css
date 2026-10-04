@@ -208,7 +208,7 @@ button { font-family: inherit; }
 .art-board[data-format="post"] { width: 340px; aspect-ratio: 1 / 1; }
 .art-board[data-format="story"] { width: 230px; aspect-ratio: 9 / 16; }
 .art-board[data-format="flyer"] { width: 300px; aspect-ratio: 148 / 210; }
-.art-board[data-format="convite"] { width: 280px; aspect-ratio: 10 / 15; }
+.art-board[data-format="convite"], .art-board[data-format="aniversario"] { width: 280px; aspect-ratio: 10 / 15; }
 
 .art-board .bg-pattern { position: absolute; inset: 0; opacity: .16; pointer-events: none; }
 .pattern-diagonal { background: repeating-linear-gradient(45deg, var(--tpl-primary) 0 3px, transparent 3px 18px); }

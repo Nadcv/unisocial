@@ -46,12 +46,15 @@
     pending_payment: "A aguardar confirmação do pagamento...",
     paid: "Pagamento confirmado. A preparar o teu pedido...",
     sent_to_print: "Pedido enviado para impressão! Vais receber no endereço indicado.",
-    delivered: "O teu convite digital está pronto! Também enviámos o link por e-mail.",
+    delivered: "O teu ficheiro digital está pronto! Também enviámos o link por e-mail.",
     failed: "Houve um problema ao processar o teu pedido depois do pagamento. A nossa equipa foi notificada — contacta-nos com o número da sessão se precisares de ajuda.",
     canceled: "Pedido cancelado."
   };
 
-  var UNIT_LABEL = { card: "cartões", convite: "convites", "convite-digital": "convite digital" };
+  var UNIT_LABEL = {
+    card: "cartões", convite: "convites", "convite-digital": "convite digital",
+    aniversario: "cartões de aniversário", "aniversario-digital": "cartão de aniversário"
+  };
 
   function poll() {
     fetch("/api/order-status?session_id=" + encodeURIComponent(sessionId))

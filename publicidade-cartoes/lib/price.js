@@ -5,7 +5,9 @@
 var DEFAULT_TABLE =
   "card:100:2999,card:250:4999,card:500:7999," +
   "convite:5:1499,convite:10:1999,convite:20:2999,convite:50:4999,convite:100:7999," +
-  "convite-digital:1:990";
+  "convite-digital:1:990," +
+  "aniversario:5:1499,aniversario:10:1999,aniversario:20:2999,aniversario:50:4999,aniversario:100:7999," +
+  "aniversario-digital:1:990";
 
 function getPriceTable() {
   var raw = process.env.PRICE_TABLE || DEFAULT_TABLE;

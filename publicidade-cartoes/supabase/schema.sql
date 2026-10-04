@@ -14,7 +14,7 @@ create table if not exists orders (
   -- dados do design (para reimpressão/consulta, não é a fonte de verdade do preço)
   template_id text not null,
   product_format text not null default 'card'
-    check (product_format in ('card', 'convite', 'convite-digital')),
+    check (product_format in ('card', 'convite', 'convite-digital', 'aniversario', 'aniversario-digital')),
   quantity integer not null,
   fields jsonb not null default '{}'::jsonb,
 
@@ -45,12 +45,12 @@ create index if not exists orders_status_idx on orders (status);
 -- de descarregar o ficheiro pela URL, e o cliente de "convite-digital" descarrega o mesmo
 -- ficheiro diretamente).
 
--- Migração para quem já tinha a tabela orders antes dos convites (impressos e digitais)
--- existirem — corre sempre a versão mais recente destes blocos:
+-- Migração para quem já tinha a tabela orders antes dos convites/cartões de aniversário
+-- (impressos e digitais) existirem — corre sempre a versão mais recente destes blocos:
 -- alter table orders add column if not exists product_format text not null default 'card';
 -- alter table orders drop constraint if exists orders_product_format_check;
 -- alter table orders add constraint orders_product_format_check
---   check (product_format in ('card', 'convite', 'convite-digital'));
+--   check (product_format in ('card', 'convite', 'convite-digital', 'aniversario', 'aniversario-digital'));
 -- alter table orders drop constraint if exists orders_status_check;
 -- alter table orders add constraint orders_status_check
 --   check (status in ('pending_payment', 'paid', 'sent_to_print', 'delivered', 'failed', 'canceled'));

@@ -186,13 +186,16 @@
     { id: "post", label: "Post Instagram", type: "ad" },
     { id: "story", label: "Story", type: "ad" },
     { id: "flyer", label: "Flyer A5", type: "ad" },
-    { id: "convite", label: "Convite", type: "convite", sellable: true, quantities: [5, 10, 20, 50, 100], allowDigital: true }
+    { id: "convite", label: "Convite", type: "event", sellable: true, quantities: [5, 10, 20, 50, 100], allowDigital: true },
+    { id: "aniversario", label: "Cartão de Aniversário", type: "event", sellable: true, quantities: [5, 10, 20, 50, 100], allowDigital: true }
   ];
 
   var FIELD_KEYS = ["nome", "cargo", "empresa", "slogan", "telefone", "email", "site", "instagram", "endereco"];
 
-  // Os mesmos campos do cartão são reaproveitados para o convite, só com rótulos e
-  // significado diferentes (evita duplicar toda a infraestrutura de estado/formulário).
+  // Os mesmos campos do cartão são reaproveitados pelo convite e pelo cartão de aniversário,
+  // só com rótulos e significado diferentes por formato (evita duplicar toda a
+  // infraestrutura de estado/formulário). "type: event" (ver FORMATS acima) é só uma etiqueta
+  // de renderização — os rótulos abaixo é que distinguem o que cada formato realmente é.
   var FIELD_LABELS = {
     default: {
       nome: "Nome", cargo: "Cargo / Função", empresa: "Empresa / Marca",
@@ -203,6 +206,11 @@
       nome: "Título do convite", cargo: "Data e hora", empresa: "Anfitriões",
       slogan: "Mensagem / Frase", telefone: "Telefone para RSVP", email: "E-mail para RSVP",
       site: "Site do evento", instagram: "Instagram do evento", endereco: "Local do evento"
+    },
+    aniversario: {
+      nome: "Título (ex: Bodas de Prata)", cargo: "Data e anos de casados", empresa: "Nome do casal",
+      slogan: "Mensagem de celebração", telefone: "Telefone de contacto", email: "E-mail de contacto",
+      site: "Site do evento", instagram: "Instagram do evento", endereco: "Local da celebração"
     }
   };
 
@@ -359,7 +367,7 @@
 
   function applyFieldLabels() {
     var format = getFormat(state.formatId);
-    var labels = FIELD_LABELS[format.type] || FIELD_LABELS.default;
+    var labels = FIELD_LABELS[format.id] || FIELD_LABELS[format.type] || FIELD_LABELS.default;
     FIELD_KEYS.forEach(function (k) {
       var span = $('[data-field-label="' + k + '"]');
       if (span) span.textContent = labels[k] || FIELD_LABELS.default[k];
@@ -519,7 +527,7 @@
         var isFront = el.classList.contains("front");
         el.classList.toggle("active", (isFront && state.side === "front") || (!isFront && state.side === "back"));
       });
-    } else if (format.type === "convite") {
+    } else if (format.type === "event") {
       board.innerHTML = buildInviteBoard(tpl, colors, f);
     } else {
       board.innerHTML = buildAdBoard(tpl, colors, f);
@@ -767,7 +775,7 @@
       .then(function (canvas) { return canvas.toDataURL("image/png"); });
   }
 
-  var BUY_LABEL = { card: "Comprar cartões impressos", convite: "Comprar convites" };
+  var BUY_LABEL = { card: "Comprar cartões impressos", convite: "Comprar convites", aniversario: "Comprar cartões de aniversário" };
 
   function currentDeliveryMethod() {
     var checked = document.querySelector('input[name="delivery-method"]:checked');
