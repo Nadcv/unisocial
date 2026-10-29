@@ -27,7 +27,7 @@ const EN = {
   "sec.s3.t": "Medical", "sec.s3.d": "Harnesses and assemblies for medical equipment, with process control and full documentation.",
   "sec.s4.t": "Telecom & IT", "sec.s4.d": "Signal and data cables, connectorised assemblies and interconnect solutions for network equipment.",
   "sec.s5.t": "Industrial automation", "sec.s5.d": "Machine harnesses, electrical cabinets and overmoulded parts for harsh industrial environments.",
-  "sec.s6.t": "Automotive", "sec.s6.d": "Design, engineering and manufacture of harnesses and overmoulded components for the automotive industry.",
+  "sec.more": "Learn more", "sec.s6.t": "Automotive", "sec.s6.d": "Design, engineering and manufacture of harnesses and overmoulded components for the automotive industry.",
   "proc.title": "From drawing to delivery, one partner.",
   "proc.p1.t": "Study", "proc.p1.d": "Review of drawing, specification and volumes.",
   "proc.p2.t": "Design", "proc.p2.d": "Product engineering and material selection.",
@@ -62,6 +62,14 @@ const EN = {
   "ft.cert": "NP EN ISO 9001 · Since 1992"
 };
 
+const isHome = document.body.dataset.page !== "sector";
+
+function storeLang(l) { try { localStorage.setItem("cablotec-lang", l); } catch {} }
+
+// Páginas de setor: cada idioma tem o seu URL, só guardamos a preferência.
+document.querySelectorAll("[data-set-lang]").forEach(a => a.addEventListener("click", () => storeLang(a.dataset.setLang)));
+if (!isHome) storeLang(document.body.dataset.lang);
+
 const META = {
   pt: { title: document.title, desc: document.querySelector('meta[name="description"]').content },
   en: {
@@ -88,16 +96,19 @@ function setLang(next) {
   document.querySelector('meta[name="description"]').content = META[lang].desc;
   document.querySelector('input[name="quantidade"]').placeholder = MSG[lang].qty;
   document.querySelectorAll("[data-lang]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
-  try { localStorage.setItem("cablotec-lang", lang); } catch {}
+  document.querySelectorAll("[data-href-en]").forEach(a => { a.href = lang === "en" ? a.dataset.hrefEn : a.dataset.hrefPt; });
+  storeLang(lang);
 }
 
-document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => setLang(b.dataset.lang)));
-
-const urlLang = new URLSearchParams(location.search).get("lang");
-let saved = null;
-try { saved = localStorage.getItem("cablotec-lang"); } catch {}
-const initial = urlLang || saved || (navigator.language?.toLowerCase().startsWith("pt") ? "pt" : "en");
-if (initial === "en") setLang("en");
+const params = new URLSearchParams(location.search);
+if (isHome) {
+  document.querySelectorAll("[data-href-en]").forEach(a => { a.dataset.hrefPt = a.getAttribute("href"); });
+  document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => setLang(b.dataset.lang)));
+  let saved = null;
+  try { saved = localStorage.getItem("cablotec-lang"); } catch {}
+  const initial = params.get("lang") || saved || (navigator.language?.toLowerCase().startsWith("pt") ? "pt" : "en");
+  if (initial === "en") setLang("en");
+}
 
 // Mobile menu
 const toggle = document.querySelector(".menu-toggle");
@@ -116,16 +127,21 @@ if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: re
   const io = new IntersectionObserver(entries => entries.forEach(e => {
     if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
   }), { rootMargin: "0px 0px -8% 0px" });
-  document.querySelectorAll(".section-head, .card, .sector, .process li, .project, .cert, .timeline, .form").forEach(el => {
+  document.querySelectorAll(".section-head, .card, .sector, .process li, .project, .cert, .timeline, .form, .req, .other").forEach(el => {
     el.classList.add("reveal"); io.observe(el);
   });
 }
 
 // Quote form
 const form = document.getElementById("quote-form");
-const status = form.querySelector(".form-status");
+const status = form?.querySelector(".form-status");
 
-form.addEventListener("submit", async e => {
+if (form && params.get("setor")) {
+  const opt = form.querySelector(`select[name="setor"] option[value="${CSS.escape(params.get("setor"))}"]`);
+  if (opt) opt.selected = true;
+}
+
+form?.addEventListener("submit", async e => {
   e.preventDefault();
   const m = MSG[lang];
   let valid = true;
@@ -139,6 +155,7 @@ form.addEventListener("submit", async e => {
   const data = new FormData(form);
 
   if (!FORM_ENDPOINT) {
+    data.set("setor", form.setor.selectedOptions[0].text);
     const body = ["nome", "empresa", "email", "telefone", "setor", "quantidade", "mensagem"]
       .map(k => `${k}: ${data.get(k) || ""}`).join("\n");
     const subject = `Pedido de orçamento — ${data.get("empresa")}`;

@@ -1,0 +1,172 @@
+{
+  "common": {
+    "pt": {
+      "home": "Início", "sectors": "Setores", "apps": "Aplicações típicas", "caps": "O que fazemos",
+      "reqs": "Requisitos típicos do setor",
+      "reqsNote": "Trabalhamos com materiais e processos definidos para responder a estes requisitos, de acordo com a especificação de cada projeto.",
+      "why": "Porquê a Cablotec",
+      "why1t": "Tudo internamente", "why1d": "Projeto, moldes, injeção, cablagem e ensaio sob o mesmo teto.",
+      "why2t": "ISO 9001 desde 1999", "why2d": "Sistema de gestão da qualidade certificado e auditado.",
+      "why3t": "Do protótipo à série", "why3d": "Acompanhamos o produto desde as primeiras amostras até à produção.",
+      "ctaT": "Tem um projeto neste setor?", "ctaD": "Envie-nos o desenho ou a especificação e receba uma análise técnica e uma proposta.",
+      "cta": "Pedir orçamento", "others": "Outros setores", "back": "Voltar ao início",
+      "nav": ["Soluções", "Setores", "Processo", "Qualidade", "Empresa", "Contactos"],
+      "address": "Morada", "contact": "Contactos", "legal": "Informação legal", "privacy": "Política de privacidade",
+      "complaints": "Livro de Reclamações", "since": "NP EN ISO 9001 · Desde 1992", "skip": "Saltar para o conteúdo"
+    },
+    "en": {
+      "home": "Home", "sectors": "Industries", "apps": "Typical applications", "caps": "What we do",
+      "reqs": "Typical industry requirements",
+      "reqsNote": "We work with materials and processes selected to meet these requirements, according to each project's specification.",
+      "why": "Why Cablotec",
+      "why1t": "Everything in-house", "why1d": "Design, moulds, injection, harness assembly and testing under one roof.",
+      "why2t": "ISO 9001 since 1999", "why2d": "Certified and audited quality management system.",
+      "why3t": "From prototype to series", "why3d": "We support the product from the first samples through to production.",
+      "ctaT": "Have a project in this industry?", "ctaD": "Send us your drawing or specification and receive a technical review and a proposal.",
+      "cta": "Request a quote", "others": "Other industries", "back": "Back to home",
+      "nav": ["Solutions", "Industries", "Process", "Quality", "Company", "Contact"],
+      "address": "Address", "contact": "Contact", "legal": "Legal", "privacy": "Privacy policy",
+      "complaints": "Complaints Book", "since": "NP EN ISO 9001 · Since 1992", "skip": "Skip to content"
+    }
+  },
+  "sectors": [
+    {
+      "tag": "RAIL", "pt_slug": "ferroviario", "en_slug": "railway",
+      "pt": {
+        "name": "Ferroviário",
+        "title": "Cablagens para a Indústria Ferroviária",
+        "desc": "Cablagens, sobremoldagens e subconjuntos para material circulante e interiores ferroviários, fabricados em Sintra segundo a especificação do construtor.",
+        "lead": "Cablagens e conjuntos de interligação para material circulante, interiores e sistemas a bordo, fabricados segundo a especificação do construtor.",
+        "apps": ["Cablagens de interiores de carruagem: iluminação, portas e informação ao passageiro", "Cablagens de cabina e consolas de condução", "Conjuntos para sistemas de climatização e auxiliares", "Caixas e quadros de distribuição a bordo", "Conectores sobremoldados para ambientes com vibração"],
+        "caps": ["Cablagens multirramo de grande comprimento com identificação de condutores", "Sobremoldagem para vedação e alívio de tensão", "Integração em subconjuntos prontos a montar", "Documentação de produto e rastreabilidade"],
+        "reqs": ["Comportamento ao fogo dos materiais (EN 45545-2), com cabos de baixa emissão de fumos e sem halogéneos", "Resistência a vibração e choque (EN 61373)", "Requisitos para equipamento de material circulante (EN 50155), quando aplicáveis ao conjunto", "Marcação permanente e identificação de condutores"],
+        "highlight": "A Cablotec participa no projeto IRIS — Innovative Railway Interior, dedicado a soluções inovadoras para interiores ferroviários."
+      },
+      "en": {
+        "name": "Railway",
+        "title": "Railway Wiring Harnesses",
+        "desc": "Wiring harnesses, overmoulded parts and sub-assemblies for rolling stock and railway interiors, built in Portugal to the manufacturer's specification.",
+        "lead": "Wiring harnesses and interconnect assemblies for rolling stock, interiors and on-board systems, built to the manufacturer's specification.",
+        "apps": ["Coach interior harnesses: lighting, doors and passenger information", "Driver's cab and console harnesses", "Assemblies for HVAC and auxiliary systems", "On-board distribution boxes and cabinets", "Overmoulded connectors for high-vibration environments"],
+        "caps": ["Long multi-branch harnesses with conductor identification", "Overmoulding for sealing and strain relief", "Integration into ready-to-install sub-assemblies", "Product documentation and traceability"],
+        "reqs": ["Fire behaviour of materials (EN 45545-2), with low-smoke zero-halogen cables", "Shock and vibration resistance (EN 61373)", "Rolling stock equipment requirements (EN 50155), where applicable to the assembly", "Permanent marking and conductor identification"],
+        "highlight": "Cablotec takes part in IRIS — Innovative Railway Interior, a project focused on innovative solutions for railway interiors."
+      }
+    },
+    {
+      "tag": "MIL", "pt_slug": "defesa", "en_slug": "defence",
+      "pt": {
+        "name": "Defesa",
+        "title": "Cablagens Militares e para Defesa",
+        "desc": "Montagem de cablagens e componentes segundo normas MIL para comunicações, sistemas de direcionamento e viaturas de combate.",
+        "lead": "Montagem de cablagens e componentes segundo normas MIL para comunicações, sistemas de direcionamento e viaturas de combate.",
+        "apps": ["Cablagens para viaturas táticas e de combate", "Conjuntos para sistemas de comunicação e rádio", "Cablagens para sistemas de direcionamento e observação", "Cabos com conectores circulares de padrão militar", "Subconjuntos para equipamento em ambiente severo"],
+        "caps": ["Montagem com conectores circulares MIL conforme desenho", "Proteção com mangas termorretráteis e sobremoldagem", "Ensaio elétrico de continuidade e isolamento", "Rastreabilidade de materiais e documentação por lote"],
+        "reqs": ["Normas MIL e especificações do cliente", "Resistência a temperaturas extremas, humidade e fluidos", "Blindagem e compatibilidade eletromagnética conforme projeto", "Controlo de configuração e confidencialidade"],
+        "highlight": "A Cablotec é membro do AED Cluster Portugal, a rede nacional das indústrias aeronáutica, do espaço e da defesa."
+      },
+      "en": {
+        "name": "Defence",
+        "title": "Military & Defence Wiring Harnesses",
+        "desc": "Harness and component assembly to MIL standards for communications, targeting systems and combat vehicles.",
+        "lead": "Harness and component assembly to MIL standards for communications, targeting systems and combat vehicles.",
+        "apps": ["Harnesses for tactical and combat vehicles", "Assemblies for communication and radio systems", "Harnesses for targeting and observation systems", "Cables with military circular connectors", "Sub-assemblies for harsh-environment equipment"],
+        "caps": ["Assembly with MIL circular connectors to drawing", "Protection with heat-shrink boots and overmoulding", "Electrical continuity and insulation testing", "Material traceability and lot documentation"],
+        "reqs": ["MIL standards and customer specifications", "Resistance to extreme temperatures, humidity and fluids", "Shielding and electromagnetic compatibility as designed", "Configuration control and confidentiality"],
+        "highlight": "Cablotec is a member of AED Cluster Portugal, the national network of the aeronautics, space and defence industries."
+      }
+    },
+    {
+      "tag": "MED", "pt_slug": "eletromedicina", "en_slug": "medical",
+      "pt": {
+        "name": "Eletromedicina",
+        "title": "Cablagens para Equipamentos Médicos",
+        "desc": "Cablagens, cabos sobremoldados e conjuntos para equipamentos médicos e de diagnóstico, com controlo de processo e documentação completa.",
+        "lead": "Cablagens e conjuntos para equipamentos médicos e de diagnóstico, com controlo de processo e documentação completa.",
+        "apps": ["Cablagens internas de equipamentos de diagnóstico", "Cabos para sondas, sensores e acessórios", "Conjuntos para equipamento de laboratório", "Cablagens para camas e mobiliário hospitalar motorizado", "Sobremoldagens ergonómicas para cabos de paciente"],
+        "caps": ["Sobremoldagem em polímeros adequados a manuseamento e limpeza frequentes", "Montagem com controlo de processo", "Ensaio elétrico e inspeção final documentada", "Rastreabilidade por lote"],
+        "reqs": ["Segurança elétrica de equipamentos médicos (IEC 60601-1), no âmbito do conjunto", "Materiais resistentes a agentes de desinfeção", "Documentação de suporte ao processo de certificação do cliente", "Controlo rigoroso de alterações"],
+        "highlight": ""
+      },
+      "en": {
+        "name": "Medical",
+        "title": "Medical Device Wiring Harnesses",
+        "desc": "Wiring harnesses, overmoulded cables and assemblies for medical and diagnostic equipment, with process control and full documentation.",
+        "lead": "Wiring harnesses and assemblies for medical and diagnostic equipment, with process control and full documentation.",
+        "apps": ["Internal harnesses for diagnostic equipment", "Cables for probes, sensors and accessories", "Assemblies for laboratory equipment", "Harnesses for motorised hospital beds and furniture", "Ergonomic overmoulding for patient cables"],
+        "caps": ["Overmoulding in polymers suited to frequent handling and cleaning", "Assembly under process control", "Electrical testing and documented final inspection", "Lot traceability"],
+        "reqs": ["Medical electrical equipment safety (IEC 60601-1), within the scope of the assembly", "Materials resistant to disinfectants", "Documentation supporting the customer's certification process", "Strict change control"],
+        "highlight": ""
+      }
+    },
+    {
+      "tag": "TEL", "pt_slug": "telecomunicacoes", "en_slug": "telecom",
+      "pt": {
+        "name": "Telecomunicações e informática",
+        "title": "Cabos e Cablagens para Telecomunicações e Informática",
+        "desc": "Cabos de sinal e de dados por medida, conjuntos com conectores e soluções de interligação para equipamento de rede e informático.",
+        "lead": "Cabos de sinal e de dados, conjuntos com conectores e soluções de interligação para equipamento de rede e informático.",
+        "apps": ["Cabos de dados e de sinal por medida", "Conjuntos para bastidores e equipamento de rede", "Cablagens internas de servidores e equipamentos", "Cabos de alimentação com conectores específicos", "Cabos de interligação e jumpers"],
+        "caps": ["Cravação e soldadura de conectores de sinal", "Cabos blindados e de pares entrançados", "Etiquetagem e identificação por cabo", "Ensaio elétrico de continuidade e isolamento"],
+        "reqs": ["Blindagem e integridade de sinal", "Código de cores e etiquetagem conforme cliente", "Materiais conformes com RoHS e REACH", "Embalagem e kitting para a linha de montagem"],
+        "highlight": ""
+      },
+      "en": {
+        "name": "Telecom & IT",
+        "title": "Telecom & IT Cable Assemblies",
+        "desc": "Custom signal and data cables, connectorised assemblies and interconnect solutions for network and IT equipment.",
+        "lead": "Signal and data cables, connectorised assemblies and interconnect solutions for network and IT equipment.",
+        "apps": ["Custom data and signal cables", "Assemblies for racks and network equipment", "Internal harnesses for servers and equipment", "Power cables with specific connectors", "Interconnect cables and jumpers"],
+        "caps": ["Crimping and soldering of signal connectors", "Shielded and twisted-pair cables", "Per-cable labelling and identification", "Electrical continuity and insulation testing"],
+        "reqs": ["Shielding and signal integrity", "Customer colour coding and labelling", "RoHS and REACH compliant materials", "Packaging and kitting for the assembly line"],
+        "highlight": ""
+      }
+    },
+    {
+      "tag": "AUT", "pt_slug": "automacao", "en_slug": "automation",
+      "pt": {
+        "name": "Automação industrial",
+        "title": "Cablagens e Quadros Elétricos para Automação Industrial",
+        "desc": "Cablagens de máquina, quadros elétricos de baixa tensão e sobremoldagens para ambientes industriais severos.",
+        "lead": "Cablagens de máquina, quadros elétricos e sobremoldagens para ambientes industriais severos.",
+        "apps": ["Cablagens de máquina e de células robotizadas", "Quadros elétricos de baixa tensão", "Cabos de sensores e atuadores sobremoldados", "Conjuntos para painéis de comando", "Cablagens para equipamentos OEM"],
+        "caps": ["Montagem e cablagem de quadros com componentes de marcas de referência", "Sobremoldagem para vedação contra pó e líquidos", "Moldes próprios para conectores e passa-cabos", "Integração em subconjuntos"],
+        "reqs": ["Graus de proteção IP de acordo com a aplicação", "Conjuntos de aparelhagem de baixa tensão (EN 61439), conforme projeto", "Resistência a óleos, vibração e flexão contínua", "Documentação de suporte à marcação CE do equipamento do cliente"],
+        "highlight": ""
+      },
+      "en": {
+        "name": "Industrial automation",
+        "title": "Harnesses & Electrical Cabinets for Industrial Automation",
+        "desc": "Machine harnesses, low-voltage electrical cabinets and overmoulded parts for harsh industrial environments.",
+        "lead": "Machine harnesses, electrical cabinets and overmoulded parts for harsh industrial environments.",
+        "apps": ["Machine and robotic cell harnesses", "Low-voltage electrical cabinets", "Overmoulded sensor and actuator cables", "Assemblies for control panels", "Harnesses for OEM equipment"],
+        "caps": ["Cabinet assembly and wiring with leading-brand components", "Overmoulding for sealing against dust and liquids", "In-house moulds for connectors and grommets", "Integration into sub-assemblies"],
+        "reqs": ["IP protection ratings to suit the application", "Low-voltage switchgear assemblies (EN 61439), as designed", "Resistance to oils, vibration and continuous flexing", "Documentation supporting the customer's CE marking"],
+        "highlight": ""
+      }
+    },
+    {
+      "tag": "AUTO", "pt_slug": "automovel", "en_slug": "automotive",
+      "pt": {
+        "name": "Automóvel",
+        "title": "Cablagens e Componentes Sobremoldados para o Setor Automóvel",
+        "desc": "Estudo, projeto e fabrico de cablagens e componentes sobremoldados para a indústria automóvel e veículos especiais.",
+        "lead": "Estudo, projeto e fabrico de cablagens e componentes sobremoldados para a indústria automóvel e veículos especiais.",
+        "apps": ["Cablagens para veículos especiais e de pequena série", "Subconjuntos e extensões de cablagem", "Componentes sobremoldados e passa-cabos", "Cablagens para acessórios e equipamentos instalados", "Peças técnicas injetadas"],
+        "caps": ["Estudo e projeto de cablagens com o cliente", "Moldes e ferramentas desenvolvidos internamente", "Sobremoldagem e injeção de componentes", "Produção do protótipo à série"],
+        "reqs": ["Resistência a temperatura, vibração e fluidos do veículo", "Proteção mecânica: tubo corrugado, fita e mangas", "Conectores e terminais conforme especificação", "Rastreabilidade e controlo de processo"],
+        "highlight": ""
+      },
+      "en": {
+        "name": "Automotive",
+        "title": "Automotive Wiring Harnesses & Overmoulded Components",
+        "desc": "Design, engineering and manufacture of wiring harnesses and overmoulded components for the automotive industry and special vehicles.",
+        "lead": "Design, engineering and manufacture of wiring harnesses and overmoulded components for the automotive industry and special vehicles.",
+        "apps": ["Harnesses for special and low-volume vehicles", "Harness sub-assemblies and extensions", "Overmoulded components and grommets", "Harnesses for accessories and fitted equipment", "Injection-moulded technical parts"],
+        "caps": ["Harness design and engineering with the customer", "In-house moulds and tooling", "Overmoulding and injection of components", "Production from prototype to series"],
+        "reqs": ["Resistance to vehicle temperatures, vibration and fluids", "Mechanical protection: conduit, tape and sleeving", "Connectors and terminals to specification", "Traceability and process control"],
+        "highlight": ""
+      }
+    }
+  ]
+}
