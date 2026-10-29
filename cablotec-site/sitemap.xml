@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://www.cablotec.com/</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/?lang=en"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/?lang=en"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/setores/ferroviario.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/ferroviario.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/railway.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/en/industries/railway.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/ferroviario.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/railway.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/setores/defesa.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/defesa.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/defence.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/en/industries/defence.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/defesa.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/defence.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/setores/eletromedicina.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/eletromedicina.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/medical.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/en/industries/medical.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/eletromedicina.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/medical.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/setores/telecomunicacoes.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/telecomunicacoes.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/telecom.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/en/industries/telecom.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/telecomunicacoes.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/telecom.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/setores/automacao.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/automacao.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/automation.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/en/industries/automation.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/automacao.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/automation.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/setores/automovel.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/automovel.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/automotive.html"/>
+  </url>
+  <url>
+    <loc>https://www.cablotec.com/en/industries/automotive.html</loc>
+    <xhtml:link rel="alternate" hreflang="pt-PT" href="https://www.cablotec.com/setores/automovel.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cablotec.com/en/industries/automotive.html"/>
+  </url>
+  <url><loc>https://www.cablotec.com/privacidade.html</loc></url>
+</urlset>
