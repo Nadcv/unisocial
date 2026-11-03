@@ -1,0 +1,2853 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Cablotec - Relatório de Testes</title>
+<style>
+  :root {
+    --azul: #1a73e8;
+    --azul-escuro: #0d47a1;
+    --verde: #188038;
+    --vermelho: #c5221f;
+    --cinza-fundo: #f4f6f8;
+    --cinza-borda: #d7dce1;
+    --texto: #1f2937;
+    --texto-suave: #5f6b7a;
+    --laranja: #b06000;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--cinza-fundo);
+    color: var(--texto);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  header {
+    background: linear-gradient(135deg, var(--azul), var(--azul-escuro));
+    color: #fff;
+    padding: 20px 16px 24px;
+    text-align: center;
+  }
+  header .marca {
+    margin: 0 0 6px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.95;
+  }
+  header h1 {
+    margin: 0 0 4px;
+    font-size: 1.3rem;
+  }
+  header p {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.9;
+  }
+  main {
+    max-width: 640px;
+    margin: -14px auto 0;
+    padding: 0 12px 40px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  label.campo-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: var(--texto);
+  }
+  input[type="text"], input[type="email"], input[type="date"] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+  }
+  input[type="text"]:focus, input[type="email"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--azul);
+    background: #fff;
+  }
+  .ajuda {
+    font-size: 0.78rem;
+    color: var(--texto-suave);
+    margin-top: 4px;
+  }
+  .categoria {
+    border: 1px solid var(--cinza-borda);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .categoria-titulo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin-bottom: 10px;
+  }
+  .contagem {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--texto-suave);
+    background: var(--cinza-fundo);
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .botoes-foto {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .botao-foto {
+    flex: 1 1 auto;
+    min-width: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--azul);
+    color: var(--azul);
+    background: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+  }
+  .botao-foto:active { background: #e8f0fe; }
+  .botao-foto input { display: none; }
+  .previews {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .thumb {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--cinza-borda);
+  }
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .thumb button {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    border: none;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .thumb-generico {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    background: var(--cinza-fundo);
+  }
+  .linha-botoes {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .linha-botoes .botao { flex: 1 1 auto; }
+  .botao-enviar {
+    flex: 2;
+    padding: 16px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    background: var(--verde);
+    color: #fff;
+    cursor: pointer;
+  }
+  .botao-enviar:disabled {
+    background: #9aa5b1;
+    cursor: not-allowed;
+  }
+  .botao-guardar {
+    flex: 1;
+    padding: 16px 10px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border: 1px solid var(--azul);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--azul);
+    cursor: pointer;
+  }
+  .botao-guardar:disabled {
+    border-color: #9aa5b1;
+    color: #9aa5b1;
+    cursor: not-allowed;
+  }
+  .estado {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    display: none;
+  }
+  .estado.mostrar { display: block; }
+  .estado.sucesso { background: #e6f4ea; color: var(--verde); border: 1px solid #b7e1c1; }
+  .estado.erro { background: #fce8e6; color: var(--vermelho); border: 1px solid #f6bab6; }
+  .estado.info { background: #e8f0fe; color: var(--azul-escuro); border: 1px solid #c6dafc; }
+  .rodape-ajuda {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--texto-suave);
+    margin-top: 8px;
+  }
+  select {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+  }
+  .duas-colunas {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .duas-colunas > div {
+    flex: 1 1 160px;
+  }
+  .linha-esquema {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+  }
+  .linha-esquema input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+  }
+  .select-esquema {
+    margin-bottom: 10px;
+  }
+  textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 90px;
+  }
+  .descricao-esquema {
+    margin-bottom: 10px;
+  }
+  .campo-outro {
+    margin-top: 8px;
+  }
+  .linha-botoes-secundarios {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .botao-secundario {
+    flex: 1 1 auto;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fafbfc;
+    color: var(--texto);
+    cursor: pointer;
+  }
+  .lista-rascunhos {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .item-rascunho {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 0.85rem;
+    color: var(--texto);
+    cursor: pointer;
+  }
+  .item-rascunho:active { background: #e8f0fe; }
+  .abas {
+    display: inline-flex;
+    margin-top: 12px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 999px;
+    padding: 4px;
+  }
+  .aba {
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    opacity: 0.8;
+  }
+  .aba-ativa {
+    background: #fff;
+    color: var(--azul-escuro);
+    opacity: 1;
+  }
+  [hidden] { display: none !important; }
+
+  /* ---- Alternador entre as duas aplicacoes (topo) ---- */
+  #trocaApp {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--azul-escuro);
+  }
+  #trocaApp .botaoApp {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  #trocaApp .botaoApp.ativo {
+    background: #fff;
+    color: var(--azul-escuro);
+  }
+
+  .card-titulo {
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 0 0 10px;
+  }
+  .botao {
+    padding: 12px 14px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    border-radius: 8px;
+    border: 1px solid var(--azul);
+    background: #fff;
+    color: var(--azul);
+    cursor: pointer;
+  }
+  .botao:active { background: #e8f0fe; }
+  .botao-primario { background: var(--azul); color: #fff; }
+  .botao-primario:active { background: var(--azul-escuro); }
+  .botao-verde { border-color: var(--verde); color: var(--verde); }
+  .botao-verde:active { background: #e6f4ea; }
+  .botao-vermelho { border-color: var(--vermelho); color: var(--vermelho); }
+  .botao-vermelho:active { background: #fce8e6; }
+  .botao-largo { width: 100%; }
+  .badge {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  .badge-em-curso { background: #e8f0fe; color: var(--azul-escuro); }
+  .badge-terminado { background: #e6f4ea; color: var(--verde); }
+  .badge-atraso { background: #fce8e6; color: var(--vermelho); }
+  .etapas-lista { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .linha-etapa {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--cinza-borda);
+  }
+  .linha-etapa input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 auto; }
+  .linha-etapa .nome-etapa { flex: 1 1 auto; font-size: 0.88rem; }
+  .linha-etapa .data-etapa { font-size: 0.74rem; color: var(--texto-suave); }
+  .linha-etapa.concluida { background: #f2faf4; border-color: #b7e1c1; }
+  .item-lista {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid var(--cinza-borda);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 0.85rem;
+    color: var(--texto);
+    cursor: pointer;
+    margin-bottom: 6px;
+  }
+  .item-lista:active { background: #e8f0fe; }
+  .item-lista .linha1 { font-weight: 700; }
+  .item-lista .linha2 { color: var(--texto-suave); font-size: 0.78rem; margin-top: 2px; }
+  .filtros { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .filtro {
+    flex: 1 1 auto;
+    padding: 8px 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: 999px;
+    border: 1px solid var(--cinza-borda);
+    background: #fff;
+    color: var(--texto-suave);
+    cursor: pointer;
+  }
+  .filtro.filtro-ativo { background: var(--azul); border-color: var(--azul); color: #fff; }
+  .link-drive { font-size: 0.82rem; display: inline-block; margin-top: 8px; }
+  .dashboard-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat-grupo { flex: 1 1 260px; }
+  .stat-grupo-titulo { font-size: 0.78rem; font-weight: 700; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .stat-linha { display: flex; gap: 8px; }
+  .stat-tile {
+    flex: 1 1 0;
+    background: var(--cinza-fundo);
+    border-radius: 8px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .stat-tile .numero { font-size: 1.3rem; font-weight: 800; display: block; }
+  .stat-tile .rotulo { font-size: 0.68rem; color: var(--texto-suave); }
+  .stat-tile.tile-atraso .numero { color: var(--vermelho); }
+  .stat-tile.tile-terminado .numero { color: var(--verde); }
+  .dias-producao { font-size: 0.74rem; color: var(--texto-suave); margin-left: 6px; }
+  .linha-etapa-wrap { margin-bottom: 0; }
+  .botao-nota {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--cinza-borda);
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .nota-etapa {
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+  .switch-linha { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .switch-linha input[type="checkbox"] { width: 20px; height: 20px; }
+  .materiais-lista { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; margin-bottom: 8px; }
+  .item-material {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--cinza-borda);
+    font-size: 0.82rem;
+  }
+  .item-material .codigo-material { font-weight: 700; flex: 0 0 auto; }
+  .item-material .descricao-material { flex: 1 1 auto; color: var(--texto-suave); }
+  .item-material .qtd-material { flex: 0 0 auto; color: var(--texto-suave); }
+  .item-material button {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(197,34,31,0.1);
+    color: var(--vermelho);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+  }
+  .materiais-add-linha { display: flex; gap: 6px; flex-wrap: wrap; }
+  .materiais-add-linha input { flex: 1 1 90px; padding: 10px; font-size: 0.85rem; }
+  .botao-add-material {
+    flex: 0 0 auto;
+    width: 40px;
+    border-radius: 8px;
+    border: 1px solid var(--azul);
+    background: var(--azul);
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+</style>
+</head>
+<body>
+<div id="trocaApp">
+  <button type="button" class="botaoApp ativo" id="botaoAppRelatorios">📷 Relatórios</button>
+  <button type="button" class="botaoApp" id="botaoAppProducao">🏭 Controlo de Produção</button>
+</div>
+
+<div id="secaoRelatorios">
+
+
+<header>
+  <div class="marca" id="marcaEmpresa">Cablotec</div>
+  <h1 id="tituloPagina">Relatório de Testes da Máquina</h1>
+  <p>Preencha os dados, tire as fotografias e envie</p>
+  <div class="abas">
+    <button type="button" class="aba aba-ativa" id="abaTestes">Testes</button>
+    <button type="button" class="aba" id="abaCiclos">Ciclos</button>
+  </div>
+</header>
+
+<main>
+  <form id="formulario">
+    <div class="card">
+      <label class="campo-label" for="serial">Número de série da máquina</label>
+      <input type="text" id="serial" name="serial" placeholder="Ex.: SN-123456" autocomplete="off" required />
+
+      <div class="linha-botoes-secundarios">
+        <button type="button" class="botao-secundario" id="botaoVerRascunhos">Rascunhos em aberto</button>
+        <button type="button" class="botao-secundario" id="botaoAbrirCorrecao">Corrigir envio anterior</button>
+      </div>
+      <div id="listaRascunhosAbertos" class="lista-rascunhos" hidden></div>
+
+      <div style="height:14px"></div>
+
+      <label class="campo-label" for="emails">E-mail(s) dos destinatários</label>
+      <input type="text" id="emails" name="emails" placeholder="exemplo1@empresa.com, exemplo2@empresa.com" autocomplete="off" required />
+      <div class="ajuda">Separe vários e-mails por vírgula.</div>
+
+      <div style="height:14px"></div>
+
+      <label class="campo-label" for="tecnico">Técnico responsável</label>
+      <select id="tecnico">
+        <option value="">Selecione...</option>
+      </select>
+      <input type="text" id="tecnico-outro" class="campo-outro" placeholder="Escreva o nome..." autocomplete="off" hidden />
+
+      <div style="height:14px"></div>
+
+      <div class="duas-colunas">
+        <div>
+          <label class="campo-label" for="grupo">Grupo da máquina</label>
+          <select id="grupo">
+            <option value="">Selecione...</option>
+          </select>
+          <input type="text" id="grupo-outro" class="campo-outro" placeholder="Escreva o novo grupo..." autocomplete="off" hidden />
+        </div>
+        <div>
+          <label class="campo-label" for="tipoValvula">Tipo de válvula</label>
+          <select id="tipoValvula">
+            <option value="">Selecione...</option>
+            <option value="Mecanica">Mecânica</option>
+            <option value="Eletronica">Eletrónica</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="duas-colunas" id="linhaPhPlh" hidden>
+        <div>
+          <label class="campo-label" for="phPlh">Ciclo PH / PLH</label>
+          <select id="phPlh">
+            <option value="">Selecione...</option>
+          </select>
+          <input type="text" id="phPlh-outro" class="campo-outro" placeholder="Escreva o novo valor..." autocomplete="off" hidden />
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+
+      <label class="campo-label" for="gas">Gás</label>
+      <select id="gas" name="gas">
+        <option value="">Selecione...</option>
+      </select>
+      <input type="text" id="gas-outro" class="campo-outro" placeholder="Escreva o novo gás..." autocomplete="off" hidden />
+    </div>
+
+    <div class="card" id="categorias-container">
+      <!-- categorias inseridas via JavaScript -->
+    </div>
+
+    <div class="card">
+      <label class="campo-label" for="observacoes">Observações</label>
+      <textarea id="observacoes" name="observacoes" placeholder="Notas adicionais sobre a máquina ou o teste..."></textarea>
+    </div>
+
+    <div class="linha-botoes">
+      <button type="button" class="botao-guardar" id="botao-guardar">Guardar progresso</button>
+      <button type="submit" class="botao-enviar" id="botao-enviar">Enviar</button>
+    </div>
+    <div class="estado" id="estado"></div>
+    <div class="rodape-ajuda">As fotos são comprimidas automaticamente antes do envio para caberem no limite de anexos do Gmail (~25 MB no total). Preencha o número de série antes de tirar fotos: assim, cada foto é guardada automaticamente no Drive assim que é tirada (não fica só no telemóvel). Use "Guardar progresso" para também guardar os restantes campos (Grupo, Gás, etc.) a qualquer momento.</div>
+  </form>
+
+  <div class="card" id="cardCorrecao" hidden>
+    <div class="categoria-titulo"><span>Corrigir relatório já enviado</span></div>
+    <div class="ajuda">Escreva o número de série no campo acima e toque em "Procurar envios anteriores". Não é possível alterar o e-mail já enviado — esta ação envia um novo e-mail só com a correção.</div>
+
+    <div style="height:10px"></div>
+
+    <button type="button" class="botao-secundario" id="botaoProcurarEnvios">Procurar envios anteriores</button>
+    <div id="listaEnviosAnteriores" class="lista-rascunhos" hidden></div>
+
+    <div id="detalhesCorrecao" hidden>
+      <div style="height:12px"></div>
+      <div class="ajuda" id="envioSelecionadoLabel"></div>
+
+      <div style="height:10px"></div>
+
+      <label class="campo-label" for="correcaoEmails">E-mail(s) para enviar a correção</label>
+      <input type="text" id="correcaoEmails" placeholder="exemplo1@empresa.com, exemplo2@empresa.com" autocomplete="off" />
+
+      <div style="height:12px"></div>
+
+      <label class="campo-label" for="correcaoCategoria">Categoria da foto a corrigir/adicionar</label>
+      <select id="correcaoCategoria">
+        <option value="">Selecione...</option>
+      </select>
+
+      <div class="botoes-foto" style="margin-top:8px;">
+        <label class="botao-foto">📷 Tirar foto
+          <input type="file" accept="image/*" capture="environment" id="correcaoFotoCamera" />
+        </label>
+        <label class="botao-foto">🖼️ Galeria
+          <input type="file" accept="image/*" multiple id="correcaoFotoGaleria" />
+        </label>
+      </div>
+      <div class="previews" id="previewsCorrecao"></div>
+
+      <div style="height:12px"></div>
+
+      <label class="campo-label" for="correcaoNota">O que foi corrigido</label>
+      <textarea id="correcaoNota" placeholder="Descreva a correção (ex.: foto do teste elétrico estava trocada)..."></textarea>
+
+      <div style="height:14px"></div>
+
+      <button type="button" class="botao-enviar" id="botaoEnviarCorrecao" style="width:100%;">Enviar correção</button>
+    </div>
+  </div>
+</main>
+
+
+</div>
+
+<div id="secaoProducao" hidden>
+
+
+<header>
+  <div class="marca">Cablotec</div>
+  <h1>Controlo de Produção</h1>
+  <p>Números de série em produção, por etapa</p>
+  <div class="abas">
+    <button type="button" class="aba aba-ativa" id="abaGrupos">Grupos</button>
+    <button type="button" class="aba" id="abaCiclosProducao">Ciclos</button>
+  </div>
+</header>
+
+<main>
+  <div class="card" id="cardDashboard">
+    <div class="card-titulo">Resumo geral</div>
+    <div class="dashboard-grid" id="dashboardGrid">
+      <div class="ajuda">A carregar...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-titulo">Procurar / criar número de série</div>
+    <label class="campo-label" for="serial">Número de série da máquina</label>
+    <input type="text" id="serialProducao" placeholder="Ex.: SN-123456" autocomplete="off" />
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-primario botao-largo" id="botaoProcurar">Procurar / criar</button>
+    </div>
+    <div class="ajuda">Se o número de série já existir, os dados são carregados. Se não existir, cria-se um registo novo ao guardar.</div>
+  </div>
+
+  <div class="card" id="cardRegisto" hidden>
+    <div class="card-titulo" id="tituloRegisto">Registo</div>
+    <div id="badgesRegisto" style="margin-bottom:12px;"></div>
+
+    <div class="duas-colunas">
+      <div>
+        <label class="campo-label" for="grupo">Grupo/Tipo</label>
+        <select id="grupoProducao">
+          <option value="">Selecione...</option>
+        </select>
+        <input type="text" id="grupoProducao-outro" class="campo-outro" placeholder="Escreva o novo valor..." autocomplete="off" hidden />
+      </div>
+      <div>
+        <label class="campo-label" for="estadoGeral">Estado geral</label>
+        <select id="estadoGeral">
+          <option value="Em curso">Em curso</option>
+          <option value="Terminado">Terminado</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="height:12px"></div>
+
+    <div class="duas-colunas">
+      <div>
+        <label class="campo-label" for="previsaoSaida">Previsão de saída</label>
+        <input type="date" id="previsaoSaida" />
+      </div>
+      <div>
+        <label class="campo-label" for="dataEntrega">Data de entrega</label>
+        <input type="date" id="dataEntrega" />
+      </div>
+    </div>
+
+    <div style="height:12px"></div>
+
+    <label class="campo-label" for="materiaisEmFalta">Materiais em falta</label>
+    <textarea id="materiaisEmFalta" placeholder="Ex.: ligador X, 2x sensor Y..."></textarea>
+
+    <div style="height:10px"></div>
+
+    <label class="campo-label" for="materiaisEntregues">Materiais entregues</label>
+    <textarea id="materiaisEntregues" placeholder="Ex.: material entregue em 12/09..."></textarea>
+
+    <div style="height:16px"></div>
+
+    <label class="campo-label">Materiais — Parte elétrica <span class="ajuda" style="margin:0;">(estrutura permanente deste modelo)</span></label>
+    <div class="materiais-lista" id="materiaisEletricaLista"></div>
+    <div class="materiais-add-linha">
+      <input type="text" id="matEletricaCodigo" placeholder="Código" autocomplete="off" />
+      <input type="text" id="matEletricaDescricao" placeholder="Descrição" autocomplete="off" />
+      <input type="text" id="matEletricaQuantidade" placeholder="Qtd." autocomplete="off" />
+      <button type="button" class="botao-add-material" id="botaoAddMatEletrica">+</button>
+    </div>
+
+    <div style="height:14px"></div>
+
+    <label class="campo-label">Materiais — Parte de frio <span class="ajuda" style="margin:0;">(estrutura permanente deste modelo)</span></label>
+    <div class="materiais-lista" id="materiaisFrioLista"></div>
+    <div class="materiais-add-linha">
+      <input type="text" id="matFrioCodigo" placeholder="Código" autocomplete="off" />
+      <input type="text" id="matFrioDescricao" placeholder="Descrição" autocomplete="off" />
+      <input type="text" id="matFrioQuantidade" placeholder="Qtd." autocomplete="off" />
+      <button type="button" class="botao-add-material" id="botaoAddMatFrio">+</button>
+    </div>
+
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-largo" id="botaoBaixarMateriaisExcel">⬇ Baixar tabela (Excel)</button>
+      <button type="button" class="botao botao-largo" id="botaoBaixarMateriaisPdf">⬇ Baixar tabela (PDF)</button>
+    </div>
+    <div class="ajuda">Descarrega a tabela completa (elétrica + frio) deste modelo.</div>
+
+    <div style="height:14px"></div>
+
+    <label class="campo-label">Etapas de produção</label>
+    <div class="etapas-lista" id="etapasLista"></div>
+
+    <div style="height:14px"></div>
+
+    <button type="button" class="botao botao-verde botao-largo" id="botaoGuardar">Guardar registo</button>
+
+    <div id="linkDriveContainer"></div>
+
+    <div id="historicoContainer" style="margin-top:12px;"></div>
+
+    <div style="height:16px"></div>
+    <div class="card-titulo" style="font-size:0.9rem;">Mudar número de série (só em último caso)</div>
+    <input type="text" id="serialNovo" placeholder="Novo número de série" autocomplete="off" />
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-vermelho botao-largo" id="botaoMudarSerial">Mudar número de série</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-titulo">Lista de números de série em produção</div>
+    <div class="filtros">
+      <button type="button" class="filtro filtro-ativo" data-filtro="emCurso">Em curso</button>
+      <button type="button" class="filtro" data-filtro="terminados">Terminados</button>
+      <button type="button" class="filtro" data-filtro="atraso">Em atraso</button>
+      <button type="button" class="filtro" data-filtro="todos">Todos</button>
+    </div>
+    <div id="listaRegistos"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-titulo">Enviar resumo de produção por e-mail</div>
+    <div class="ajuda" style="margin-bottom:10px;">Envia o estado completo da aba atual (Grupos ou Ciclos) em Excel e PDF, em anexo.</div>
+    <label class="campo-label" for="emailsResumo">E-mail(s) dos destinatários</label>
+    <input type="text" id="emailsResumo" placeholder="exemplo1@empresa.com, exemplo2@empresa.com" autocomplete="off" />
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-primario botao-largo" id="botaoEnviarResumo">Enviar resumo (Excel + PDF)</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-titulo">Envio automático de resumos</div>
+    <div class="ajuda" style="margin-bottom:10px;">Quando ativo, envia automaticamente o resumo (Grupos + Ciclos, Excel + PDF) para estes e-mails, sem precisar de carregar em nada.</div>
+
+    <div class="switch-linha">
+      <input type="checkbox" id="envioAutomaticoAtivo" />
+      <label for="envioAutomaticoAtivo" style="font-weight:600; font-size:0.9rem;">Ativar envio automático</label>
+    </div>
+
+    <label class="campo-label" for="envioAutomaticoEmails">E-mail(s) para o envio automático</label>
+    <input type="text" id="envioAutomaticoEmails" placeholder="exemplo1@empresa.com, exemplo2@empresa.com" autocomplete="off" />
+
+    <div style="height:12px"></div>
+
+    <label class="campo-label" for="envioAutomaticoFrequencia">Quando enviar</label>
+    <select id="envioAutomaticoFrequencia">
+      <option value="diario">Todos os dias</option>
+      <option value="semanal">Toda a semana, num dia à escolha</option>
+      <option value="unico">Uma única vez, numa data/hora à escolha</option>
+    </select>
+
+    <div style="height:12px"></div>
+
+    <div class="duas-colunas" id="linhaHoraEnvio">
+      <div>
+        <label class="campo-label" for="envioAutomaticoDiaSemana">Dia da semana</label>
+        <select id="envioAutomaticoDiaSemana">
+          <option value="MONDAY">Segunda-feira</option>
+          <option value="TUESDAY">Terça-feira</option>
+          <option value="WEDNESDAY">Quarta-feira</option>
+          <option value="THURSDAY">Quinta-feira</option>
+          <option value="FRIDAY">Sexta-feira</option>
+          <option value="SATURDAY">Sábado</option>
+          <option value="SUNDAY">Domingo</option>
+        </select>
+      </div>
+      <div>
+        <label class="campo-label" for="envioAutomaticoHora">Hora</label>
+        <input type="time" id="envioAutomaticoHora" value="08:00" />
+      </div>
+    </div>
+
+    <div id="linhaDataUnica" hidden>
+      <label class="campo-label" for="envioAutomaticoDataHora">Data e hora exatas</label>
+      <input type="datetime-local" id="envioAutomaticoDataHora" />
+    </div>
+
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-verde botao-largo" id="botaoGuardarEnvioAutomatico">Guardar configuração</button>
+    </div>
+  </div>
+
+  <div class="estado" id="estadoProducao"></div>
+</main>
+
+
+</div>
+<script>
+  // ---------------------------------------------------------------------
+  // Unico sitio da aplicacao que interpreta a resposta de um fetch(): se o
+  // Google devolver uma pagina de login HTML em vez de JSON - o que
+  // acontece quando a implementacao exige conta Google e o browser nao
+  // esta autenticado com a conta certa (tipicamente fora da rede da
+  // empresa) - mostra uma mensagem clara em vez de "Unexpected token '<'".
+  // Usado pelos dois separadores (Relatorios e Controlo de Producao).
+  // ---------------------------------------------------------------------
+  function respostaParaJsonGlobal(resposta) {
+    return resposta.text().then(function (texto) {
+      try {
+        return JSON.parse(texto);
+      } catch (erroParse) {
+        var textoMin = texto.toLowerCase();
+        if (textoMin.indexOf('<') === 0 || textoMin.indexOf('accounts.google.com') !== -1 || textoMin.indexOf('<!doctype') !== -1) {
+          throw new Error('O Google devolveu uma página de autenticação em vez de dados. Isto costuma acontecer quando a implementação exige login Google ("Quem tem acesso"). Peça para mudar essa opção para "Qualquer pessoa" em Implementar > Gerir implementações > editar > Nova versão.');
+        }
+        throw new Error('Resposta inesperada do servidor.');
+      }
+    });
+  }
+</script>
+<script>
+(function () {
+  // ---------------------------------------------------------------------
+  // Quando esta pagina e servida pelo proprio Apps Script (doGet), o
+  // Code.gs injeta automaticamente o URL da implantacao abaixo, atraves
+  // de um scriptlet do HtmlService colocado logo a seguir a este bloco
+  // de comentarios. Nao e preciso copiar/colar nada a mao nesse caso.
+  //
+  // Quando esta pagina e aberta fora do Apps Script (ex.: GitHub Pages),
+  // esse scriptlet nao e avaliado, por isso usamos o URL fixo abaixo
+  // como reserva.
+  // ---------------------------------------------------------------------
+  var APPS_SCRIPT_URL = '<?= appsScriptUrl ?>';
+  if (APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+    APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx4t4wIfK958QDR4wCwxp-mWNyJf-ZRLsxj1zRhkMKY15hgwKxrlbNPCb8RGIGhrdeYA/exec';
+  }
+
+  // ---------------------------------------------------------------------
+  // Quando servida pelo Apps Script, o tipo de relatorio (testes/ciclos)
+  // vem preenchido pelo servidor consoante o parametro ?tipo= do URL.
+  // Fora do Apps Script (ex.: GitHub Pages) lemos o mesmo parametro
+  // diretamente do URL da pagina.
+  // ---------------------------------------------------------------------
+  var TIPO_RELATORIO_SERVIDOR = '<?= tipoRelatorio ?>';
+  var TIPO_RELATORIO = TIPO_RELATORIO_SERVIDOR === 'ciclos' ? 'ciclos' : 'testes';
+  if (TIPO_RELATORIO_SERVIDOR.indexOf('<') !== -1) {
+    var parametrosUrl = new URLSearchParams(window.location.search);
+    TIPO_RELATORIO = parametrosUrl.get('tipo') === 'ciclos' ? 'ciclos' : 'testes';
+  }
+
+  var tituloPagina = document.getElementById('tituloPagina');
+  var abaTestes = document.getElementById('abaTestes');
+  var abaCiclos = document.getElementById('abaCiclos');
+  var linhaPhPlh = document.getElementById('linhaPhPlh');
+  var campoPhPlh = document.getElementById('phPlh');
+
+  function atualizarAbaAtiva() {
+    if (TIPO_RELATORIO === 'ciclos') {
+      tituloPagina.textContent = 'Relatório de Ciclos da Máquina';
+      abaCiclos.className = 'aba aba-ativa';
+      abaTestes.className = 'aba';
+      linhaPhPlh.hidden = false;
+    } else {
+      tituloPagina.textContent = 'Relatório de Testes da Máquina';
+      abaTestes.className = 'aba aba-ativa';
+      abaCiclos.className = 'aba';
+      linhaPhPlh.hidden = true;
+      campoPhPlh.value = '';
+    }
+  }
+
+  abaTestes.addEventListener('click', function () {
+    TIPO_RELATORIO = 'testes';
+    atualizarAbaAtiva();
+  });
+
+  abaCiclos.addEventListener('click', function () {
+    TIPO_RELATORIO = 'ciclos';
+    atualizarAbaAtiva();
+  });
+
+  atualizarAbaAtiva();
+
+  // ---------------------------------------------------------------------
+  // Listas de sugestoes (codigos de esquema e gases), enviadas pelo
+  // servidor em JSON. Crescem sozinhas: quando alguem escreve um valor
+  // novo, o Code.gs guarda-o para aparecer aqui nas proximas vezes.
+  // ---------------------------------------------------------------------
+  var LISTAS_JSON = '<?!= listasJson ?>';
+  var LISTAS = { grupos: [], esquemasEletrico: [], esquemasFrio: [], gases: [], ciclosPhPlh: [], tecnicos: [] };
+  if (LISTAS_JSON.indexOf('{') === 0) {
+    try {
+      LISTAS = JSON.parse(LISTAS_JSON);
+    } catch (erroListas) {
+      LISTAS = { grupos: [], esquemasEletrico: [], esquemasFrio: [], gases: [], ciclosPhPlh: [], tecnicos: [] };
+    }
+  }
+
+  function preencherSelect(idSelect, valores, comOutro) {
+    var select = document.getElementById(idSelect);
+    if (!select || !valores) return;
+    var opcoes = '<option value="">Selecione...</option>';
+    valores.forEach(function (valor) {
+      opcoes = opcoes + '<option value="' + valor + '">' + valor + '</option>';
+    });
+    if (comOutro) {
+      opcoes = opcoes + '<option value="__outro__">Outro (escrever)...</option>';
+    }
+    select.innerHTML = opcoes;
+  }
+
+  /**
+   * Se o valor guardado (rascunho) ainda estiver na lista de sugestoes,
+   * seleciona-o normalmente. Caso contrario (ex.: foi escrito como
+   * "Outro" e ainda nao ficou na lista permanente), seleciona "Outro" e
+   * mostra o campo de texto com o valor guardado.
+   */
+  function definirValorSelectComOutro(idSelect, idOutro, valor) {
+    var select = document.getElementById(idSelect);
+    var outro = document.getElementById(idOutro);
+    if (!select || !valor) return;
+    var existe = Array.prototype.some.call(select.options, function (opcao) {
+      return opcao.value === valor;
+    });
+    if (existe) {
+      select.value = valor;
+    } else if (outro) {
+      select.value = '__outro__';
+      outro.hidden = false;
+      outro.value = valor;
+    }
+  }
+
+  preencherSelect('gas', LISTAS.gases, true);
+
+  var campoGas = document.getElementById('gas');
+  var campoGasOutro = document.getElementById('gas-outro');
+  campoGas.addEventListener('change', function () {
+    campoGasOutro.hidden = campoGas.value !== '__outro__';
+    if (!campoGasOutro.hidden) campoGasOutro.focus();
+  });
+
+  preencherSelect('phPlh', LISTAS.ciclosPhPlh, true);
+
+  var campoPhPlhOutro = document.getElementById('phPlh-outro');
+  campoPhPlh.addEventListener('change', function () {
+    campoPhPlhOutro.hidden = campoPhPlh.value !== '__outro__';
+    if (!campoPhPlhOutro.hidden) campoPhPlhOutro.focus();
+  });
+
+  var CATEGORIAS = [
+    { chave: 'responsavel',     rotulo: 'Fotografia do responsável', esquema: false },
+    { chave: 'eletrico',        rotulo: 'Teste elétrico', esquema: false },
+    { chave: 'pressao',         rotulo: 'Pressão', esquema: false },
+    { chave: 'especificacao',   rotulo: 'Especificação da máquina', esquema: false },
+    { chave: 'controlador',     rotulo: 'Controlador do compressor', esquema: false },
+    { chave: 'deposito',        rotulo: 'Depósito de refrigeração', esquema: false },
+    { chave: 'vacuo',           rotulo: 'Teste de vácuo', esquema: false },
+    { chave: 'esquemaEletrico', rotulo: 'Esquema elétrico', esquema: true },
+    { chave: 'esquemaFrio',     rotulo: 'Esquema de frio', esquema: true },
+    { chave: 'ventilador',      rotulo: 'Ventilador', esquema: false }
+  ];
+
+  // Guarda os ficheiros já comprimidos (base64) por categoria, ainda por
+  // guardar no Drive (fica vazio quase logo a seguir, porque cada foto e
+  // guardada automaticamente assim que e tirada).
+  var fotosPorCategoria = {};
+  CATEGORIAS.forEach(function (c) { fotosPorCategoria[c.chave] = []; });
+
+  // Fotos ja guardadas no Drive (deste rascunho), por categoria. Cada
+  // item tem { id, nome, base64 } - base64 so existe para fotos tiradas
+  // nesta sessao (para mostrar a miniatura sem ter de voltar a
+  // descarregar do Drive); fotos de uma sessao anterior tem base64 nulo
+  // e mostram um icone generico. Cada item pode ser apagado do Drive
+  // diretamente pelo operador.
+  var fotosSalvas = {};
+  CATEGORIAS.forEach(function (c) { fotosSalvas[c.chave] = []; });
+
+  // Para as categorias de esquema: id do ficheiro do Drive escolhido da
+  // biblioteca (em vez de tirar foto nova), e se um esquema novo deve
+  // ser guardado na biblioteca para reutilizar depois.
+  var esquemaExistente = {};
+  var guardarEsquema = {};
+
+  var campoGrupo = document.getElementById('grupo');
+  var campoTipoValvula = document.getElementById('tipoValvula');
+  var campoSerial = document.getElementById('serial');
+
+  preencherSelect('grupo', LISTAS.grupos, true);
+
+  var campoGrupoOutro = document.getElementById('grupo-outro');
+  campoGrupo.addEventListener('change', function () {
+    campoGrupoOutro.hidden = campoGrupo.value !== '__outro__';
+    if (!campoGrupoOutro.hidden) campoGrupoOutro.focus();
+  });
+
+  /**
+   * Devolve o Grupo escolhido, resolvendo "Outro" para o texto escrito.
+   */
+  function obterValorGrupo() {
+    if (campoGrupo.value === '__outro__') {
+      return campoGrupoOutro.value.trim();
+    }
+    return campoGrupo.value;
+  }
+
+  preencherSelect('tecnico', LISTAS.tecnicos, true);
+
+  var campoTecnico = document.getElementById('tecnico');
+  var campoTecnicoOutro = document.getElementById('tecnico-outro');
+  campoTecnico.addEventListener('change', function () {
+    campoTecnicoOutro.hidden = campoTecnico.value !== '__outro__';
+    if (!campoTecnicoOutro.hidden) campoTecnicoOutro.focus();
+  });
+
+  /**
+   * Devolve o Tecnico escolhido, resolvendo "Outro" para o texto escrito.
+   */
+  function obterValorTecnico() {
+    if (campoTecnico.value === '__outro__') {
+      return campoTecnicoOutro.value.trim();
+    }
+    return campoTecnico.value;
+  }
+
+  var container = document.getElementById('categorias-container');
+
+  CATEGORIAS.forEach(function (cat) {
+    var bloco = document.createElement('div');
+    bloco.className = 'categoria';
+
+    var extraEsquema = '';
+    if (cat.esquema) {
+      extraEsquema =
+        '<div class="descricao-esquema">' +
+          '<label class="campo-label" for="descricao-' + cat.chave + '">Descrição do esquema (código)</label>' +
+          '<select id="descricao-' + cat.chave + '" data-chave-descricao="' + cat.chave + '">' +
+            '<option value="">Selecione...</option>' +
+          '</select>' +
+          '<input type="text" id="descricao-outro-' + cat.chave + '" class="campo-outro" data-chave-descricao-outro="' + cat.chave + '" placeholder="Escreva o novo código..." autocomplete="off" hidden />' +
+        '</div>' +
+        '<div class="linha-esquema">' +
+          '<input type="checkbox" id="naoTenho-' + cat.chave + '" data-chave-esquema="' + cat.chave + '" />' +
+          '<label for="naoTenho-' + cat.chave + '">Não tenho o esquema desta máquina — usar um já guardado</label>' +
+        '</div>' +
+        '<select class="select-esquema" id="listaEsquemas-' + cat.chave + '" data-chave-lista="' + cat.chave + '" hidden>' +
+          '<option value="">A carregar...</option>' +
+        '</select>';
+    }
+
+    bloco.innerHTML =
+      '<div class="categoria-titulo">' +
+        '<span>' + cat.rotulo + '</span>' +
+        '<span class="contagem" id="contagem-' + cat.chave + '">0 foto(s)</span>' +
+      '</div>' +
+      extraEsquema +
+      '<div class="botoes-foto" id="botoes-' + cat.chave + '">' +
+        '<label class="botao-foto">📷 Tirar foto' +
+          '<input type="file" accept="image/*" capture="environment" data-chave="' + cat.chave + '" />' +
+        '</label>' +
+        '<label class="botao-foto">🖼️ Galeria' +
+          '<input type="file" accept="image/*" multiple data-chave="' + cat.chave + '" />' +
+        '</label>' +
+      '</div>' +
+      '<div class="previews" id="previews-' + cat.chave + '"></div>';
+    container.appendChild(bloco);
+  });
+
+  preencherSelect('descricao-esquemaEletrico', LISTAS.esquemasEletrico, true);
+  preencherSelect('descricao-esquemaFrio', LISTAS.esquemasFrio, true);
+
+  // ---------------------------------------------------------------------
+  // Mapa fixo (fornecido pela Aralab) do esquema elétrico e de frio
+  // corretos para cada Grupo + Tipo de válvula (Testes), usado para
+  // pré-preencher os selects assim que o Grupo e o Tipo forem escolhidos.
+  // O Grupo 67 (Água) fica de fora de propósito: tem dois esquemas de
+  // frio válidos (MAIN-A e MAIN-B) e tem de ser escolhido à mão.
+  // ---------------------------------------------------------------------
+  var MAPA_ESQUEMAS = {
+    '30': {
+      Mecanica:   { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-030-R513A-MAIN-A' },
+      Eletronica: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-030-EEV-MAIN-A' }
+    },
+    '46': {
+      Mecanica:   { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-046-R513A-MAIN-A' },
+      Eletronica: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-046-EEV-MAIN-C' }
+    },
+    '68': {
+      Mecanica:   { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-068-R513A-MAIN-A' },
+      Eletronica: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-068-EEV-MAIN-A' }
+    },
+    '108': {
+      Mecanica:   { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-108-R513A-MAIN-A' },
+      Eletronica: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PL-PH-PLH-MAIN-G', esquemaFrio: 'DCR-SWE-108-EEV-MAIN-D' }
+    }
+  };
+
+  // Mesma ideia, mas para os Ciclos: aqui o Grupo não distingue o
+  // esquema, é o Tipo de válvula + PH/PLH que decide o código.
+  var MAPA_ESQUEMAS_CICLOS = {
+    Mecanica: {
+      PH:  { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-Ciclo-PH-R513A-00-MAIN-A' },
+      PLH: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-Ciclo-PLH-R513A-01_07_04-MAIN-A' }
+    },
+    Eletronica: {
+      PH:  { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-Ciclo-PH-EEV09-MAIN-A' },
+      PLH: { esquemaEletrico: 'DCE-SWE-WALKIN-P-PH-MAIN-F', esquemaFrio: 'DCR-SWE-Ciclo-PLH-EEV11_14-MAIN-A' }
+    }
+  };
+
+  function aplicarMapaEsquemas() {
+    var tipoValvula = campoTipoValvula.value;
+    var mapa = null;
+
+    if (TIPO_RELATORIO === 'testes') {
+      var grupo = obterValorGrupo();
+      if (!grupo || !tipoValvula) return;
+      var mapaGrupo = MAPA_ESQUEMAS[grupo];
+      if (!mapaGrupo) return;
+      mapa = mapaGrupo[tipoValvula];
+    } else {
+      var phPlh = campoPhPlh.value;
+      if (!tipoValvula || !phPlh) return;
+      var mapaTipo = MAPA_ESQUEMAS_CICLOS[tipoValvula];
+      if (!mapaTipo) return;
+      mapa = mapaTipo[phPlh];
+    }
+
+    if (!mapa) return;
+    Object.keys(mapa).forEach(function (chave) {
+      var select = document.getElementById('descricao-' + chave);
+      if (select) select.value = mapa[chave];
+    });
+  }
+
+  campoGrupo.addEventListener('change', aplicarMapaEsquemas);
+  campoTipoValvula.addEventListener('change', aplicarMapaEsquemas);
+  campoPhPlh.addEventListener('change', aplicarMapaEsquemas);
+
+  container.addEventListener('change', function (ev) {
+    var input = ev.target;
+
+    if (input.tagName === 'INPUT' && input.type === 'checkbox' && input.dataset.chaveEsquema) {
+      aoAlterarNaoTenho(input.dataset.chaveEsquema, input.checked);
+      return;
+    }
+
+    if (input.tagName === 'SELECT' && input.dataset.chaveLista) {
+      esquemaExistente[input.dataset.chaveLista] = input.value || null;
+      atualizarContagem(input.dataset.chaveLista);
+      return;
+    }
+
+    if (input.tagName === 'SELECT' && input.dataset.chaveDescricao) {
+      var outroDescricao = document.getElementById('descricao-outro-' + input.dataset.chaveDescricao);
+      if (outroDescricao) {
+        outroDescricao.hidden = input.value !== '__outro__';
+        if (!outroDescricao.hidden) {
+          outroDescricao.focus();
+        } else {
+          outroDescricao.value = '';
+        }
+      }
+      return;
+    }
+
+    if (input.tagName !== 'INPUT' || input.type !== 'file') return;
+    var chave = input.dataset.chave;
+    var ficheiros = Array.prototype.slice.call(input.files || []);
+    if (!ficheiros.length) return;
+
+    mostrarEstado('A processar fotografias...', 'info');
+
+    var promessas = ficheiros.map(function (ficheiro) {
+      return comprimirImagem(ficheiro).then(function (base64) {
+        fotosPorCategoria[chave].push(base64);
+        renderizarPreviews(chave);
+      });
+    });
+
+    Promise.all(promessas).then(function () {
+      atualizarContagem(chave);
+      esconderEstado();
+      input.value = '';
+      perguntarSeGuardaEsquema(chave);
+      // Guarda logo esta foto no Drive (se ja houver numero de serie), para
+      // nao depender de ficar so na memoria do telemovel/browser ate ao
+      // "Guardar progresso" manual - em alguns telemoveis a pagina pode
+      // recarregar sozinha ao voltar da camara, o que apagaria fotos ainda
+      // nao guardadas.
+      if (campoSerial.value.trim()) {
+        guardarProgressoAgora();
+      }
+    }).catch(function (erro) {
+      mostrarEstado('Erro ao processar imagem: ' + erro.message, 'erro');
+    });
+  });
+
+  function perguntarSeGuardaEsquema(chave) {
+    var categoria = CATEGORIAS.filter(function (c) { return c.chave === chave; })[0];
+    if (!categoria || !categoria.esquema) return;
+    if (guardarEsquema[chave]) return;
+
+    var grupo = obterValorGrupo();
+    var tipoValvula = campoTipoValvula.value;
+    if (!grupo || !tipoValvula) return;
+
+    var quer = window.confirm('Guardar este esquema para reutilizar depois no Grupo ' + grupo + ' (' + tipoValvula + ')?');
+    guardarEsquema[chave] = quer === true;
+  }
+
+  function aoAlterarNaoTenho(chave, marcado) {
+    var botoes = document.getElementById('botoes-' + chave);
+    var lista = document.getElementById('listaEsquemas-' + chave);
+
+    if (marcado) {
+      botoes.hidden = true;
+      lista.hidden = false;
+      fotosPorCategoria[chave] = [];
+      document.getElementById('previews-' + chave).innerHTML = '';
+      carregarListaEsquemas(chave);
+    } else {
+      botoes.hidden = false;
+      lista.hidden = true;
+      esquemaExistente[chave] = null;
+    }
+    atualizarContagem(chave);
+  }
+
+  function carregarListaEsquemas(chave) {
+    var lista = document.getElementById('listaEsquemas-' + chave);
+    var grupo = obterValorGrupo();
+    var tipoValvula = campoTipoValvula.value;
+
+    if (!grupo || !tipoValvula) {
+      lista.innerHTML = '<option value="">Selecione primeiro o Grupo e o Tipo de válvula</option>';
+      return;
+    }
+
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      lista.innerHTML = '<option value="">Configuração do URL em falta</option>';
+      return;
+    }
+
+    lista.innerHTML = '<option value="">A carregar...</option>';
+
+    var url = APPS_SCRIPT_URL +
+      '?action=listarEsquemas' +
+      '&categoria=' + encodeURIComponent(chave) +
+      '&grupo=' + encodeURIComponent(grupo) +
+      '&tipoValvula=' + encodeURIComponent(tipoValvula);
+
+    var promessaLista = fetch(url);
+
+    var aoReceberListaResposta = respostaParaJsonGlobal;
+
+    function aoProcessarLista(dados) {
+      if (dados.status !== 'ok') {
+        lista.innerHTML = '<option value="">Erro ao carregar lista</option>';
+        return;
+      }
+      if (!dados.itens || !dados.itens.length) {
+        lista.innerHTML = '<option value="">Nenhum esquema guardado para este Grupo/Tipo</option>';
+        return;
+      }
+      var opcoes = '<option value="">Escolha um esquema guardado...</option>';
+      dados.itens.forEach(function (item) {
+        opcoes = opcoes + '<option value="' + item.id + '">' + item.nome + '</option>';
+      });
+      lista.innerHTML = opcoes;
+    }
+
+    function aoFalharLista() {
+      lista.innerHTML = '<option value="">Erro de ligação ao carregar lista</option>';
+    }
+
+    var promessaListaJson = promessaLista.then(aoReceberListaResposta);
+    promessaListaJson.then(aoProcessarLista);
+    promessaListaJson.catch(aoFalharLista);
+  }
+
+  /**
+   * Ao sair do campo "Numero de serie", verifica se existe um rascunho
+   * guardado (de um envio anterior ainda incompleto) e, se existir,
+   * preenche os campos e mostra quantas fotos ja estao guardadas.
+   */
+  campoSerial.addEventListener('blur', verificarRascunho);
+
+  function verificarRascunho() {
+    var serial = campoSerial.value.trim();
+    if (!serial) return;
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) return;
+
+    var url = APPS_SCRIPT_URL + '?action=carregarRascunho&serial=' + encodeURIComponent(serial);
+    var promessaRascunho = fetch(url);
+
+    var aoReceberRascunhoResposta = respostaParaJsonGlobal;
+
+    function aoProcessarRascunho(dadosResposta) {
+      if (dadosResposta.status !== 'ok' || !dadosResposta.existe) return;
+
+      var dadosGuardados = dadosResposta.dados || {};
+      if (dadosGuardados.grupo) definirValorSelectComOutro('grupo', 'grupo-outro', dadosGuardados.grupo);
+      if (dadosGuardados.tipoValvula) campoTipoValvula.value = dadosGuardados.tipoValvula;
+      if (dadosGuardados.emails) document.getElementById('emails').value = dadosGuardados.emails;
+      if (dadosGuardados.observacoes) document.getElementById('observacoes').value = dadosGuardados.observacoes;
+      if (dadosGuardados.tipoRelatorio === 'ciclos') {
+        TIPO_RELATORIO = 'ciclos';
+        atualizarAbaAtiva();
+      }
+      if (dadosGuardados.phPlh) definirValorSelectComOutro('phPlh', 'phPlh-outro', dadosGuardados.phPlh);
+      if (dadosGuardados.gas) definirValorSelectComOutro('gas', 'gas-outro', dadosGuardados.gas);
+      if (dadosGuardados.tecnico) definirValorSelectComOutro('tecnico', 'tecnico-outro', dadosGuardados.tecnico);
+      if (dadosGuardados.descricoesEsquema) {
+        Object.keys(dadosGuardados.descricoesEsquema).forEach(function (chave) {
+          definirValorSelectComOutro('descricao-' + chave, 'descricao-outro-' + chave, dadosGuardados.descricoesEsquema[chave]);
+        });
+      }
+
+      var fotosGuardadas = dadosResposta.fotos || {};
+      var totalGuardado = 0;
+      Object.keys(fotosGuardadas).forEach(function (chave) {
+        var itens = fotosGuardadas[chave] || [];
+        fotosSalvas[chave] = itens.map(function (item) {
+          return { id: item.id, nome: item.nome, base64: null };
+        });
+        totalGuardado = totalGuardado + itens.length;
+        renderizarPreviews(chave);
+        atualizarContagem(chave);
+      });
+
+      if (totalGuardado > 0) {
+        mostrarEstado('Rascunho encontrado: ' + totalGuardado + ' foto(s) já guardada(s) para este número de série.', 'info');
+      }
+    }
+
+    var promessaRascunhoJson = promessaRascunho.then(aoReceberRascunhoResposta);
+    promessaRascunhoJson.then(aoProcessarRascunho);
+  }
+
+  /**
+   * Redesenha as miniaturas de uma categoria a partir do estado atual:
+   * primeiro as fotos ja guardadas no Drive (fotosSalvas, apagaveis
+   * diretamente do Drive), depois as que ainda estao so na memoria a
+   * aguardar o guardar automatico (fotosPorCategoria, removidas so
+   * localmente).
+   */
+  function renderizarPreviews(chave) {
+    var previews = document.getElementById('previews-' + chave);
+    previews.innerHTML = '';
+
+    fotosSalvas[chave].forEach(function (item, indice) {
+      var thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      var conteudo = item.base64
+        ? '<img src="' + item.base64 + '" alt="" />'
+        : '<div class="thumb-generico">📷</div>';
+      thumb.innerHTML = conteudo + '<button type="button" aria-label="Apagar">✕</button>';
+      thumb.querySelector('button').addEventListener('click', function () {
+        apagarFotoSalva(chave, indice);
+      });
+      previews.appendChild(thumb);
+    });
+
+    fotosPorCategoria[chave].forEach(function (base64, indice) {
+      var thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      thumb.innerHTML = '<img src="' + base64 + '" alt="" />' +
+        '<button type="button" aria-label="Remover">✕</button>';
+      thumb.querySelector('button').addEventListener('click', function () {
+        fotosPorCategoria[chave].splice(indice, 1);
+        renderizarPreviews(chave);
+        atualizarContagem(chave);
+      });
+      previews.appendChild(thumb);
+    });
+  }
+
+  /**
+   * Apaga do Drive uma foto ja guardada de um rascunho (pede confirmacao
+   * primeiro), e atualiza a lista/miniaturas localmente se resultar bem.
+   */
+  function apagarFotoSalva(chave, indice) {
+    var item = fotosSalvas[chave][indice];
+    if (!item) return;
+    if (!window.confirm('Apagar esta foto?')) return;
+
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = { apagarFotoRascunho: true, fileId: item.id };
+    var promessaApagar = fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+
+    var aoReceberApagarResposta = respostaParaJsonGlobal;
+
+    function aoProcessarApagar(resposta) {
+      if (resposta.status !== 'ok') {
+        mostrarEstado('Erro ao apagar foto: ' + (resposta.msg || 'falha desconhecida.'), 'erro');
+        return;
+      }
+      fotosSalvas[chave].splice(indice, 1);
+      renderizarPreviews(chave);
+      atualizarContagem(chave);
+      mostrarEstado('Foto apagada.', 'sucesso');
+    }
+
+    function aoFalharApagar(erro) {
+      mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+    }
+
+    var promessaApagarJson = promessaApagar.then(aoReceberApagarResposta);
+    promessaApagarJson.then(aoProcessarApagar);
+    promessaApagarJson.catch(aoFalharApagar);
+  }
+
+  function atualizarContagem(chave) {
+    var el = document.getElementById('contagem-' + chave);
+    var n = fotosSalvas[chave].length + fotosPorCategoria[chave].length;
+    if (esquemaExistente[chave]) n = 1;
+    el.textContent = n + (n === 1 ? ' foto' : ' fotos');
+  }
+
+  /**
+   * Redimensiona a imagem para no máximo 1600px no lado maior e
+   * reconverte para JPEG com qualidade 0.8, devolvendo uma string
+   * "data:image/jpeg;base64,....".
+   */
+  function comprimirImagem(ficheiro, tamanhoMaximo, qualidade) {
+    tamanhoMaximo = tamanhoMaximo || 1600;
+    qualidade = qualidade || 0.8;
+
+    return new Promise(function (resolve, reject) {
+      var leitor = new FileReader();
+      leitor.onerror = function () { reject(new Error('Falha ao ler o ficheiro.')); };
+      leitor.onload = function () {
+        var imagem = new Image();
+        imagem.onerror = function () { reject(new Error('Falha ao carregar a imagem.')); };
+        imagem.onload = function () {
+          var largura = imagem.width;
+          var altura = imagem.height;
+          var maior = Math.max(largura, altura);
+
+          if (maior > tamanhoMaximo) {
+            var escala = tamanhoMaximo / maior;
+            largura = Math.round(largura * escala);
+            altura = Math.round(altura * escala);
+          }
+
+          var canvas = document.createElement('canvas');
+          canvas.width = largura;
+          canvas.height = altura;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(imagem, 0, 0, largura, altura);
+
+          try {
+            resolve(canvas.toDataURL('image/jpeg', qualidade));
+          } catch (e) {
+            resolve(leitor.result);
+          }
+        };
+        imagem.src = leitor.result;
+      };
+      leitor.readAsDataURL(ficheiro);
+    });
+  }
+
+  var formulario = document.getElementById('formulario');
+  var botaoEnviar = document.getElementById('botao-enviar');
+
+  formulario.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+
+    var serial = document.getElementById('serial').value.trim();
+    var emails = document.getElementById('emails').value.trim();
+    var grupo = obterValorGrupo();
+    var tipoValvula = campoTipoValvula.value;
+
+    if (!serial) { mostrarEstado('Indique o número de série.', 'erro'); return; }
+    if (!emails) { mostrarEstado('Indique pelo menos um e-mail.', 'erro'); return; }
+    if (!grupo) { mostrarEstado('Selecione o Grupo da máquina.', 'erro'); return; }
+    if (!tipoValvula) { mostrarEstado('Selecione o Tipo de válvula.', 'erro'); return; }
+
+    var totalFotos = CATEGORIAS.reduce(function (soma, c) {
+      var conta = fotosPorCategoria[c.chave].length;
+      if (esquemaExistente[c.chave]) conta = conta + 1;
+      conta = conta + fotosSalvas[c.chave].length;
+      return soma + conta;
+    }, 0);
+    if (totalFotos === 0) {
+      mostrarEstado('Tire ou selecione pelo menos uma fotografia.', 'erro');
+      return;
+    }
+
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    var observacoes = document.getElementById('observacoes').value.trim();
+    var gas = document.getElementById('gas').value.trim();
+    if (gas === '__outro__') {
+      gas = document.getElementById('gas-outro').value.trim();
+    }
+    var phPlh = campoPhPlh.value;
+    if (phPlh === '__outro__') {
+      phPlh = campoPhPlhOutro.value.trim();
+    }
+    var descricoesEsquema = {};
+    CATEGORIAS.forEach(function (c) {
+      if (!c.esquema) return;
+      var campo = document.getElementById('descricao-' + c.chave);
+      var valor = campo ? campo.value.trim() : '';
+      if (valor === '__outro__') {
+        var outro = document.getElementById('descricao-outro-' + c.chave);
+        valor = outro ? outro.value.trim() : '';
+      }
+      descricoesEsquema[c.chave] = valor;
+    });
+
+    var payload = {
+      serial: serial,
+      emails: emails,
+      grupo: grupo,
+      tipoValvula: tipoValvula,
+      tipoRelatorio: TIPO_RELATORIO,
+      phPlh: phPlh,
+      observacoes: observacoes,
+      gas: gas,
+      tecnico: obterValorTecnico(),
+      descricoesEsquema: descricoesEsquema,
+      fotos: fotosPorCategoria,
+      esquemasExistentes: esquemaExistente,
+      guardarEsquema: guardarEsquema
+    };
+
+    botaoEnviar.disabled = true;
+    botaoEnviar.textContent = 'A enviar...';
+    mostrarEstado('A enviar fotografias, aguarde...', 'info');
+
+    // Nota: propositadamente sem definir Content-Type para evitar
+    // pedido de preflight CORS; o Apps Script lê e.postData.contents.
+    var opcoesPedido = { method: 'POST', body: JSON.stringify(payload) };
+    var promessaFetch = fetch(APPS_SCRIPT_URL, opcoesPedido);
+
+    function aoTerminar() {
+      botaoEnviar.disabled = false;
+      botaoEnviar.textContent = 'Enviar';
+    }
+
+    var aoReceberResposta = respostaParaJsonGlobal;
+
+    function aoReceberDados(dados) {
+      if (dados.status === 'ok') {
+        mostrarEstado('Enviado com sucesso! (' + dados.fotos + ' foto(s))', 'sucesso');
+        limparFormulario();
+      } else {
+        mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+      }
+    }
+
+    function aoFalhar(erro) {
+      mostrarEstado('Erro de rede/ligacao: ' + erro.message, 'erro');
+    }
+
+    var promessaJson = promessaFetch.then(aoReceberResposta);
+    var promessaFinal = promessaJson.then(aoReceberDados);
+    promessaFinal.catch(aoFalhar);
+    promessaFinal.finally(aoTerminar);
+  });
+
+  var botaoGuardar = document.getElementById('botao-guardar');
+
+  function guardarProgressoAgora() {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Indique o número de série antes de guardar o progresso.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    var descricoesEsquemaRascunho = {};
+    CATEGORIAS.forEach(function (c) {
+      if (!c.esquema) return;
+      var campo = document.getElementById('descricao-' + c.chave);
+      var valor = campo ? campo.value.trim() : '';
+      if (valor === '__outro__') {
+        var outro = document.getElementById('descricao-outro-' + c.chave);
+        valor = outro ? outro.value.trim() : '';
+      }
+      descricoesEsquemaRascunho[c.chave] = valor;
+    });
+
+    var gasRascunho = document.getElementById('gas').value.trim();
+    if (gasRascunho === '__outro__') {
+      gasRascunho = document.getElementById('gas-outro').value.trim();
+    }
+
+    var phPlhRascunho = campoPhPlh.value;
+    if (phPlhRascunho === '__outro__') {
+      phPlhRascunho = campoPhPlhOutro.value.trim();
+    }
+
+    var payloadRascunho = {
+      serial: serial,
+      emails: document.getElementById('emails').value.trim(),
+      grupo: obterValorGrupo(),
+      tipoValvula: campoTipoValvula.value,
+      tipoRelatorio: TIPO_RELATORIO,
+      phPlh: phPlhRascunho,
+      gas: gasRascunho,
+      tecnico: obterValorTecnico(),
+      observacoes: document.getElementById('observacoes').value.trim(),
+      descricoesEsquema: descricoesEsquemaRascunho,
+      fotos: fotosPorCategoria,
+      guardarComoRascunho: true
+    };
+
+    botaoGuardar.disabled = true;
+    botaoGuardar.textContent = 'A guardar...';
+    mostrarEstado('A guardar progresso, aguarde...', 'info');
+
+    var promessaGuardar = fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payloadRascunho) });
+
+    function aoTerminarGuardar() {
+      botaoGuardar.disabled = false;
+      botaoGuardar.textContent = 'Guardar progresso';
+    }
+
+    var aoReceberGuardarResposta = respostaParaJsonGlobal;
+
+    function aoProcessarGuardar(dadosResposta) {
+      if (dadosResposta.status !== 'ok') {
+        mostrarEstado('Erro ao guardar progresso: ' + (dadosResposta.msg || 'falha desconhecida.'), 'erro');
+        return;
+      }
+
+      mostrarEstado('Progresso guardado! Pode fechar a aplicação e continuar mais tarde com o mesmo número de série.', 'sucesso');
+
+      var fotosCriadas = dadosResposta.fotosCriadas || {};
+      CATEGORIAS.forEach(function (c) {
+        var criadas = fotosCriadas[c.chave] || [];
+        var pendentes = fotosPorCategoria[c.chave];
+        criadas.forEach(function (item, indice) {
+          fotosSalvas[c.chave].push({ id: item.id, nome: item.nome, base64: pendentes[indice] || null });
+        });
+        fotosPorCategoria[c.chave] = [];
+        renderizarPreviews(c.chave);
+        atualizarContagem(c.chave);
+      });
+    }
+
+    function aoFalharGuardar(erro) {
+      mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+    }
+
+    var promessaGuardarJson = promessaGuardar.then(aoReceberGuardarResposta);
+    var promessaGuardarFinal = promessaGuardarJson.then(aoProcessarGuardar);
+    promessaGuardarFinal.catch(aoFalharGuardar);
+    promessaGuardarFinal.finally(aoTerminarGuardar);
+  }
+
+  botaoGuardar.addEventListener('click', guardarProgressoAgora);
+
+  function limparFormulario() {
+    document.getElementById('serial').value = '';
+    document.getElementById('emails').value = '';
+    document.getElementById('observacoes').value = '';
+    document.getElementById('gas').value = '';
+    campoGasOutro.value = '';
+    campoGasOutro.hidden = true;
+    campoGrupo.value = '';
+    campoGrupoOutro.value = '';
+    campoGrupoOutro.hidden = true;
+    campoTecnico.value = '';
+    campoTecnicoOutro.value = '';
+    campoTecnicoOutro.hidden = true;
+    campoTipoValvula.value = '';
+    campoPhPlh.value = '';
+    campoPhPlhOutro.value = '';
+    campoPhPlhOutro.hidden = true;
+    CATEGORIAS.forEach(function (c) {
+      fotosPorCategoria[c.chave] = [];
+      fotosSalvas[c.chave] = [];
+      document.getElementById('previews-' + c.chave).innerHTML = '';
+      if (c.esquema) {
+        esquemaExistente[c.chave] = null;
+        guardarEsquema[c.chave] = false;
+        var checkbox = document.getElementById('naoTenho-' + c.chave);
+        if (checkbox) checkbox.checked = false;
+        var campoDescricao = document.getElementById('descricao-' + c.chave);
+        if (campoDescricao) campoDescricao.value = '';
+        var campoDescricaoOutro = document.getElementById('descricao-outro-' + c.chave);
+        if (campoDescricaoOutro) {
+          campoDescricaoOutro.value = '';
+          campoDescricaoOutro.hidden = true;
+        }
+        aoAlterarNaoTenho(c.chave, false);
+      }
+      atualizarContagem(c.chave);
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // "Rascunhos em aberto": mostra os numeros de serie que tem progresso
+  // guardado no Drive, para o operador nao ter de se lembrar de qual
+  // estava a meio (ex.: durante um vacuo de 24 horas).
+  // ---------------------------------------------------------------------
+  var botaoVerRascunhos = document.getElementById('botaoVerRascunhos');
+  var listaRascunhosAbertos = document.getElementById('listaRascunhosAbertos');
+
+  botaoVerRascunhos.addEventListener('click', function () {
+    if (!listaRascunhosAbertos.hidden) {
+      listaRascunhosAbertos.hidden = true;
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    listaRascunhosAbertos.hidden = false;
+    listaRascunhosAbertos.innerHTML = '<div class="ajuda">A carregar...</div>';
+
+    var url = APPS_SCRIPT_URL + '?action=listarRascunhos';
+    var promessaRascunhos = fetch(url);
+
+    var aoReceberResposta = respostaParaJsonGlobal;
+
+    function aoProcessar(dados) {
+      if (dados.status !== 'ok' || !dados.itens || !dados.itens.length) {
+        listaRascunhosAbertos.innerHTML = '<div class="ajuda">Nenhum rascunho em aberto.</div>';
+        return;
+      }
+      var html = '';
+      dados.itens.forEach(function (item) {
+        var descricao = item.serial;
+        if (item.grupo) descricao = descricao + ' — Grupo ' + item.grupo;
+        if (item.tipoRelatorio === 'ciclos') descricao = descricao + ' (Ciclos)';
+        html = html + '<button type="button" class="item-rascunho" data-serial="' +
+          item.serial.replace(/"/g, '&quot;') + '">' + descricao + '</button>';
+      });
+      listaRascunhosAbertos.innerHTML = html;
+    }
+
+    function aoFalhar(erro) {
+      listaRascunhosAbertos.innerHTML = '<div class="ajuda">Erro ao carregar: ' + erro.message + '</div>';
+    }
+
+    var promessaJson = promessaRascunhos.then(aoReceberResposta);
+    promessaJson.then(aoProcessar);
+    promessaJson.catch(aoFalhar);
+  });
+
+  listaRascunhosAbertos.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('.item-rascunho');
+    if (!botao) return;
+    campoSerial.value = botao.dataset.serial;
+    listaRascunhosAbertos.hidden = true;
+    verificarRascunho();
+  });
+
+  // ---------------------------------------------------------------------
+  // "Corrigir envio anterior": procura os envios ja feitos (e-mail ja
+  // enviado) para o numero de serie escrito, e permite enviar um novo
+  // e-mail so com a correcao (nao e possivel alterar o e-mail original).
+  // ---------------------------------------------------------------------
+  var cardCorrecao = document.getElementById('cardCorrecao');
+  var botaoAbrirCorrecao = document.getElementById('botaoAbrirCorrecao');
+  var botaoProcurarEnvios = document.getElementById('botaoProcurarEnvios');
+  var listaEnviosAnteriores = document.getElementById('listaEnviosAnteriores');
+  var detalhesCorrecao = document.getElementById('detalhesCorrecao');
+  var envioSelecionadoLabel = document.getElementById('envioSelecionadoLabel');
+  var correcaoCategoria = document.getElementById('correcaoCategoria');
+  var previewsCorrecao = document.getElementById('previewsCorrecao');
+  var correcaoNota = document.getElementById('correcaoNota');
+  var correcaoEmails = document.getElementById('correcaoEmails');
+  var botaoEnviarCorrecao = document.getElementById('botaoEnviarCorrecao');
+
+  var envioSelecionado = null;
+  var fotosCorrecao = [];
+
+  var opcoesCategoria = '<option value="">Selecione...</option>';
+  CATEGORIAS.forEach(function (c) {
+    opcoesCategoria = opcoesCategoria + '<option value="' + c.chave + '">' + c.rotulo + '</option>';
+  });
+  correcaoCategoria.innerHTML = opcoesCategoria;
+
+  botaoAbrirCorrecao.addEventListener('click', function () {
+    cardCorrecao.hidden = !cardCorrecao.hidden;
+    if (!cardCorrecao.hidden) {
+      cardCorrecao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+
+  botaoProcurarEnvios.addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Escreva o número de série no campo do topo primeiro.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    detalhesCorrecao.hidden = true;
+    envioSelecionado = null;
+    listaEnviosAnteriores.hidden = false;
+    listaEnviosAnteriores.innerHTML = '<div class="ajuda">A carregar...</div>';
+
+    var url = APPS_SCRIPT_URL + '?action=listarEnviosAnteriores&serial=' + encodeURIComponent(serial);
+    var promessaEnvios = fetch(url);
+
+    var aoReceberResposta = respostaParaJsonGlobal;
+
+    function aoProcessar(dados) {
+      if (dados.status !== 'ok' || !dados.itens || !dados.itens.length) {
+        listaEnviosAnteriores.innerHTML = '<div class="ajuda">Nenhum envio anterior encontrado para este número de série.</div>';
+        return;
+      }
+      var html = '';
+      dados.itens.forEach(function (item) {
+        html = html + '<button type="button" class="item-rascunho" data-id="' + item.id +
+          '" data-nome="' + item.nome.replace(/"/g, '&quot;') + '">' + item.nome + '</button>';
+      });
+      listaEnviosAnteriores.innerHTML = html;
+    }
+
+    function aoFalhar(erro) {
+      listaEnviosAnteriores.innerHTML = '<div class="ajuda">Erro ao carregar: ' + erro.message + '</div>';
+    }
+
+    var promessaJson = promessaEnvios.then(aoReceberResposta);
+    promessaJson.then(aoProcessar);
+    promessaJson.catch(aoFalhar);
+  });
+
+  listaEnviosAnteriores.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('.item-rascunho');
+    if (!botao) return;
+    envioSelecionado = { id: botao.dataset.id, nome: botao.dataset.nome };
+    envioSelecionadoLabel.textContent = 'A corrigir: ' + envioSelecionado.nome;
+    listaEnviosAnteriores.hidden = true;
+    detalhesCorrecao.hidden = false;
+  });
+
+  function renderizarPreviewsCorrecao() {
+    previewsCorrecao.innerHTML = '';
+    fotosCorrecao.forEach(function (item, indice) {
+      var thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      thumb.innerHTML = '<img src="' + item.base64 + '" alt="" />' +
+        '<button type="button" aria-label="Remover">✕</button>';
+      thumb.querySelector('button').addEventListener('click', function () {
+        fotosCorrecao.splice(indice, 1);
+        renderizarPreviewsCorrecao();
+      });
+      previewsCorrecao.appendChild(thumb);
+    });
+  }
+
+  function adicionarFotosCorrecao(input) {
+    var ficheiros = Array.prototype.slice.call(input.files || []);
+    if (!ficheiros.length) return;
+
+    var categoria = correcaoCategoria.value;
+    if (!categoria) {
+      mostrarEstado('Escolha primeiro a categoria da foto a corrigir.', 'erro');
+      input.value = '';
+      return;
+    }
+
+    mostrarEstado('A processar fotografias...', 'info');
+
+    var promessas = ficheiros.map(function (ficheiro) {
+      return comprimirImagem(ficheiro).then(function (base64) {
+        fotosCorrecao.push({ categoria: categoria, base64: base64 });
+      });
+    });
+
+    Promise.all(promessas).then(function () {
+      renderizarPreviewsCorrecao();
+      esconderEstado();
+      input.value = '';
+    }).catch(function (erro) {
+      mostrarEstado('Erro ao processar imagem: ' + erro.message, 'erro');
+    });
+  }
+
+  document.getElementById('correcaoFotoCamera').addEventListener('change', function (ev) {
+    adicionarFotosCorrecao(ev.target);
+  });
+  document.getElementById('correcaoFotoGaleria').addEventListener('change', function (ev) {
+    adicionarFotosCorrecao(ev.target);
+  });
+
+  botaoEnviarCorrecao.addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Escreva o número de série no campo do topo.', 'erro');
+      return;
+    }
+    if (!envioSelecionado) {
+      mostrarEstado('Escolha qual envio quer corrigir.', 'erro');
+      return;
+    }
+    var emails = correcaoEmails.value.trim();
+    if (!emails) {
+      mostrarEstado('Indique pelo menos um e-mail para a correção.', 'erro');
+      return;
+    }
+    var nota = correcaoNota.value.trim();
+    if (!nota) {
+      mostrarEstado('Descreva o que foi corrigido.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL no topo do script com o URL /exec da Aplicação Web.', 'erro');
+      return;
+    }
+
+    var fotosPorCategoriaCorrecao = {};
+    fotosCorrecao.forEach(function (item) {
+      if (!fotosPorCategoriaCorrecao[item.categoria]) fotosPorCategoriaCorrecao[item.categoria] = [];
+      fotosPorCategoriaCorrecao[item.categoria].push(item.base64);
+    });
+
+    var payloadCorrecao = {
+      corrigirEnvio: true,
+      serial: serial,
+      pastaOriginalId: envioSelecionado.id,
+      emails: emails,
+      notaCorrecao: nota,
+      grupo: obterValorGrupo(),
+      tipoValvula: campoTipoValvula.value,
+      tipoRelatorio: TIPO_RELATORIO,
+      phPlh: campoPhPlh.value === '__outro__' ? campoPhPlhOutro.value.trim() : campoPhPlh.value,
+      gas: campoGas.value === '__outro__' ? campoGasOutro.value.trim() : campoGas.value,
+      tecnico: obterValorTecnico(),
+      observacoes: document.getElementById('observacoes').value.trim(),
+      fotos: fotosPorCategoriaCorrecao
+    };
+
+    botaoEnviarCorrecao.disabled = true;
+    botaoEnviarCorrecao.textContent = 'A enviar...';
+    mostrarEstado('A enviar correção, aguarde...', 'info');
+
+    var promessaCorrecao = fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payloadCorrecao) });
+
+    function aoTerminarCorrecao() {
+      botaoEnviarCorrecao.disabled = false;
+      botaoEnviarCorrecao.textContent = 'Enviar correção';
+    }
+
+    var aoReceberRespostaCorrecao = respostaParaJsonGlobal;
+
+    function aoProcessarCorrecao(dadosResposta) {
+      if (dadosResposta.status !== 'ok') {
+        mostrarEstado('Erro ao enviar correção: ' + (dadosResposta.msg || 'falha desconhecida.'), 'erro');
+        return;
+      }
+      mostrarEstado('Correção enviada com sucesso!', 'sucesso');
+      fotosCorrecao = [];
+      renderizarPreviewsCorrecao();
+      correcaoNota.value = '';
+      correcaoEmails.value = '';
+      correcaoCategoria.value = '';
+      envioSelecionado = null;
+      detalhesCorrecao.hidden = true;
+    }
+
+    function aoFalharCorrecao(erro) {
+      mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+    }
+
+    var promessaCorrecaoJson = promessaCorrecao.then(aoReceberRespostaCorrecao);
+    var promessaCorrecaoFinal = promessaCorrecaoJson.then(aoProcessarCorrecao);
+    promessaCorrecaoFinal.catch(aoFalharCorrecao);
+    promessaCorrecaoFinal.finally(aoTerminarCorrecao);
+  });
+
+  function mostrarEstado(texto, tipo) {
+    var el = document.getElementById('estado');
+    el.textContent = texto;
+    el.className = 'estado mostrar ' + tipo;
+  }
+  function esconderEstado() {
+    var el = document.getElementById('estado');
+    el.className = 'estado';
+  }
+})();
+</script>
+<script>
+
+(function () {
+  var APPS_SCRIPT_URL = '<?= appsScriptUrl ?>';
+  if (APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+    APPS_SCRIPT_URL = '';
+  }
+
+  var LISTAS_JSON = '<?!= listasJson ?>';
+  var LISTAS = { gruposProducao: [], ciclosProducao: [] };
+  if (LISTAS_JSON.indexOf('{') === 0) {
+    try {
+      LISTAS = JSON.parse(LISTAS_JSON);
+    } catch (erroListas) {
+      LISTAS = { gruposProducao: [], ciclosProducao: [] };
+    }
+  }
+
+  var ETAPAS = [
+    { chave: 'preparacao', rotulo: 'Preparação' },
+    { chave: 'embalamento', rotulo: 'Embalamento' },
+    { chave: 'desmontagem', rotulo: 'Desmontagem' },
+    { chave: 'montagem', rotulo: 'Montagem' },
+    { chave: 'intervencaoExtra', rotulo: 'Intervenção extra' },
+    { chave: 'corteTubo', rotulo: 'Corte de tubo' },
+    { chave: 'soldaduraHvac', rotulo: 'Montagem e soldadura HVAC' },
+    { chave: 'eletrificacaoGrupo', rotulo: 'Eletrificação do grupo' },
+    { chave: 'eletrificacaoQuadro', rotulo: 'Eletrificação do quadro' },
+    { chave: 'isolamento', rotulo: 'Isolamento' },
+    { chave: 'testeEletrico', rotulo: 'Teste elétrico' },
+    { chave: 'testePressao', rotulo: 'Teste de pressão' },
+    { chave: 'testeVacuo', rotulo: 'Teste de vácuo' }
+  ];
+
+  var TIPO_ATUAL = 'grupos';
+  var abaGrupos = document.getElementById('abaGrupos');
+  var abaCiclos = document.getElementById('abaCiclosProducao');
+
+  function listaAtual() {
+    return TIPO_ATUAL === 'ciclos' ? LISTAS.ciclosProducao : LISTAS.gruposProducao;
+  }
+
+  function atualizarAba() {
+    abaGrupos.className = TIPO_ATUAL === 'grupos' ? 'aba aba-ativa' : 'aba';
+    abaCiclos.className = TIPO_ATUAL === 'ciclos' ? 'aba aba-ativa' : 'aba';
+    preencherSelectGrupo();
+    esconderRegisto();
+    carregarLista();
+    carregarDashboard();
+  }
+
+  abaGrupos.addEventListener('click', function () { TIPO_ATUAL = 'grupos'; atualizarAba(); });
+  abaCiclos.addEventListener('click', function () { TIPO_ATUAL = 'ciclos'; atualizarAba(); });
+
+  var campoSerial = document.getElementById('serialProducao');
+  var cardRegisto = document.getElementById('cardRegisto');
+  var tituloRegisto = document.getElementById('tituloRegisto');
+  var badgesRegisto = document.getElementById('badgesRegisto');
+  var campoGrupo = document.getElementById('grupoProducao');
+  var campoGrupoOutro = document.getElementById('grupoProducao-outro');
+  var campoEstadoGeral = document.getElementById('estadoGeral');
+  var campoPrevisaoSaida = document.getElementById('previsaoSaida');
+  var campoDataEntrega = document.getElementById('dataEntrega');
+  var campoMateriaisFalta = document.getElementById('materiaisEmFalta');
+  var campoMateriaisEntregues = document.getElementById('materiaisEntregues');
+  var etapasLista = document.getElementById('etapasLista');
+  var linkDriveContainer = document.getElementById('linkDriveContainer');
+  var historicoContainer = document.getElementById('historicoContainer');
+  var campoSerialNovo = document.getElementById('serialNovo');
+
+  function preencherSelectGrupo() {
+    var valores = listaAtual();
+    var opcoes = '<option value="">Selecione...</option>';
+    valores.forEach(function (v) {
+      opcoes = opcoes + '<option value="' + v + '">' + v + '</option>';
+    });
+    opcoes = opcoes + '<option value="__outro__">Outro (escrever)...</option>';
+    campoGrupo.innerHTML = opcoes;
+    campoGrupoOutro.hidden = true;
+    campoGrupoOutro.value = '';
+  }
+
+  campoGrupo.addEventListener('change', function () {
+    campoGrupoOutro.hidden = campoGrupo.value !== '__outro__';
+    if (!campoGrupoOutro.hidden) campoGrupoOutro.focus();
+    recarregarMateriaisPeloGrupoAtual();
+  });
+
+  campoGrupoOutro.addEventListener('blur', recarregarMateriaisPeloGrupoAtual);
+
+  function obterValorGrupo() {
+    if (campoGrupo.value === '__outro__') return campoGrupoOutro.value.trim();
+    return campoGrupo.value;
+  }
+
+  function definirValorGrupo(valor) {
+    if (!valor) return;
+    var existe = Array.prototype.some.call(campoGrupo.options, function (o) { return o.value === valor; });
+    if (existe) {
+      campoGrupo.value = valor;
+    } else {
+      campoGrupo.value = '__outro__';
+      campoGrupoOutro.hidden = false;
+      campoGrupoOutro.value = valor;
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Materiais (estrutura permanente por modelo): assim que o Grupo/Tipo e
+  // identificado, a tabela de materiais eletricos e de frio desse modelo
+  // e carregada automaticamente. Adicionar/remover aqui altera logo a
+  // estrutura permanente do modelo (nao e so deste numero de serie).
+  // ---------------------------------------------------------------------
+  var materiaisEletricaLista = document.getElementById('materiaisEletricaLista');
+  var materiaisFrioLista = document.getElementById('materiaisFrioLista');
+
+  function montarListaMateriais(container, itens, categoria) {
+    if (!itens.length) {
+      container.innerHTML = '<div class="ajuda">Nenhum material registado para este modelo ainda.</div>';
+      return;
+    }
+    var html = '';
+    itens.forEach(function (item) {
+      html = html +
+        '<div class="item-material">' +
+          '<span class="codigo-material">' + item.codigo + '</span>' +
+          '<span class="descricao-material">' + (item.descricao || '') + '</span>' +
+          '<span class="qtd-material">' + (item.quantidade || '') + '</span>' +
+          '<button type="button" data-categoria="' + categoria + '" data-codigo="' + item.codigo.replace(/"/g, '&quot;') + '" aria-label="Remover">✕</button>' +
+        '</div>';
+    });
+    container.innerHTML = html;
+  }
+
+  function carregarMateriaisPadrao() {
+    var grupo = obterValorGrupo();
+    if (!grupo || !APPS_SCRIPT_URL) {
+      materiaisEletricaLista.innerHTML = '';
+      materiaisFrioLista.innerHTML = '';
+      return;
+    }
+
+    var url = APPS_SCRIPT_URL + '?action=materiaisPadrao&tipo=' + TIPO_ATUAL + '&modelo=' + encodeURIComponent(grupo);
+    fetch(url).then(respostaParaJsonGlobal).then(function (dados) {
+      if (dados.status !== 'ok') return;
+      var eletrica = dados.itens.filter(function (i) { return i.categoria === 'Eletrica'; });
+      var frio = dados.itens.filter(function (i) { return i.categoria === 'Frio'; });
+      montarListaMateriais(materiaisEletricaLista, eletrica, 'Eletrica');
+      montarListaMateriais(materiaisFrioLista, frio, 'Frio');
+    }).catch(function () {
+      materiaisEletricaLista.innerHTML = '<div class="ajuda">Erro ao carregar materiais.</div>';
+      materiaisFrioLista.innerHTML = '<div class="ajuda">Erro ao carregar materiais.</div>';
+    });
+  }
+
+  function recarregarMateriaisPeloGrupoAtual() {
+    carregarMateriaisPadrao();
+  }
+
+  function adicionarMaterial(categoria, campoCodigo, campoDescricao, campoQuantidade) {
+    var grupo = obterValorGrupo();
+    if (!grupo) {
+      mostrarEstado('Selecione primeiro o Grupo/Tipo.', 'erro');
+      return;
+    }
+    var codigo = campoCodigo.value.trim();
+    if (!codigo) {
+      mostrarEstado('Indique o código do material.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = {
+      acao: 'adicionarMaterialPadrao',
+      tipo: TIPO_ATUAL,
+      modelo: grupo,
+      categoria: categoria,
+      codigo: codigo,
+      descricao: campoDescricao.value.trim(),
+      quantidade: campoQuantidade.value.trim()
+    };
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        campoCodigo.value = '';
+        campoDescricao.value = '';
+        campoQuantidade.value = '';
+        carregarMateriaisPadrao();
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      });
+  }
+
+  document.getElementById('botaoAddMatEletrica').addEventListener('click', function () {
+    adicionarMaterial(
+      'Eletrica',
+      document.getElementById('matEletricaCodigo'),
+      document.getElementById('matEletricaDescricao'),
+      document.getElementById('matEletricaQuantidade')
+    );
+  });
+
+  document.getElementById('botaoAddMatFrio').addEventListener('click', function () {
+    adicionarMaterial(
+      'Frio',
+      document.getElementById('matFrioCodigo'),
+      document.getElementById('matFrioDescricao'),
+      document.getElementById('matFrioQuantidade')
+    );
+  });
+
+  function removerMaterial(categoria, codigo) {
+    var grupo = obterValorGrupo();
+    if (!grupo || !APPS_SCRIPT_URL) return;
+    if (!window.confirm('Remover o material "' + codigo + '" da estrutura deste modelo?')) return;
+
+    var payload = { acao: 'removerMaterialPadrao', tipo: TIPO_ATUAL, modelo: grupo, categoria: categoria, codigo: codigo };
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        carregarMateriaisPadrao();
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      });
+  }
+
+  materiaisEletricaLista.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('button');
+    if (!botao) return;
+    removerMaterial(botao.dataset.categoria, botao.dataset.codigo);
+  });
+
+  materiaisFrioLista.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('button');
+    if (!botao) return;
+    removerMaterial(botao.dataset.categoria, botao.dataset.codigo);
+  });
+
+  function baixarTabelaMateriais(formato) {
+    var grupo = obterValorGrupo();
+    if (!grupo) {
+      mostrarEstado('Selecione primeiro o Grupo/Tipo.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+    var url = APPS_SCRIPT_URL + '?action=baixarMateriais&tipo=' + TIPO_ATUAL + '&modelo=' + encodeURIComponent(grupo) + '&formato=' + formato;
+    window.open(url, '_blank');
+  }
+
+  document.getElementById('botaoBaixarMateriaisExcel').addEventListener('click', function () { baixarTabelaMateriais('xlsx'); });
+  document.getElementById('botaoBaixarMateriaisPdf').addEventListener('click', function () { baixarTabelaMateriais('pdf'); });
+
+  function montarEtapas(etapasGuardadas) {
+    etapasGuardadas = etapasGuardadas || {};
+    var html = '';
+    ETAPAS.forEach(function (et) {
+      var guardada = etapasGuardadas[et.chave] || {};
+      var dataConcluida = (guardada.data || '').toString().trim();
+      var nota = (guardada.nota || '').toString().trim();
+      var concluida = !!dataConcluida;
+      html = html +
+        '<div class="linha-etapa-wrap">' +
+          '<label class="linha-etapa' + (concluida ? ' concluida' : '') + '" data-chave="' + et.chave + '">' +
+            '<input type="checkbox" data-chave-etapa="' + et.chave + '"' + (concluida ? ' checked' : '') + ' />' +
+            '<span class="nome-etapa">' + et.rotulo + '</span>' +
+            '<span class="data-etapa">' + (concluida ? dataConcluida : '') + '</span>' +
+            '<button type="button" class="botao-nota" data-chave-nota-botao="' + et.chave + '" title="Adicionar/editar nota">📝</button>' +
+          '</label>' +
+          '<input type="text" class="campo-outro nota-etapa" data-chave-nota-input="' + et.chave + '" placeholder="Nota (opcional)..." value="' + nota.replace(/"/g, '&quot;') + '"' + (nota ? '' : ' hidden') + ' />' +
+        '</div>';
+    });
+    etapasLista.innerHTML = html;
+  }
+
+  etapasLista.addEventListener('click', function (ev) {
+    var botaoNota = ev.target.closest('.botao-nota');
+    if (!botaoNota) return;
+    var chave = botaoNota.dataset.chaveNotaBotao;
+    var campoNota = etapasLista.querySelector('input[data-chave-nota-input="' + chave + '"]');
+    if (!campoNota) return;
+    campoNota.hidden = !campoNota.hidden;
+    if (!campoNota.hidden) campoNota.focus();
+  });
+
+  etapasLista.addEventListener('change', function (ev) {
+    var input = ev.target;
+    if (input.tagName !== 'INPUT' || input.type !== 'checkbox') return;
+    var linha = input.closest('.linha-etapa');
+    if (input.checked) {
+      linha.className = 'linha-etapa concluida';
+    } else {
+      linha.className = 'linha-etapa';
+      linha.querySelector('.data-etapa').textContent = '';
+    }
+  });
+
+  function obterEtapasDoFormulario() {
+    var etapas = {};
+    ETAPAS.forEach(function (et) {
+      var checkbox = etapasLista.querySelector('input[data-chave-etapa="' + et.chave + '"]');
+      var campoNota = etapasLista.querySelector('input[data-chave-nota-input="' + et.chave + '"]');
+      etapas[et.chave] = {
+        marcado: !!(checkbox && checkbox.checked),
+        nota: campoNota ? campoNota.value.trim() : ''
+      };
+    });
+    return etapas;
+  }
+
+  function calcularDiasEmProducao(criadoEm) {
+    if (!criadoEm) return null;
+    var dataCriado = new Date(criadoEm.replace(' ', 'T'));
+    if (isNaN(dataCriado.getTime())) return null;
+    var diffMs = new Date().getTime() - dataCriado.getTime();
+    return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+  }
+
+  function montarBadges(dados) {
+    var html = '';
+    html = html + '<span class="badge ' + (dados.estado === 'Terminado' ? 'badge-terminado' : 'badge-em-curso') + '">' + dados.estado + '</span> ';
+    if (dados.emAtraso === 'Sim') {
+      html = html + '<span class="badge badge-atraso">Em atraso</span> ';
+    }
+    var dias = calcularDiasEmProducao(dados.criadoEm);
+    if (dias !== null) {
+      html = html + '<span class="dias-producao">' + dias + (dias === 1 ? ' dia' : ' dias') + ' em produção</span>';
+    }
+    badgesRegisto.innerHTML = html;
+  }
+
+  function mostrarLinkDrive(serial) {
+    if (!serial) {
+      linkDriveContainer.innerHTML = '';
+      return;
+    }
+    var url = 'https://drive.google.com/drive/search?q=' + encodeURIComponent(serial);
+    linkDriveContainer.innerHTML = '<a class="link-drive" href="' + url + '" target="_blank" rel="noopener">Ver fotos/relatórios deste número de série no Drive →</a>' +
+      '<div class="ajuda" id="contagemFotosRelatorios"></div>';
+
+    if (!APPS_SCRIPT_URL) return;
+    // Mesma aplicacao agora - a contagem de fotos usa o MESMO APPS_SCRIPT_URL,
+    // nao um script/URL separado.
+    var urlContagem = APPS_SCRIPT_URL + '?action=contarFotos&serial=' + encodeURIComponent(serial);
+    fetch(urlContagem).then(respostaParaJsonGlobal).then(function (dados) {
+      var el = document.getElementById('contagemFotosRelatorios');
+      if (!el || dados.status !== 'ok') return;
+      if (dados.totalEnvios === 0) {
+        el.textContent = 'Ainda não há relatórios enviados para este número de série.';
+      } else {
+        el.textContent = dados.totalFotos + ' foto(s) em ' + dados.totalEnvios + ' relatório(s) enviado(s).';
+      }
+    }).catch(function () { /* atalho e opcional, falha em silencio */ });
+  }
+
+  function mostrarHistorico(serialAnteriores) {
+    if (!serialAnteriores) {
+      historicoContainer.innerHTML = '';
+      return;
+    }
+    historicoContainer.innerHTML = '<div class="ajuda">Números de série anteriores: ' + serialAnteriores + '</div>';
+  }
+
+  function abrirRegistoNovo(serial) {
+    cardRegisto.hidden = false;
+    tituloRegisto.textContent = 'Novo registo: ' + serial;
+    badgesRegisto.innerHTML = '<span class="badge badge-em-curso">Novo</span>';
+    campoGrupo.value = '';
+    campoGrupoOutro.hidden = true;
+    campoGrupoOutro.value = '';
+    campoEstadoGeral.value = 'Em curso';
+    campoPrevisaoSaida.value = '';
+    campoDataEntrega.value = '';
+    campoMateriaisFalta.value = '';
+    campoMateriaisEntregues.value = '';
+    campoSerialNovo.value = '';
+    montarEtapas({});
+    mostrarLinkDrive(serial);
+    mostrarHistorico('');
+    carregarMateriaisPadrao();
+  }
+
+  function abrirRegistoExistente(dados) {
+    cardRegisto.hidden = false;
+    tituloRegisto.textContent = 'Registo: ' + dados.serial;
+    montarBadges(dados);
+    definirValorGrupo(dados.grupo);
+    campoEstadoGeral.value = dados.estado === 'Terminado' ? 'Terminado' : 'Em curso';
+    campoPrevisaoSaida.value = dados.previsaoSaida || '';
+    campoDataEntrega.value = dados.dataEntrega || '';
+    campoMateriaisFalta.value = dados.materiaisEmFalta || '';
+    campoMateriaisEntregues.value = dados.materiaisEntregues || '';
+    campoSerialNovo.value = '';
+    montarEtapas(dados.etapas);
+    mostrarLinkDrive(dados.serial);
+    mostrarHistorico(dados.serialAnteriores);
+    carregarMateriaisPadrao();
+  }
+
+  function esconderRegisto() {
+    cardRegisto.hidden = true;
+  }
+
+  var botaoProcurar = document.getElementById('botaoProcurar');
+  botaoProcurar.addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Indique o número de série.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    mostrarEstado('A procurar...', 'info');
+    var url = APPS_SCRIPT_URL + '?action=obter&tipo=' + TIPO_ATUAL + '&serial=' + encodeURIComponent(serial);
+
+    fetch(url).then(respostaParaJsonGlobal).then(function (dados) {
+      esconderEstado();
+      if (dados.status !== 'ok') {
+        mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+        return;
+      }
+      if (!dados.existe) {
+        abrirRegistoNovo(serial);
+      } else {
+        abrirRegistoExistente(dados.dados);
+      }
+    }).catch(function (erro) {
+      mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+    });
+  });
+
+  var botaoGuardar = document.getElementById('botaoGuardar');
+  botaoGuardar.addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Indique o número de série.', 'erro');
+      return;
+    }
+    var grupo = obterValorGrupo();
+    if (!grupo) {
+      mostrarEstado('Selecione o Grupo/Tipo.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = {
+      acao: 'guardarRegisto',
+      tipo: TIPO_ATUAL,
+      serial: serial,
+      grupo: grupo,
+      estado: campoEstadoGeral.value,
+      previsaoSaida: campoPrevisaoSaida.value,
+      dataEntrega: campoDataEntrega.value,
+      materiaisEmFalta: campoMateriaisFalta.value.trim(),
+      materiaisEntregues: campoMateriaisEntregues.value.trim(),
+      etapas: obterEtapasDoFormulario()
+    };
+
+    botaoGuardar.disabled = true;
+    botaoGuardar.textContent = 'A guardar...';
+    mostrarEstado('A guardar registo...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        mostrarEstado('Registo guardado.', 'sucesso');
+        botaoProcurar.click();
+        carregarLista();
+        carregarDashboard();
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      })
+      .finally(function () {
+        botaoGuardar.disabled = false;
+        botaoGuardar.textContent = 'Guardar registo';
+      });
+  });
+
+  var botaoMudarSerial = document.getElementById('botaoMudarSerial');
+  botaoMudarSerial.addEventListener('click', function () {
+    var serialAtual = campoSerial.value.trim();
+    var serialNovo = campoSerialNovo.value.trim();
+    if (!serialAtual || !serialNovo) {
+      mostrarEstado('Indique o número de série atual e o novo.', 'erro');
+      return;
+    }
+    if (!window.confirm('Mudar o número de série de "' + serialAtual + '" para "' + serialNovo + '"? Use só em último caso.')) {
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = { acao: 'mudarNumeroSerie', tipo: TIPO_ATUAL, serialAtual: serialAtual, serialNovo: serialNovo };
+    mostrarEstado('A atualizar número de série...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        mostrarEstado('Número de série atualizado.', 'sucesso');
+        campoSerial.value = serialNovo;
+        botaoProcurar.click();
+        carregarLista();
+        carregarDashboard();
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      });
+  });
+
+  var filtros = document.querySelectorAll('.filtro');
+  var FILTRO_ATUAL = 'emCurso';
+  var listaRegistos = document.getElementById('listaRegistos');
+
+  filtros.forEach(function (botao) {
+    botao.addEventListener('click', function () {
+      FILTRO_ATUAL = botao.dataset.filtro;
+      filtros.forEach(function (b) { b.className = 'filtro'; });
+      botao.className = 'filtro filtro-ativo';
+      carregarLista();
+    });
+  });
+
+  function carregarLista() {
+    if (!APPS_SCRIPT_URL) return;
+    listaRegistos.innerHTML = '<div class="ajuda">A carregar...</div>';
+    var url = APPS_SCRIPT_URL + '?action=listar&tipo=' + TIPO_ATUAL + '&filtro=' + FILTRO_ATUAL;
+
+    fetch(url).then(respostaParaJsonGlobal).then(function (dados) {
+      if (dados.status !== 'ok' || !dados.itens || !dados.itens.length) {
+        listaRegistos.innerHTML = '<div class="ajuda">Nenhum registo encontrado.</div>';
+        return;
+      }
+      var html = '';
+      dados.itens.forEach(function (item) {
+        var estadoTexto = item.estado + (item.emAtraso === 'Sim' ? ' · Em atraso' : '');
+        var dias = calcularDiasEmProducao(item.criadoEm);
+        if (dias !== null) estadoTexto = estadoTexto + ' · ' + dias + (dias === 1 ? ' dia' : ' dias');
+        html = html + '<button type="button" class="item-lista" data-serial="' + item.serial.replace(/"/g, '&quot;') + '">' +
+          '<div class="linha1">' + item.serial + (item.grupo ? ' — ' + item.grupo : '') + '</div>' +
+          '<div class="linha2">' + estadoTexto + (item.previsaoSaida ? ' · Previsão: ' + item.previsaoSaida : '') + '</div>' +
+        '</button>';
+      });
+      listaRegistos.innerHTML = html;
+    }).catch(function (erro) {
+      listaRegistos.innerHTML = '<div class="ajuda">Erro ao carregar: ' + erro.message + '</div>';
+    });
+  }
+
+  listaRegistos.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('.item-lista');
+    if (!botao) return;
+    campoSerial.value = botao.dataset.serial;
+    botaoProcurar.click();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  var dashboardGrid = document.getElementById('dashboardGrid');
+
+  function montarStatTile(numero, rotulo, classeExtra) {
+    return '<div class="stat-tile' + (classeExtra ? ' ' + classeExtra : '') + '">' +
+      '<span class="numero">' + numero + '</span>' +
+      '<span class="rotulo">' + rotulo + '</span>' +
+    '</div>';
+  }
+
+  function carregarDashboard() {
+    if (!APPS_SCRIPT_URL) return;
+    var url = APPS_SCRIPT_URL + '?action=resumo';
+
+    fetch(url).then(respostaParaJsonGlobal).then(function (dados) {
+      if (dados.status !== 'ok' || !dados.resumo) {
+        dashboardGrid.innerHTML = '<div class="ajuda">Erro ao carregar o resumo.</div>';
+        return;
+      }
+      var html = '';
+      ['grupos', 'ciclos'].forEach(function (tipo) {
+        var r = dados.resumo[tipo];
+        var nomeTipo = tipo === 'ciclos' ? 'Ciclos' : 'Grupos';
+        html = html + '<div class="stat-grupo">' +
+          '<div class="stat-grupo-titulo">' + nomeTipo + '</div>' +
+          '<div class="stat-linha">' +
+            montarStatTile(r.emCurso, 'Em curso') +
+            montarStatTile(r.terminados, 'Terminados', 'tile-terminado') +
+            montarStatTile(r.atraso, 'Em atraso', 'tile-atraso') +
+          '</div>' +
+        '</div>';
+      });
+      dashboardGrid.innerHTML = html;
+    }).catch(function () {
+      dashboardGrid.innerHTML = '<div class="ajuda">Erro de ligação ao carregar o resumo.</div>';
+    });
+  }
+
+  var botaoEnviarResumo = document.getElementById('botaoEnviarResumo');
+  botaoEnviarResumo.addEventListener('click', function () {
+    var emails = document.getElementById('emailsResumo').value.trim();
+    if (!emails) {
+      mostrarEstado('Indique pelo menos um e-mail.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    var payload = { acao: 'enviarResumo', tipo: TIPO_ATUAL, emails: emails };
+    botaoEnviarResumo.disabled = true;
+    botaoEnviarResumo.textContent = 'A enviar...';
+    mostrarEstado('A gerar Excel/PDF e a enviar, aguarde...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        mostrarEstado('Resumo enviado por e-mail.', 'sucesso');
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      })
+      .finally(function () {
+        botaoEnviarResumo.disabled = false;
+        botaoEnviarResumo.textContent = 'Enviar resumo (Excel + PDF)';
+      });
+  });
+
+  var campoEnvioAutomaticoAtivo = document.getElementById('envioAutomaticoAtivo');
+  var campoEnvioAutomaticoEmails = document.getElementById('envioAutomaticoEmails');
+  var campoEnvioAutomaticoFrequencia = document.getElementById('envioAutomaticoFrequencia');
+  var campoEnvioAutomaticoDiaSemana = document.getElementById('envioAutomaticoDiaSemana');
+  var campoEnvioAutomaticoHora = document.getElementById('envioAutomaticoHora');
+  var campoEnvioAutomaticoDataHora = document.getElementById('envioAutomaticoDataHora');
+  var linhaHoraEnvio = document.getElementById('linhaHoraEnvio');
+  var linhaDataUnica = document.getElementById('linhaDataUnica');
+  var botaoGuardarEnvioAutomatico = document.getElementById('botaoGuardarEnvioAutomatico');
+
+  function atualizarCamposFrequencia() {
+    var frequencia = campoEnvioAutomaticoFrequencia.value;
+    linhaDataUnica.hidden = frequencia !== 'unico';
+    linhaHoraEnvio.hidden = frequencia === 'unico';
+    var campoDia = linhaHoraEnvio.querySelector('#envioAutomaticoDiaSemana').parentElement;
+    campoDia.hidden = frequencia !== 'semanal';
+  }
+
+  campoEnvioAutomaticoFrequencia.addEventListener('change', atualizarCamposFrequencia);
+
+  function carregarConfigEnvioAutomatico() {
+    if (!APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=configEnvio').then(respostaParaJsonGlobal).then(function (dados) {
+      if (dados.status !== 'ok') return;
+      campoEnvioAutomaticoAtivo.checked = !!dados.ativo;
+      campoEnvioAutomaticoEmails.value = dados.emails || '';
+      campoEnvioAutomaticoFrequencia.value = dados.frequencia || 'diario';
+      campoEnvioAutomaticoDiaSemana.value = dados.diaSemana || 'MONDAY';
+      var hora = typeof dados.hora === 'number' ? dados.hora : 8;
+      var minuto = typeof dados.minuto === 'number' ? dados.minuto : 0;
+      campoEnvioAutomaticoHora.value = (hora < 10 ? '0' : '') + hora + ':' + (minuto < 10 ? '0' : '') + minuto;
+      campoEnvioAutomaticoDataHora.value = dados.dataHora || '';
+      atualizarCamposFrequencia();
+    }).catch(function () { /* falha em silencio, mantem os valores por defeito */ });
+  }
+
+  botaoGuardarEnvioAutomatico.addEventListener('click', function () {
+    var ativo = campoEnvioAutomaticoAtivo.checked;
+    var emails = campoEnvioAutomaticoEmails.value.trim();
+    var frequencia = campoEnvioAutomaticoFrequencia.value;
+
+    if (ativo && !emails) {
+      mostrarEstado('Indique pelo menos um e-mail para o envio automático.', 'erro');
+      return;
+    }
+    if (ativo && frequencia === 'unico' && !campoEnvioAutomaticoDataHora.value) {
+      mostrarEstado('Escolha a data e a hora do envio único.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    var horaMinuto = (campoEnvioAutomaticoHora.value || '08:00').split(':');
+
+    var payload = {
+      acao: 'configurarEnvioAutomatico',
+      ativo: ativo,
+      emails: emails,
+      frequencia: frequencia,
+      hora: parseInt(horaMinuto[0], 10) || 0,
+      minuto: parseInt(horaMinuto[1], 10) || 0,
+      diaSemana: campoEnvioAutomaticoDiaSemana.value,
+      dataHora: campoEnvioAutomaticoDataHora.value
+    };
+
+    botaoGuardarEnvioAutomatico.disabled = true;
+    mostrarEstado('A guardar configuração...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        mostrarEstado(dados.mensagem, 'sucesso');
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      })
+      .finally(function () {
+        botaoGuardarEnvioAutomatico.disabled = false;
+      });
+  });
+
+  function mostrarEstado(texto, tipo) {
+    var el = document.getElementById('estadoProducao');
+    el.textContent = texto;
+    el.className = 'estado mostrar ' + tipo;
+  }
+  function esconderEstado() {
+    var el = document.getElementById('estadoProducao');
+    el.className = 'estado';
+  }
+
+  preencherSelectGrupo();
+  carregarLista();
+  carregarDashboard();
+  carregarConfigEnvioAutomatico();
+})();
+
+</script>
+<script>
+(function () {
+  var secaoRelatorios = document.getElementById('secaoRelatorios');
+  var secaoProducao = document.getElementById('secaoProducao');
+  var botaoRelatorios = document.getElementById('botaoAppRelatorios');
+  var botaoProducao = document.getElementById('botaoAppProducao');
+
+  function mostrarApp(nome) {
+    secaoRelatorios.hidden = nome !== 'relatorios';
+    secaoProducao.hidden = nome !== 'producao';
+    botaoRelatorios.classList.toggle('ativo', nome === 'relatorios');
+    botaoProducao.classList.toggle('ativo', nome === 'producao');
+  }
+
+  botaoRelatorios.addEventListener('click', function () { mostrarApp('relatorios'); });
+  botaoProducao.addEventListener('click', function () { mostrarApp('producao'); });
+})();
+</script>
+
+</body>
+</html>
