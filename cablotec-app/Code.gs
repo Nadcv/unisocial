@@ -157,6 +157,21 @@ function doGet(e) {
   if (acao === 'baixarMateriais') {
     return baixarMateriais(e.parameter);
   }
+  if (acao === 'listarMateriaisStock') {
+    return respostaJson(listarMateriaisStock());
+  }
+  if (acao === 'estatisticasEtapas') {
+    return respostaJson(obterEstatisticasEtapas());
+  }
+  if (acao === 'historicoCompleto') {
+    return obterHistoricoCompleto(e.parameter);
+  }
+  if (acao === 'manifest') {
+    return respostaManifest_();
+  }
+  if (acao === 'sw') {
+    return respostaServiceWorker_();
+  }
 
   // --- Pagina principal: um unico HTML com os dois separadores (Relatorios
   // e Controlo de Producao), alternados por um botao no topo. ---
@@ -242,6 +257,12 @@ function doPost(e) {
         resposta = adicionarMaterialPadrao(dados);
       } else if (dados.acao === 'removerMaterialPadrao') {
         resposta = removerMaterialPadrao(dados);
+      } else if (dados.acao === 'adicionarMaterialStock') {
+        resposta = adicionarMaterialStock(dados);
+      } else if (dados.acao === 'removerMaterialStock') {
+        resposta = removerMaterialStock(dados);
+      } else if (dados.acao === 'registarMovimentoStock') {
+        resposta = registarMovimentoStock(dados);
       } else {
         throw new Error('Acao desconhecida.');
       }
@@ -1776,4 +1797,428 @@ function exportarAbaComoBlob(aba, formato) {
   var nomeFicheiro = aba.getName() + '_' +
     Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyyMMdd_HHmm') + '.' + formato;
   return resposta.getBlob().setName(nomeFicheiro);
+}
+
+// ===========================================================================
+// Alerta por WhatsApp (opcional, desligado por omissao). Usa a API gratuita
+// do CallMeBot: basta enviar uma mensagem "I allow callmebot to send me
+// messages" para o numero do bot indicado em
+// https://www.callmebot.com/blog/free-api-whatsapp-messages/, receber de
+// volta uma apikey por WhatsApp, e preencher WHATSAPP_TELEFONE/APIKEY abaixo.
+// Enquanto estiver vazio, enviarAlertaWhatsapp_ nao faz nada (sem erros).
+// ===========================================================================
+var WHATSAPP_TELEFONE = ''; // numero com codigo do pais, sem "+" (ex.: '351912345678')
+var WHATSAPP_APIKEY = '';
+
+function enviarAlertaWhatsapp_(mensagem) {
+  if (!WHATSAPP_TELEFONE || !WHATSAPP_APIKEY) return;
+  try {
+    var url = 'https://api.callmebot.com/whatsapp.php?phone=' + encodeURIComponent(WHATSAPP_TELEFONE) +
+      '&text=' + encodeURIComponent(mensagem) + '&apikey=' + encodeURIComponent(WHATSAPP_APIKEY);
+    UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  } catch (erroWhatsapp) {
+    // Alerta e sempre "best effort" - nunca deve bloquear a operacao principal.
+  }
+}
+
+// ===========================================================================
+// Armazem: stock real de materiais (diferente da estrutura "MateriaisPadrao"
+// por modelo, que e so a lista do que cada modelo precisa). Aqui guarda-se
+// a quantidade realmente em stock, com um historico de movimentos
+// (entradas/saidas) que permite calcular uma previsao simples de quando o
+// stock minimo vai ser atingido.
+// ===========================================================================
+var ABA_MATERIAIS_STOCK = 'Materiais';
+var ABA_MOVIMENTOS_STOCK = 'MovimentosStock';
+var CABECALHOS_MATERIAIS_STOCK = ['id', 'nome', 'categoria', 'unidade', 'stockAtual', 'stockMinimo', 'notas', 'criadoEm'];
+var CABECALHOS_MOVIMENTOS_STOCK = ['id', 'dataHora', 'materialId', 'materialNome', 'tipo', 'quantidade', 'responsavel', 'notas'];
+var DIAS_JANELA_PREVISAO = 60; // janela usada para calcular o consumo medio diario
+
+function obterAbaMateriaisStock_() {
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.getSheetByName(ABA_MATERIAIS_STOCK);
+  if (aba) return aba;
+  aba = folha.insertSheet(ABA_MATERIAIS_STOCK);
+  aba.getRange(1, 1, 1, CABECALHOS_MATERIAIS_STOCK.length).setValues([CABECALHOS_MATERIAIS_STOCK]);
+  aba.setFrozenRows(1);
+  aba.getRange(1, 1, 1, CABECALHOS_MATERIAIS_STOCK.length).setFontWeight('bold');
+  return aba;
+}
+
+function obterAbaMovimentosStock_() {
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.getSheetByName(ABA_MOVIMENTOS_STOCK);
+  if (aba) return aba;
+  aba = folha.insertSheet(ABA_MOVIMENTOS_STOCK);
+  aba.getRange(1, 1, 1, CABECALHOS_MOVIMENTOS_STOCK.length).setValues([CABECALHOS_MOVIMENTOS_STOCK]);
+  aba.setFrozenRows(1);
+  aba.getRange(1, 1, 1, CABECALHOS_MOVIMENTOS_STOCK.length).setFontWeight('bold');
+  return aba;
+}
+
+function gerarIdStock_() {
+  return Utilities.getUuid();
+}
+
+function lerLinhasComoObjetos_(aba, cabecalhos) {
+  var ultimaLinha = aba.getLastRow();
+  if (ultimaLinha < 2) return [];
+  var valores = aba.getRange(2, 1, ultimaLinha - 1, cabecalhos.length).getValues();
+  return valores
+    .map(function (linha) {
+      var obj = {};
+      cabecalhos.forEach(function (h, i) { obj[h] = linha[i]; });
+      return obj;
+    })
+    .filter(function (obj) { return obj.id; });
+}
+
+/**
+ * Lista todos os materiais em stock, com uma previsao simples de dias at
+ * atingir o stock minimo, calculada a partir do consumo medio diario
+ * (saidas) nos ultimos DIAS_JANELA_PREVISAO dias.
+ */
+function listarMateriaisStock() {
+  var abaMateriais = obterAbaMateriaisStock_();
+  var materiais = lerLinhasComoObjetos_(abaMateriais, CABECALHOS_MATERIAIS_STOCK);
+
+  var abaMovimentos = obterAbaMovimentosStock_();
+  var movimentos = lerLinhasComoObjetos_(abaMovimentos, CABECALHOS_MOVIMENTOS_STOCK);
+
+  var limiteJanela = new Date().getTime() - DIAS_JANELA_PREVISAO * 24 * 60 * 60 * 1000;
+
+  var saidasPorMaterial = {};
+  movimentos.forEach(function (mov) {
+    if (mov.tipo !== 'Saida') return;
+    var dataMov = new Date((mov.dataHora || '').toString());
+    if (isNaN(dataMov.getTime()) || dataMov.getTime() < limiteJanela) return;
+    saidasPorMaterial[mov.materialId] = (saidasPorMaterial[mov.materialId] || 0) + (Number(mov.quantidade) || 0);
+  });
+
+  var itens = materiais.map(function (m) {
+    var totalSaidas = saidasPorMaterial[m.id] || 0;
+    var consumoMedioDiario = totalSaidas / DIAS_JANELA_PREVISAO;
+    var stockAtual = Number(m.stockAtual) || 0;
+    var stockMinimo = Number(m.stockMinimo) || 0;
+    var diasAteMinimo = null;
+    if (consumoMedioDiario > 0) {
+      diasAteMinimo = Math.max(0, Math.round((stockAtual - stockMinimo) / consumoMedioDiario));
+    }
+    return {
+      id: m.id,
+      nome: m.nome,
+      categoria: m.categoria,
+      unidade: m.unidade,
+      stockAtual: stockAtual,
+      stockMinimo: stockMinimo,
+      notas: m.notas,
+      consumoMedioDiario: Math.round(consumoMedioDiario * 100) / 100,
+      diasAteMinimo: diasAteMinimo,
+      stockBaixo: stockAtual <= stockMinimo
+    };
+  });
+
+  itens.sort(function (a, b) { return a.nome.localeCompare(b.nome); });
+  return { status: 'ok', itens: itens };
+}
+
+function adicionarMaterialStock(dados) {
+  var nome = (dados.nome || '').toString().trim();
+  var categoria = (dados.categoria || '').toString().trim();
+  var unidade = (dados.unidade || 'un').toString().trim() || 'un';
+  var stockAtual = Number(dados.stockAtual);
+  var stockMinimo = Number(dados.stockMinimo);
+
+  if (!nome) throw new Error('Indique o nome do material.');
+  if (['Eletrica', 'Frio', 'Consumivel'].indexOf(categoria) === -1) {
+    throw new Error('Categoria invalida (use Eletrica, Frio ou Consumivel).');
+  }
+  if (isNaN(stockAtual) || stockAtual < 0) stockAtual = 0;
+  if (isNaN(stockMinimo) || stockMinimo < 0) stockMinimo = 0;
+
+  var aba = obterAbaMateriaisStock_();
+  aba.appendRow([
+    gerarIdStock_(),
+    nome,
+    categoria,
+    unidade,
+    stockAtual,
+    stockMinimo,
+    (dados.notas || '').toString().trim(),
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm')
+  ]);
+
+  return listarMateriaisStock();
+}
+
+function removerMaterialStock(dados) {
+  var id = (dados.id || '').toString().trim();
+  if (!id) throw new Error('ID do material em falta.');
+
+  var aba = obterAbaMateriaisStock_();
+  var ultimaLinha = aba.getLastRow();
+  if (ultimaLinha >= 2) {
+    var ids = aba.getRange(2, 1, ultimaLinha - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (ids[i][0] === id) {
+        aba.deleteRow(i + 2);
+        break;
+      }
+    }
+  }
+  return listarMateriaisStock();
+}
+
+/**
+ * Regista uma entrada ou saida de stock, atualiza o stock atual do
+ * material, e dispara um alerta (WhatsApp, se configurado) se o stock
+ * ficar no minimo ou abaixo dele.
+ */
+function registarMovimentoStock(dados) {
+  var materialId = (dados.materialId || '').toString().trim();
+  var tipo = (dados.tipo || '').toString().trim();
+  var quantidade = Number(dados.quantidade);
+  var responsavel = (dados.responsavel || '').toString().trim();
+
+  if (!materialId) throw new Error('Selecione o material.');
+  if (['Entrada', 'Saida'].indexOf(tipo) === -1) throw new Error('Tipo de movimento invalido.');
+  if (isNaN(quantidade) || quantidade <= 0) throw new Error('Indique uma quantidade valida (maior que zero).');
+  if (!responsavel) throw new Error('Indique o responsavel.');
+
+  var abaMateriais = obterAbaMateriaisStock_();
+  var ultimaLinha = abaMateriais.getLastRow();
+  var linhaMaterial = -1;
+  var materialNome = '';
+  var novoStock = 0;
+
+  if (ultimaLinha >= 2) {
+    var valores = abaMateriais.getRange(2, 1, ultimaLinha - 1, CABECALHOS_MATERIAIS_STOCK.length).getValues();
+    for (var i = 0; i < valores.length; i++) {
+      if (valores[i][0] === materialId) {
+        linhaMaterial = i + 2;
+        materialNome = valores[i][1];
+        var stockAtual = Number(valores[i][4]) || 0;
+        novoStock = tipo === 'Entrada' ? stockAtual + quantidade : stockAtual - quantidade;
+        break;
+      }
+    }
+  }
+
+  if (linhaMaterial === -1) throw new Error('Material nao encontrado.');
+
+  abaMateriais.getRange(linhaMaterial, 5).setValue(novoStock);
+
+  var abaMovimentos = obterAbaMovimentosStock_();
+  abaMovimentos.appendRow([
+    gerarIdStock_(),
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm'),
+    materialId,
+    materialNome,
+    tipo,
+    quantidade,
+    responsavel,
+    (dados.notas || '').toString().trim()
+  ]);
+
+  var stockMinimo = Number(abaMateriais.getRange(linhaMaterial, 6).getValue()) || 0;
+  if (novoStock <= stockMinimo) {
+    enviarAlertaWhatsapp_(EMPRESA + ': stock de "' + materialNome + '" esta no minimo (' + novoStock + ', minimo ' + stockMinimo + ').');
+  }
+
+  return listarMateriaisStock();
+}
+
+// ===========================================================================
+// Estatisticas de etapas (bottlenecks) e tendencia de atrasos, para o
+// dashboard do Controlo de Producao.
+// ===========================================================================
+function obterEstatisticasEtapas() {
+  var porEtapa = ETAPAS.map(function (et) { return { chave: et.chave, rotulo: et.rotulo, somaDias: 0, contagem: 0 }; });
+  var porEtapaMapa = {};
+  porEtapa.forEach(function (p) { porEtapaMapa[p.chave] = p; });
+
+  var atrasosPorMes = {};
+
+  ['grupos', 'ciclos'].forEach(function (tipo) {
+    var aba = obterAba(tipo);
+    var ultimaLinha = aba.getLastRow();
+    if (ultimaLinha < 2) return;
+
+    var valores = aba.getRange(2, 1, ultimaLinha - 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues();
+    valores.forEach(function (linha) {
+      if (!linha[COL.SERIAL - 1]) return;
+      var criadoEm = (linha[COL.CRIADO - 1] || '').toString();
+      var emAtraso = (linha[COL.ATRASO - 1] || '').toString();
+      var dataAnterior = criadoEm ? new Date(criadoEm.replace(' ', 'T')) : null;
+
+      if (criadoEm) {
+        var mesChave = criadoEm.slice(0, 7);
+        atrasosPorMes[mesChave] = atrasosPorMes[mesChave] || { total: 0, atraso: 0 };
+        atrasosPorMes[mesChave].total = atrasosPorMes[mesChave].total + 1;
+        if (emAtraso === 'Sim') atrasosPorMes[mesChave].atraso = atrasosPorMes[mesChave].atraso + 1;
+      }
+
+      ETAPAS.forEach(function (et, indice) {
+        var bruto = (linha[COL_PRIMEIRA_ETAPA - 1 + indice] || '').toString();
+        var dataConcluida = bruto.split(SEPARADOR_NOTA)[0];
+        if (!dataConcluida || !dataAnterior) return;
+        var dataEtapa = new Date(dataConcluida.replace(' ', 'T'));
+        if (isNaN(dataEtapa.getTime())) return;
+        var dias = (dataEtapa.getTime() - dataAnterior.getTime()) / (1000 * 60 * 60 * 24);
+        if (dias >= 0) {
+          porEtapaMapa[et.chave].somaDias = porEtapaMapa[et.chave].somaDias + dias;
+          porEtapaMapa[et.chave].contagem = porEtapaMapa[et.chave].contagem + 1;
+        }
+        dataAnterior = dataEtapa;
+      });
+    });
+  });
+
+  var porEtapaFinal = porEtapa.map(function (p) {
+    return {
+      chave: p.chave,
+      rotulo: p.rotulo,
+      mediaDias: p.contagem ? Math.round((p.somaDias / p.contagem) * 10) / 10 : null,
+      contagem: p.contagem
+    };
+  });
+
+  var mesesOrdenados = Object.keys(atrasosPorMes).sort();
+  var tendenciaAtraso = mesesOrdenados.map(function (mes) {
+    return { mes: mes, total: atrasosPorMes[mes].total, atraso: atrasosPorMes[mes].atraso };
+  });
+
+  return { status: 'ok', porEtapa: porEtapaFinal, tendenciaAtraso: tendenciaAtraso };
+}
+
+// ===========================================================================
+// Historico completo por numero de serie: junta os envios de Relatorios
+// (pastas no Drive) com as etapas de Controlo de Producao, num unico feed
+// cronologico - para nao ter de ir aos dois separadores separadamente.
+// ===========================================================================
+function isoDeDataHora_(texto) {
+  var d = new Date(texto.toString().replace(' ', 'T'));
+  return isNaN(d.getTime()) ? texto.toString() : d.toISOString();
+}
+
+function obterHistoricoCompleto(parametros) {
+  var resposta;
+  try {
+    var serial = (parametros.serial || '').toString().trim();
+    if (!serial) {
+      throw new Error('Numero de serie em falta.');
+    }
+
+    var eventos = [];
+    var raiz = DriveApp.getFolderById(FOLDER_ID);
+    var prefixoSerial = sanitizeNome(serial);
+
+    var pastas = raiz.getFolders();
+    while (pastas.hasNext()) {
+      var pasta = pastas.next();
+      var nome = pasta.getName();
+      var ehDesteSerial =
+        nome.indexOf('SN_' + prefixoSerial + '_Grupo') === 0 ||
+        nome.indexOf('CICLO_' + prefixoSerial + '_Grupo') === 0;
+      if (!ehDesteSerial) continue;
+
+      eventos.push({
+        data: pasta.getDateCreated().toISOString(),
+        tipo: 'relatorio',
+        descricao: 'Relatorio enviado (' + nome + ')'
+      });
+    }
+
+    ['grupos', 'ciclos'].forEach(function (tipo) {
+      var aba = obterAba(tipo);
+      var linha = encontrarLinha(aba, serial);
+      if (linha === -1) return;
+
+      var valores = aba.getRange(linha, 1, 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues()[0];
+      var obj = linhaParaObjeto(valores);
+      var nomeTipo = tipo === 'ciclos' ? 'Ciclos' : 'Grupos';
+
+      if (obj.criadoEm) {
+        eventos.push({
+          data: isoDeDataHora_(obj.criadoEm),
+          tipo: 'producao',
+          descricao: 'Registo de producao criado (' + nomeTipo + ')'
+        });
+      }
+
+      ETAPAS.forEach(function (et) {
+        var info = obj.etapas[et.chave];
+        if (info && info.data) {
+          var descricaoEtapa = 'Etapa concluida: ' + et.rotulo;
+          if (info.nota) descricaoEtapa = descricaoEtapa + ' (' + info.nota + ')';
+          eventos.push({ data: isoDeDataHora_(info.data), tipo: 'producao', descricao: descricaoEtapa });
+        }
+      });
+    });
+
+    eventos.sort(function (a, b) { return a.data.localeCompare(b.data); });
+    resposta = { status: 'ok', eventos: eventos };
+  } catch (erro) {
+    resposta = { status: 'erro', msg: erro && erro.message ? erro.message : String(erro) };
+  }
+
+  return respostaJson(resposta);
+}
+
+// ===========================================================================
+// Suporte PWA (experimental, melhor esforco): manifesto + service worker,
+// servidos pelo proprio doGet (?action=manifest / ?action=sw), para
+// permitir "Adicionar ao ecra principal" e um arranque mais rapido/parcial
+// sem rede. NAO torna o envio de fotos/e-mails possivel offline - isso
+// continua a precisar de ligacao, como em qualquer app Apps Script.
+// ===========================================================================
+var ICONE_APP_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192">' +
+  '<rect width="192" height="192" rx="24" fill="#0d47a1"/>' +
+  '<text x="96" y="132" font-size="110" fill="#fff" text-anchor="middle" font-family="Arial, sans-serif">C</text>' +
+  '</svg>';
+
+function respostaManifest_() {
+  var manifest = {
+    name: EMPRESA + ' - Relatorios e Controlo de Producao',
+    short_name: 'Cablotec',
+    start_url: ScriptApp.getService().getUrl(),
+    display: 'standalone',
+    background_color: '#1a73e8',
+    theme_color: '#0d47a1',
+    icons: [{
+      src: 'data:image/svg+xml;base64,' + Utilities.base64Encode(ICONE_APP_SVG),
+      sizes: '192x192',
+      type: 'image/svg+xml'
+    }]
+  };
+  var saida = ContentService.createTextOutput(JSON.stringify(manifest));
+  saida.setMimeType(ContentService.MimeType.JSON);
+  return saida;
+}
+
+function respostaServiceWorker_() {
+  var js = [
+    "self.addEventListener('install', function (evento) {",
+    "  evento.waitUntil(",
+    "    caches.open('cablotec-shell-v1').then(function (cache) {",
+    "      return cache.add(self.registration.scope);",
+    "    })",
+    "  );",
+    "});",
+    "self.addEventListener('fetch', function (evento) {",
+    "  if (evento.request.mode !== 'navigate') return;", // so cuida da pagina principal, nunca das chamadas de dados/acao
+    "  evento.respondWith(",
+    "    fetch(evento.request).then(function (resposta) {",
+    "      caches.open('cablotec-shell-v1').then(function (cache) { cache.put(evento.request, resposta.clone()); });",
+    "      return resposta;",
+    "    }).catch(function () {",
+    "      return caches.match(evento.request);",
+    "    })",
+    "  );",
+    "});"
+  ].join('\n');
+
+  var saida = ContentService.createTextOutput(js);
+  saida.setMimeType(ContentService.MimeType.JAVASCRIPT);
+  return saida;
 }

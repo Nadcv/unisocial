@@ -100,6 +100,49 @@ de Produção guarda os seus registos) — não é um script standalone.
    guarde. Use os cartões do fundo para o resumo por e-mail (manual ou
    automático).
 
+## Novidades
+
+- **📷 Ler código QR / 🏷️ Gerar etiqueta** — junto ao número de série,
+  nos dois separadores. "Ler código QR" é uma **alternativa** a
+  escrever à mão (abre a câmara e preenche o campo sozinho); "Gerar
+  etiqueta" abre uma janela com um código QR grande para imprimir e
+  colar na máquina, para poder ser lido depois. Precisa de internet
+  normal (duas bibliotecas pequenas carregadas de um CDN) e de
+  permissão de câmara no browser.
+- **Armazém — stock de materiais** (dentro de Controlo de Produção) —
+  diferente da tabela "Materiais por modelo" (que é só a lista do que
+  cada modelo precisa): aqui regista-se o stock real (quantidade
+  atual e mínima) e cada entrada/saída, e a aplicação calcula uma
+  previsão de quantos dias faltam até atingir o mínimo, com base no
+  consumo médio dos últimos 60 dias. Fica assinalado a vermelho
+  quando faltam 7 dias ou menos.
+- **Etapas mais lentas (gargalos)** e **tendência de atrasos por mês**
+  — novo cartão no Painel que mostra o tempo médio gasto em cada etapa
+  (para identificar onde a produção costuma atrasar) e quantos
+  registos ficaram em atraso em cada um dos últimos meses.
+- **Histórico completo por número de série** — dentro de um registo
+  de Controlo de Produção, o botão "Ver histórico completo" junta num
+  único feed cronológico os relatórios enviados (Drive) e as etapas
+  de produção concluídas, sem ter de consultar os dois separadores em
+  separado.
+- **Alerta por WhatsApp (opcional)** — quando um material do Armazém
+  atinge o stock mínimo, pode enviar um aviso por WhatsApp em vez de
+  (ou além de) e-mail. Desligado por omissão. Para ativar: envie a
+  mensagem "I allow callmebot to send me messages" para o número
+  indicado em
+  https://www.callmebot.com/blog/free-api-whatsapp-messages/, receba a
+  sua `apikey` de volta por WhatsApp, e preencha `WHATSAPP_TELEFONE` e
+  `WHATSAPP_APIKEY` no topo do `Code.gs` (procure por "Alerta por
+  WhatsApp"). É grátis e não precisa de aprovação de nenhuma app.
+- **Funciona parcialmente sem rede (PWA experimental)** — a aplicação
+  pode ser "Adicionada ao ecrã principal" do telemóvel, e a própria
+  página fica em cache para abrir mais rapidamente/mesmo sem rede.
+  **Importante:** isto não torna o envio de fotos, e-mails ou
+  gravações possível sem internet — essas continuam a precisar de
+  ligação, como em qualquer aplicação Apps Script. É um recurso
+  experimental e best-effort: dependendo do browser, pode não
+  registar-se.
+
 ## Notas técnicas
 
 - As duas partes partilham o mesmo `doGet`/`doPost`: os Relatórios
@@ -118,3 +161,10 @@ de Produção guarda os seus registos) — não é um script standalone.
   foi apagada — continuam a existir como apps autónomas, caso prefira
   manter alguma delas publicada separadamente. Esta pasta
   (`cablotec-app/`) é a versão unificada recomendada a partir de agora.
+- O Armazém cria duas abas novas na Google Sheet, na primeira vez que
+  forem usadas: `Materiais` (stock real) e `MovimentosStock`
+  (histórico de entradas/saídas). São independentes das abas `Grupos`,
+  `Ciclos` e `MateriaisPadrao` já existentes.
+- O manifesto e o service worker do PWA são servidos pelo próprio
+  `doGet` (`?action=manifest` e `?action=sw`), para não precisar de
+  nenhum ficheiro extra no projeto.

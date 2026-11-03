@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
 <title>Cablotec - Relatório de Testes</title>
+<link rel="manifest" href="?action=manifest" />
 <style>
   :root {
     --azul: #1a73e8;
@@ -510,6 +511,49 @@
     cursor: pointer;
   }
 
+  /* ---- Estatisticas de etapas / tendencia de atrasos / stock ---- */
+  .etapa-stat-linha { margin-bottom: 8px; }
+  .etapa-stat-rotulo { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 3px; }
+  .etapa-stat-rotulo .dias { font-weight: 700; color: var(--texto-suave); }
+  .etapa-stat-barra-fundo { background: var(--cinza-fundo); border-radius: 999px; height: 8px; overflow: hidden; }
+  .etapa-stat-barra { background: var(--azul); height: 100%; border-radius: 999px; }
+  .etapa-stat-barra.lenta { background: var(--vermelho); }
+  .tendencia-linha { display: flex; justify-content: space-between; font-size: 0.82rem; padding: 4px 0; border-bottom: 1px solid var(--cinza-borda); }
+  .stock-previsao { font-size: 0.74rem; }
+  .stock-previsao.urgente { color: var(--vermelho); font-weight: 700; }
+  .evento-historico { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--cinza-borda); font-size: 0.82rem; }
+  .evento-historico .evento-data { flex: 0 0 auto; color: var(--texto-suave); font-size: 0.74rem; white-space: nowrap; }
+  .evento-historico.tipo-relatorio .evento-icone { color: var(--azul); }
+  .evento-historico.tipo-producao .evento-icone { color: var(--verde); }
+
+  /* ---- Leitor de codigo QR (camara) - partilhado pelos dois separadores ---- */
+  #qrOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #qrOverlay[hidden] { display: none; }
+  .qr-caixa {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px;
+    max-width: 92vw;
+    text-align: center;
+  }
+  .qr-caixa video { width: 100%; max-width: 360px; border-radius: 8px; background: #000; }
+  .qr-caixa .qr-ajuda { font-size: 0.82rem; color: var(--texto-suave); margin: 8px 0; }
+  .qr-caixa button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--cinza-borda);
+    background: #fafbfc;
+    cursor: pointer;
+    font-weight: 600;
+  }
 </style>
 </head>
 <body>
@@ -536,6 +580,12 @@
     <div class="card">
       <label class="campo-label" for="serial">Número de série da máquina</label>
       <input type="text" id="serial" name="serial" placeholder="Ex.: SN-123456" autocomplete="off" required />
+
+      <div class="linha-botoes-secundarios">
+        <button type="button" class="botao-secundario" id="botaoLerQR">📷 Ler código QR</button>
+        <button type="button" class="botao-secundario" id="botaoGerarQR">🏷️ Gerar etiqueta</button>
+      </div>
+      <div class="ajuda">A leitura de QR é uma alternativa a escrever o número de série — continue a poder escrevê-lo à mão normalmente.</div>
 
       <div class="linha-botoes-secundarios">
         <button type="button" class="botao-secundario" id="botaoVerRascunhos">Rascunhos em aberto</button>
@@ -684,14 +734,27 @@
     </div>
   </div>
 
+  <div class="card" id="cardEstatisticasEtapas">
+    <div class="card-titulo">Etapas mais lentas (gargalos)</div>
+    <div class="ajuda" style="margin-bottom:8px;">Tempo médio (em dias) entre o início do registo (ou etapa anterior) e cada etapa ser marcada como concluída, em todos os registos.</div>
+    <div id="listaEstatisticasEtapas"><div class="ajuda">A carregar...</div></div>
+    <div style="height:10px"></div>
+    <div class="card-titulo" style="font-size:0.9rem;">Tendência de atrasos por mês</div>
+    <div id="listaTendenciaAtraso"><div class="ajuda">A carregar...</div></div>
+  </div>
+
   <div class="card">
     <div class="card-titulo">Procurar / criar número de série</div>
     <label class="campo-label" for="serial">Número de série da máquina</label>
     <input type="text" id="serialProducao" placeholder="Ex.: SN-123456" autocomplete="off" />
     <div class="linha-botoes">
+      <button type="button" class="botao botao-largo" id="botaoLerQRProducao">📷 Ler código QR</button>
+      <button type="button" class="botao botao-largo" id="botaoGerarQRProducao">🏷️ Gerar etiqueta</button>
+    </div>
+    <div class="linha-botoes">
       <button type="button" class="botao botao-primario botao-largo" id="botaoProcurar">Procurar / criar</button>
     </div>
-    <div class="ajuda">Se o número de série já existir, os dados são carregados. Se não existir, cria-se um registo novo ao guardar.</div>
+    <div class="ajuda">Se o número de série já existir, os dados são carregados. Se não existir, cria-se um registo novo ao guardar. A leitura de QR é uma alternativa a escrever à mão.</div>
   </div>
 
   <div class="card" id="cardRegisto" hidden>
@@ -777,6 +840,11 @@
 
     <div id="linkDriveContainer"></div>
 
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-largo" id="botaoVerHistoricoCompleto">🕘 Ver histórico completo (Relatórios + Produção)</button>
+    </div>
+    <div id="historicoCompletoContainer" style="margin-top:10px;"></div>
+
     <div id="historicoContainer" style="margin-top:12px;"></div>
 
     <div style="height:16px"></div>
@@ -796,6 +864,54 @@
       <button type="button" class="filtro" data-filtro="todos">Todos</button>
     </div>
     <div id="listaRegistos"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-titulo">Armazém — stock de materiais</div>
+    <div class="ajuda" style="margin-bottom:10px;">Stock real (diferente da tabela de materiais por modelo, acima): registe entradas/saídas e veja uma previsão de quando cada material vai atingir o mínimo, com base no consumo médio dos últimos 60 dias.</div>
+
+    <label class="campo-label">Novo material</label>
+    <div class="materiais-add-linha">
+      <input type="text" id="novoMatStockNome" placeholder="Nome" autocomplete="off" />
+      <select id="novoMatStockCategoria">
+        <option value="Eletrica">Elétrica</option>
+        <option value="Frio">Frio</option>
+        <option value="Consumivel">Consumível</option>
+      </select>
+      <input type="text" id="novoMatStockUnidade" placeholder="Unidade (un, m, kg...)" value="un" autocomplete="off" />
+      <input type="text" id="novoMatStockAtual" placeholder="Stock inicial" autocomplete="off" />
+      <input type="text" id="novoMatStockMinimo" placeholder="Stock mínimo" autocomplete="off" />
+      <button type="button" class="botao-add-material" id="botaoAddMatStock">+</button>
+    </div>
+
+    <div style="height:14px"></div>
+
+    <label class="campo-label">Registar movimento</label>
+    <div class="duas-colunas">
+      <div>
+        <select id="movStockMaterial"><option value="">Selecione o material...</option></select>
+      </div>
+      <div>
+        <select id="movStockTipo">
+          <option value="Saida">Saída (consumo)</option>
+          <option value="Entrada">Entrada (reposição)</option>
+        </select>
+      </div>
+    </div>
+    <div class="duas-colunas" style="margin-top:8px;">
+      <div>
+        <input type="text" id="movStockQuantidade" placeholder="Quantidade" autocomplete="off" />
+      </div>
+      <div>
+        <input type="text" id="movStockResponsavel" placeholder="Responsável" autocomplete="off" />
+      </div>
+    </div>
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-primario botao-largo" id="botaoRegistarMovStock">Registar movimento</button>
+    </div>
+
+    <div style="height:14px"></div>
+    <div id="listaMateriaisStock"><div class="ajuda">A carregar...</div></div>
   </div>
 
   <div class="card">
@@ -865,6 +981,17 @@
 
 
 </div>
+
+<div id="qrOverlay" hidden>
+  <div class="qr-caixa">
+    <video id="qrVideo" playsinline muted></video>
+    <div class="qr-ajuda">Aponte a câmara para o código QR...</div>
+    <button type="button" id="qrFechar">Cancelar</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
   // ---------------------------------------------------------------------
   // Unico sitio da aplicacao que interpreta a resposta de um fetch(): se o
@@ -886,6 +1013,89 @@
         throw new Error('Resposta inesperada do servidor.');
       }
     });
+  }
+
+  // ---------------------------------------------------------------------
+  // Leitura de codigo QR pela camara (ALTERNATIVA a escrever o numero de
+  // serie a mao - nao o substitui) e geracao de etiquetas QR para colar
+  // nas maquinas. Partilhado pelos dois separadores.
+  // ---------------------------------------------------------------------
+  var _qrStreamAtivo = null;
+
+  function abrirLeitorQR(aoLer) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Este browser não permite aceder à câmara para ler códigos QR. Escreva o número de série à mão.');
+      return;
+    }
+    var overlay = document.getElementById('qrOverlay');
+    var video = document.getElementById('qrVideo');
+    var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+    overlay.hidden = false;
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(function (stream) {
+      _qrStreamAtivo = stream;
+      video.srcObject = stream;
+      video.play();
+
+      function tick() {
+        if (overlay.hidden) return;
+        if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          var imagem = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          var codigo = jsQR(imagem.data, imagem.width, imagem.height);
+          if (codigo && codigo.data) {
+            fecharLeitorQR();
+            aoLer(codigo.data);
+            return;
+          }
+        }
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }).catch(function (erro) {
+      alert('Não foi possível aceder à câmara: ' + erro.message);
+      fecharLeitorQR();
+    });
+  }
+
+  function fecharLeitorQR() {
+    if (_qrStreamAtivo) {
+      _qrStreamAtivo.getTracks().forEach(function (t) { t.stop(); });
+      _qrStreamAtivo = null;
+    }
+    document.getElementById('qrOverlay').hidden = true;
+  }
+
+  document.getElementById('qrFechar').addEventListener('click', fecharLeitorQR);
+
+  function gerarEtiquetaQR(texto) {
+    if (!texto) {
+      alert('Escreva primeiro o número de série.');
+      return;
+    }
+    var janela = window.open('', '_blank');
+    if (!janela) {
+      alert('O browser bloqueou a janela nova. Permita pop-ups para gerar a etiqueta.');
+      return;
+    }
+    // A janela nova tem o seu proprio documento vazio (sem as bibliotecas da
+    // pagina principal), por isso carrega a sua propria copia do qrcodejs
+    // antes de desenhar o codigo. O "</" + "script>" partido evita terminar
+    // prematuramente o <script> desta propria pagina ao ser interpretado.
+    var scriptFechar = '</' + 'script>';
+    janela.document.write(
+      '<title>Etiqueta QR - ' + texto + '</title>' +
+      '<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js">' + scriptFechar +
+      '<body style="text-align:center; font-family:sans-serif; padding:20px;">' +
+      '<h3>' + texto + '</h3><div id="q" style="display:inline-block;"></div>' +
+      '<p><button onclick="window.print()" style="margin-top:16px;padding:10px 16px; font-size:1rem;">Imprimir</button></p>' +
+      '<script>new QRCode(document.getElementById("q"), { text: ' + JSON.stringify(texto) + ', width: 240, height: 240 });' + scriptFechar +
+      '</body>'
+    );
+    janela.document.close();
   }
 </script>
 <script>
@@ -1055,6 +1265,16 @@
   var campoGrupo = document.getElementById('grupo');
   var campoTipoValvula = document.getElementById('tipoValvula');
   var campoSerial = document.getElementById('serial');
+
+  document.getElementById('botaoLerQR').addEventListener('click', function () {
+    abrirLeitorQR(function (texto) {
+      campoSerial.value = texto;
+      verificarRascunho();
+    });
+  });
+  document.getElementById('botaoGerarQR').addEventListener('click', function () {
+    gerarEtiquetaQR(campoSerial.value.trim());
+  });
 
   preencherSelect('grupo', LISTAS.grupos, true);
 
@@ -1405,7 +1625,10 @@
     }
 
     var promessaRascunhoJson = promessaRascunho.then(aoReceberRascunhoResposta);
-    promessaRascunhoJson.then(aoProcessarRascunho);
+    promessaRascunhoJson.then(aoProcessarRascunho).catch(function () {
+      // Verificacao automatica (ao sair do campo) - falha em silencio, o
+      // operador pode sempre continuar a escrever o resto do formulario.
+    });
   }
 
   /**
@@ -2120,6 +2343,16 @@
   abaCiclos.addEventListener('click', function () { TIPO_ATUAL = 'ciclos'; atualizarAba(); });
 
   var campoSerial = document.getElementById('serialProducao');
+
+  document.getElementById('botaoLerQRProducao').addEventListener('click', function () {
+    abrirLeitorQR(function (texto) {
+      campoSerial.value = texto;
+    });
+  });
+  document.getElementById('botaoGerarQRProducao').addEventListener('click', function () {
+    gerarEtiquetaQR(campoSerial.value.trim());
+  });
+
   var cardRegisto = document.getElementById('cardRegisto');
   var tituloRegisto = document.getElementById('tituloRegisto');
   var badgesRegisto = document.getElementById('badgesRegisto');
@@ -2691,6 +2924,181 @@
     });
   }
 
+  // ---------------------------------------------------------------------
+  // Etapas mais lentas (gargalos) e tendencia de atrasos por mes.
+  // ---------------------------------------------------------------------
+  var listaEstatisticasEtapas = document.getElementById('listaEstatisticasEtapas');
+  var listaTendenciaAtraso = document.getElementById('listaTendenciaAtraso');
+
+  function carregarEstatisticasEtapas() {
+    if (!APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=estatisticasEtapas').then(respostaParaJsonGlobal).then(function (dados) {
+      if (dados.status !== 'ok') {
+        listaEstatisticasEtapas.innerHTML = '<div class="ajuda">Erro ao carregar estatísticas.</div>';
+        return;
+      }
+      var comDados = dados.porEtapa.filter(function (e) { return e.mediaDias !== null; });
+      if (!comDados.length) {
+        listaEstatisticasEtapas.innerHTML = '<div class="ajuda">Ainda sem etapas concluídas suficientes para calcular médias.</div>';
+      } else {
+        var maxDias = Math.max.apply(null, comDados.map(function (e) { return e.mediaDias; }));
+        var ordenado = comDados.slice().sort(function (a, b) { return b.mediaDias - a.mediaDias; });
+        listaEstatisticasEtapas.innerHTML = ordenado.map(function (e, indice) {
+          var largura = maxDias > 0 ? Math.round((e.mediaDias / maxDias) * 100) : 0;
+          var lenta = indice === 0 ? ' lenta' : '';
+          return '<div class="etapa-stat-linha">' +
+            '<div class="etapa-stat-rotulo"><span>' + e.rotulo + '</span><span class="dias">' + e.mediaDias + ' dia(s)</span></div>' +
+            '<div class="etapa-stat-barra-fundo"><div class="etapa-stat-barra' + lenta + '" style="width:' + largura + '%;"></div></div>' +
+          '</div>';
+        }).join('');
+      }
+
+      if (!dados.tendenciaAtraso.length) {
+        listaTendenciaAtraso.innerHTML = '<div class="ajuda">Ainda sem dados suficientes.</div>';
+      } else {
+        listaTendenciaAtraso.innerHTML = dados.tendenciaAtraso.slice(-6).map(function (m) {
+          return '<div class="tendencia-linha"><span>' + m.mes + '</span><span>' + m.atraso + ' em atraso / ' + m.total + ' total</span></div>';
+        }).join('');
+      }
+    }).catch(function (erro) {
+      listaEstatisticasEtapas.innerHTML = '<div class="ajuda">' + erro.message + '</div>';
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Armazem - stock real de materiais, movimentos, e previsao simples.
+  // ---------------------------------------------------------------------
+  var listaMateriaisStock = document.getElementById('listaMateriaisStock');
+  var movStockMaterial = document.getElementById('movStockMaterial');
+
+  function carregarMateriaisStock() {
+    if (!APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=listarMateriaisStock').then(respostaParaJsonGlobal).then(function (dados) {
+      if (dados.status !== 'ok') {
+        listaMateriaisStock.innerHTML = '<div class="ajuda">Erro ao carregar materiais.</div>';
+        return;
+      }
+      movStockMaterial.innerHTML = '<option value="">Selecione o material...</option>' + dados.itens.map(function (m) {
+        return '<option value="' + m.id + '">' + m.nome + ' (' + m.stockAtual + ' ' + m.unidade + ')</option>';
+      }).join('');
+
+      if (!dados.itens.length) {
+        listaMateriaisStock.innerHTML = '<div class="ajuda">Ainda sem materiais em stock registados.</div>';
+        return;
+      }
+      listaMateriaisStock.innerHTML = dados.itens.map(function (m) {
+        var previsaoTexto = '';
+        if (m.diasAteMinimo !== null) {
+          var urgente = m.diasAteMinimo <= 7;
+          previsaoTexto = '<div class="stock-previsao' + (urgente ? ' urgente' : '') + '">Previsão: atinge o mínimo em ' + m.diasAteMinimo + ' dia(s) (consumo médio ' + m.consumoMedioDiario + '/dia)</div>';
+        }
+        return '<div class="item-material" style="align-items:flex-start;">' +
+          '<span class="codigo-material">' + m.nome + '</span>' +
+          '<span class="descricao-material">' +
+            m.categoria + ' · ' + m.stockAtual + ' ' + m.unidade +
+            (m.stockBaixo ? ' <span class="badge badge-atraso">BAIXO</span>' : '') +
+            previsaoTexto +
+          '</span>' +
+          '<button type="button" data-id="' + m.id + '" aria-label="Remover">✕</button>' +
+        '</div>';
+      }).join('');
+    }).catch(function (erro) {
+      listaMateriaisStock.innerHTML = '<div class="ajuda">' + erro.message + '</div>';
+    });
+  }
+
+  listaMateriaisStock.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('button[data-id]');
+    if (!botao) return;
+    if (!window.confirm('Remover este material do stock?')) return;
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ acao: 'removerMaterialStock', id: botao.dataset.id }) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') { mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro'); return; }
+        carregarMateriaisStock();
+      })
+      .catch(function (erro) { mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro'); });
+  });
+
+  document.getElementById('botaoAddMatStock').addEventListener('click', function () {
+    var payload = {
+      acao: 'adicionarMaterialStock',
+      nome: document.getElementById('novoMatStockNome').value.trim(),
+      categoria: document.getElementById('novoMatStockCategoria').value,
+      unidade: document.getElementById('novoMatStockUnidade').value.trim(),
+      stockAtual: document.getElementById('novoMatStockAtual').value.trim(),
+      stockMinimo: document.getElementById('novoMatStockMinimo').value.trim()
+    };
+    if (!APPS_SCRIPT_URL) { mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro'); return; }
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') { mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro'); return; }
+        document.getElementById('novoMatStockNome').value = '';
+        document.getElementById('novoMatStockAtual').value = '';
+        document.getElementById('novoMatStockMinimo').value = '';
+        mostrarEstado('Material adicionado ao stock.', 'sucesso');
+        carregarMateriaisStock();
+      })
+      .catch(function (erro) { mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro'); });
+  });
+
+  document.getElementById('botaoRegistarMovStock').addEventListener('click', function () {
+    var payload = {
+      acao: 'registarMovimentoStock',
+      materialId: movStockMaterial.value,
+      tipo: document.getElementById('movStockTipo').value,
+      quantidade: document.getElementById('movStockQuantidade').value.trim(),
+      responsavel: document.getElementById('movStockResponsavel').value.trim()
+    };
+    if (!payload.materialId) { mostrarEstado('Selecione o material.', 'erro'); return; }
+    if (!APPS_SCRIPT_URL) { mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro'); return; }
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') { mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro'); return; }
+        document.getElementById('movStockQuantidade').value = '';
+        mostrarEstado('Movimento registado.', 'sucesso');
+        carregarMateriaisStock();
+      })
+      .catch(function (erro) { mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro'); });
+  });
+
+  // ---------------------------------------------------------------------
+  // Historico completo (Relatorios + Producao) para o numero de serie
+  // aberto no registo atual.
+  // ---------------------------------------------------------------------
+  var historicoCompletoContainer = document.getElementById('historicoCompletoContainer');
+
+  document.getElementById('botaoVerHistoricoCompleto').addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) { mostrarEstado('Indique o número de série.', 'erro'); return; }
+    if (!APPS_SCRIPT_URL) { mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro'); return; }
+
+    historicoCompletoContainer.innerHTML = '<div class="ajuda">A carregar...</div>';
+    fetch(APPS_SCRIPT_URL + '?action=historicoCompleto&serial=' + encodeURIComponent(serial)).then(respostaParaJsonGlobal).then(function (dados) {
+      if (dados.status !== 'ok') {
+        historicoCompletoContainer.innerHTML = '<div class="ajuda">Erro: ' + (dados.msg || 'falha desconhecida.') + '</div>';
+        return;
+      }
+      if (!dados.eventos.length) {
+        historicoCompletoContainer.innerHTML = '<div class="ajuda">Ainda sem histórico para este número de série.</div>';
+        return;
+      }
+      historicoCompletoContainer.innerHTML = dados.eventos.map(function (ev) {
+        var icone = ev.tipo === 'relatorio' ? '📷' : '🏭';
+        var dataFormatada = new Date(ev.data).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return '<div class="evento-historico tipo-' + ev.tipo + '">' +
+          '<span class="evento-data">' + dataFormatada + '</span>' +
+          '<span class="evento-icone">' + icone + '</span>' +
+          '<span>' + ev.descricao + '</span>' +
+        '</div>';
+      }).join('');
+    }).catch(function (erro) {
+      historicoCompletoContainer.innerHTML = '<div class="ajuda">' + erro.message + '</div>';
+    });
+  });
+
   var botaoEnviarResumo = document.getElementById('botaoEnviarResumo');
   botaoEnviarResumo.addEventListener('click', function () {
     var emails = document.getElementById('emailsResumo').value.trim();
@@ -2826,6 +3234,8 @@
   preencherSelectGrupo();
   carregarLista();
   carregarDashboard();
+  carregarEstatisticasEtapas();
+  carregarMateriaisStock();
   carregarConfigEnvioAutomatico();
 })();
 
@@ -2847,6 +3257,18 @@
   botaoRelatorios.addEventListener('click', function () { mostrarApp('relatorios'); });
   botaoProducao.addEventListener('click', function () { mostrarApp('producao'); });
 })();
+</script>
+
+<script>
+  // PWA experimental (melhor esforco): permite "Adicionar ao ecra principal"
+  // e cache da pagina principal. Nunca torna o envio de fotos/e-mails
+  // possivel sem rede - so os pedidos de navegacao sao guardados em cache.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('?action=sw').catch(function () {
+      // Melhor esforco - alguns browsers/implementacoes do Apps Script
+      // podem bloquear o registo; a app continua a funcionar normalmente.
+    });
+  }
 </script>
 
 </body>
