@@ -193,6 +193,10 @@ comprimidas, tudo gravado na mesma aba "Checklists" ao enviar na
 última página). Este não tem a pergunta final de não conformidade
 (o original também não tem), por isso não dispara o alerta por
 WhatsApp.
+- Na página 6/9 (testes do Clico), além dos 3 testes do formulário
+  original (elétrico, pressão, vácuo), foi acrescentado um 4º campo de
+  fotos — **"Teste elétrico Humidificador"** — também obrigatório,
+  pedido fora do formulário original.
 
 ## Campos de escolha com "Outro (escrever)..."
 

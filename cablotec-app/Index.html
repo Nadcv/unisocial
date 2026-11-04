@@ -1488,6 +1488,13 @@
         <div class="previews" id="cc-fotosTesteVacuoPreviews"></div>
         <div class="ajuda" style="margin-bottom:12px;">Conforme IT127</div>
 
+        <label class="campo-label">Teste elétrico Humidificador</label>
+        <div class="botoes-foto">
+          <label class="botao-foto">📷 Tirar foto<input type="file" accept="image/*" capture="environment" id="cc-fotosTesteEletricoHumidificadorCamera" /></label>
+          <label class="botao-foto">🖼️ Galeria<input type="file" accept="image/*" multiple id="cc-fotosTesteEletricoHumidificadorGaleria" /></label>
+        </div>
+        <div class="previews" id="cc-fotosTesteEletricoHumidificadorPreviews"></div>
+
         <label class="campo-label">Assinatura do Responsável</label>
         <div class="assinatura-wrap">
           <canvas id="cc-assinatura6"></canvas>
@@ -4593,7 +4600,7 @@
   // ---------------------------------------------------------------------
   // Fotos: página 5 (identificação) e página 6 (3 testes).
   // ---------------------------------------------------------------------
-  var ccFotos = { fotosIdentificacao: [], fotosTesteEletrico: [], fotosTestePressao: [], fotosTesteVacuo: [] };
+  var ccFotos = { fotosIdentificacao: [], fotosTesteEletrico: [], fotosTestePressao: [], fotosTesteVacuo: [], fotosTesteEletricoHumidificador: [] };
 
   function renderizarPreviewsChecklistCiclos(chave, idPreviews) {
     var container = document.getElementById(idPreviews);
@@ -4632,6 +4639,7 @@
   ligarUploadFotosCiclos('fotosTesteEletrico', 'cc-fotosTesteEletricoCamera', 'cc-fotosTesteEletricoGaleria', 'cc-fotosTesteEletricoPreviews');
   ligarUploadFotosCiclos('fotosTestePressao', 'cc-fotosTestePressaoCamera', 'cc-fotosTestePressaoGaleria', 'cc-fotosTestePressaoPreviews');
   ligarUploadFotosCiclos('fotosTesteVacuo', 'cc-fotosTesteVacuoCamera', 'cc-fotosTesteVacuoGaleria', 'cc-fotosTesteVacuoPreviews');
+  ligarUploadFotosCiclos('fotosTesteEletricoHumidificador', 'cc-fotosTesteEletricoHumidificadorCamera', 'cc-fotosTesteEletricoHumidificadorGaleria', 'cc-fotosTesteEletricoHumidificadorPreviews');
 
   // ---------------------------------------------------------------------
   // Navegação entre páginas (1 a 9) e validação dos campos obrigatórios.
@@ -4692,6 +4700,7 @@
       if (!ccFotos.fotosTesteEletrico.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste elétrico.', 'erro'); return false; }
       if (!ccFotos.fotosTestePressao.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de pressão.', 'erro'); return false; }
       if (!ccFotos.fotosTesteVacuo.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de vácuo.', 'erro'); return false; }
+      if (!ccFotos.fotosTesteEletricoHumidificador.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste elétrico do humidificador.', 'erro'); return false; }
     }
 
     esconderEstadoChecklistCiclos();
@@ -4745,6 +4754,7 @@
     renderizarPreviewsChecklistCiclos('fotosTesteEletrico', 'cc-fotosTesteEletricoPreviews');
     renderizarPreviewsChecklistCiclos('fotosTestePressao', 'cc-fotosTestePressaoPreviews');
     renderizarPreviewsChecklistCiclos('fotosTesteVacuo', 'cc-fotosTesteVacuoPreviews');
+    renderizarPreviewsChecklistCiclos('fotosTesteEletricoHumidificador', 'cc-fotosTesteEletricoHumidificadorPreviews');
     ['cc-assinatura3', 'cc-assinatura5', 'cc-assinatura6', 'cc-assinatura7', 'cc-assinatura8'].forEach(function (id) {
       var estado = assinaturasCiclos[id];
       if (estado) {
@@ -4776,6 +4786,7 @@
         fotosTesteEletrico: ccFotos.fotosTesteEletrico,
         fotosTestePressao: ccFotos.fotosTestePressao,
         fotosTesteVacuo: ccFotos.fotosTesteVacuo,
+        fotosTesteEletricoHumidificador: ccFotos.fotosTesteEletricoHumidificador,
         assinaturaPagina6: obterAssinaturaCiclosDataUrl('cc-assinatura6'),
         sondaTemperaturaHumidade: {
           fabricante: valorSelectComOutroCiclos('cc-fabricanteSonda'),
