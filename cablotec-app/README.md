@@ -184,9 +184,9 @@ assinaturas do formulário original, pela mesma ordem.
   browser (para poder ir para trás e para a frente sem perder o que já
   escreveu) — **não** envia nada para o servidor. Se fechar o separador/
   app antes de chegar ao fim, perde o que preencheu. Só o **"Enviar"**
-  da última página grava tudo definitivamente (Sheet + Drive). Se
-  precisar de retomar um checklist a meio dias depois (como o rascunho
-  dos Relatórios), diga-me e acrescento isso.
+  da última página grava tudo definitivamente (Sheet + Drive). Para
+  corrigir algo DEPOIS de já ter enviado, use o link de edição que
+  chega por e-mail (ver abaixo) — não é preciso recomeçar do zero.
 - As assinaturas são feitas com o dedo/rato diretamente no ecrã.
 - As fotos (etiquetas, controlador) são comprimidas antes de enviar,
   tal como nos Relatórios.
@@ -198,6 +198,39 @@ assinaturas do formulário original, pela mesma ordem.
 - Se "Durante a produção do grupo, houve alguma não conformidade..."
   for respondido "Sim", é enviado um alerta por WhatsApp (se
   configurado — ver secção de Novidades acima).
+
+### PDF automático por e-mail + edição posterior
+
+Sempre que um checklist (Grupos ou Ciclos) é enviado com sucesso — seja
+pela primeira vez ou numa correção — a aplicação:
+
+1. Gera automaticamente um **PDF** com todos os dados desse checklist
+   (campos, respostas OK/NA/NOK, fotos e assinaturas incorporadas).
+2. Envia esse PDF por e-mail para o endereço preenchido em "E-Mail de
+   quem preenche o documento" (página 1), com um **link de edição** no
+   corpo da mensagem.
+3. Abrir esse link mais tarde leva direto à aplicação, já no separador
+   Checklist certo (Grupos ou Ciclos), com **todos os campos
+   preenchidos** tal como ficaram guardados — só é preciso corrigir o
+   que for preciso e enviar de novo.
+
+**Coisas a saber sobre a edição:**
+
+- As **fotos já enviadas não são recarregadas** no ecrã (para não
+  tornar o link pesado/lento) — aparece só uma nota "N foto(s) já
+  enviada(s) anteriormente (mantidas ao enviar)" por baixo de cada
+  campo de fotos. Isso já satisfaz a validação da página; se quiser,
+  pode tirar/escolher fotos adicionais, que se juntam às antigas (as
+  antigas nunca são apagadas por esta via).
+- As **assinaturas têm de ser feitas de novo** em cada página que
+  passar — não ficam pré-carregadas (faz sentido pedir a confirmação
+  outra vez ao corrigir um checklist já assinado).
+- Ao reenviar, o checklist **substitui o mesmo registo** na aba
+  "Checklists" (não cria uma linha nova) — a data de criação original
+  mantém-se, só a data de atualização muda.
+- Esta funcionalidade de PDF/e-mail/edição é "best effort": se o envio
+  do e-mail falhar por algum motivo, o checklist fica guardado na
+  mesma — só não chega o PDF/link dessa vez.
 
 Dentro de **✅ Checklist → Ciclos**, está o checklist "CHECK-LIST DE
 PRODUÇÃO Clico/VA" (DP155/R06), com as mesmas 9 páginas, verificações,

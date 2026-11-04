@@ -2570,18 +2570,175 @@ function processarImagensChecklist_(valor, pastaChecklist, prefixo, contador) {
   return valor;
 }
 
+// ===========================================================================
+// PDF do checklist por e-mail: gerado automaticamente sempre que um
+// checklist e guardado (novo ou editado), com um link para reabrir e
+// editar mais tarde. Nunca bloqueia o guardar do checklist (best effort).
+// ===========================================================================
+
+/**
+ * Converte uma chave em camelCase (ex.: "testeEletricoOk") num rotulo
+ * legivel (ex.: "Teste Eletrico Ok"), para o PDF generico do checklist.
+ */
+function rotuloCampoChecklist_(chave) {
+  var comEspacos = chave.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+  return comEspacos.charAt(0).toUpperCase() + comEspacos.slice(1);
+}
+
+function inserirImagemChecklistDoc_(corpo, ref) {
+  try {
+    var ficheiro = DriveApp.getFileById(ref.id);
+    var imagem = corpo.appendImage(ficheiro.getBlob().copyBlob());
+    var largura = imagem.getWidth();
+    if (largura > 280) {
+      imagem.setWidth(280);
+      imagem.setHeight(Math.round(imagem.getHeight() * (280 / largura)));
+    }
+  } catch (erroImagem) {
+    corpo.appendParagraph('[imagem indisponivel: ' + (ref.nome || ref.id) + ']');
+  }
+}
+
+function ehReferenciaImagemChecklist_(valor) {
+  return !!(valor && typeof valor === 'object' && typeof valor.id === 'string' && typeof valor.nome === 'string');
+}
+
+/**
+ * Percorre recursivamente "campos" (o mesmo objeto guardado em dadosJson)
+ * e escreve-o no documento de forma generica: paragrafos "Rotulo: valor"
+ * para campos simples, titulos a negrito para grupos/sub-objetos, listas
+ * de fotos como imagens incorporadas, e os itens OK/NA/NOK no formato
+ * {rotulo, valor} como "Rotulo: OK/NA/NOK".
+ */
+function renderizarCampoChecklistDoc_(corpo, rotulo, valor) {
+  if (valor === null || valor === undefined || valor === '') return;
+
+  if (Array.isArray(valor)) {
+    if (!valor.length) return;
+    if (ehReferenciaImagemChecklist_(valor[0])) {
+      corpo.appendParagraph(rotulo + ' (' + valor.length + ' foto(s))').setBold(true);
+      valor.forEach(function (ref) { inserirImagemChecklistDoc_(corpo, ref); });
+      return;
+    }
+    corpo.appendParagraph(rotulo).setBold(true);
+    valor.forEach(function (item, indice) {
+      renderizarCampoChecklistDoc_(corpo, String(indice + 1) + '.', item);
+    });
+    return;
+  }
+
+  if (typeof valor === 'object') {
+    if (ehReferenciaImagemChecklist_(valor)) {
+      corpo.appendParagraph(rotulo).setBold(true);
+      inserirImagemChecklistDoc_(corpo, valor);
+      return;
+    }
+    if (typeof valor.valor === 'string' && typeof valor.rotulo === 'string') {
+      corpo.appendParagraph(valor.rotulo + ': ' + (valor.valor || '-'));
+      return;
+    }
+    corpo.appendParagraph(rotulo).setBold(true);
+    Object.keys(valor).forEach(function (chaveFilha) {
+      renderizarCampoChecklistDoc_(corpo, rotuloCampoChecklist_(chaveFilha), valor[chaveFilha]);
+    });
+    return;
+  }
+
+  if (typeof valor === 'string' && valor.indexOf('data:image/') === 0) return;
+  corpo.appendParagraph(rotulo + ': ' + valor);
+}
+
+function criarDocChecklist_(tipo, equipamento, numeroSerie, conformidade, campos) {
+  var nomeTipo = tipo === 'ciclos' ? 'Clico/VA' : 'Grupo Cond. Walkin';
+  var doc = DocumentApp.create('_tmp_checklist_' + new Date().getTime());
+  var corpo = doc.getBody();
+  corpo.clear();
+
+  corpo.appendParagraph(EMPRESA).setHeading(DocumentApp.ParagraphHeading.HEADING1);
+  corpo.appendParagraph('Checklist de Producao - ' + nomeTipo).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  corpo.appendTable([
+    ['Numero de serie', numeroSerie],
+    ['Equipamento', equipamento],
+    ['Conformidade', conformidade === 'Sim' ? 'Houve nao conformidade' : 'Sem nao conformidade']
+  ]);
+  corpo.appendParagraph(' ');
+
+  Object.keys(campos).forEach(function (chave) {
+    renderizarCampoChecklistDoc_(corpo, rotuloCampoChecklist_(chave), campos[chave]);
+  });
+
+  doc.saveAndClose();
+  return doc;
+}
+
+/**
+ * Gera o PDF do checklist e envia-o por e-mail, com um link para reabrir
+ * e editar o mesmo checklist mais tarde. Nunca lanca erro para fora -
+ * uma falha aqui (ex.: Gmail indisponivel) nao deve impedir o checklist
+ * de ficar guardado.
+ */
+function enviarChecklistPorEmail_(tipo, id, equipamento, numeroSerie, email, conformidade, campos) {
+  if (!email) return;
+  var doc = null;
+  try {
+    doc = criarDocChecklist_(tipo, equipamento, numeroSerie, conformidade, campos);
+    var pdfBlob = exportarDocComoBlob_(doc, 'pdf').setName('Checklist_' + sanitizeNomeFicheiro(numeroSerie) + '.pdf');
+
+    var nomeTipo = tipo === 'ciclos' ? 'Clico/VA' : 'Grupo Cond. Walkin';
+    var linkEdicao = ScriptApp.getService().getUrl() + '?checklistId=' + encodeURIComponent(id);
+    var corpo = EMPRESA + ' - Checklist de producao (' + nomeTipo + ')\n\n' +
+      'Numero de serie: ' + numeroSerie + '\n' +
+      'Equipamento: ' + equipamento + '\n\n' +
+      'Em anexo, o PDF com todos os dados deste checklist.\n\n' +
+      'Para corrigir ou completar alguma coisa neste checklist mais tarde, abra o link abaixo ' +
+      '(reabre o formulario ja preenchido, com as fotos ja enviadas mantidas):\n' +
+      linkEdicao + '\n\n' +
+      'Este e-mail foi gerado automaticamente pela aplicacao de Checklist de Producao.';
+
+    MailApp.sendEmail({
+      to: email,
+      subject: EMPRESA + ' - Checklist ' + nomeTipo + ' - ' + numeroSerie,
+      body: corpo,
+      attachments: [pdfBlob]
+    });
+  } catch (erroEmail) {
+    // Best effort - o checklist ja ficou guardado antes disto ser chamado.
+  } finally {
+    if (doc) {
+      try { DriveApp.getFileById(doc.getId()).setTrashed(true); } catch (erroLimpeza) { /* ignora */ }
+    }
+  }
+}
+
 /**
  * Guarda uma submissao completa de checklist (Grupos ou Ciclos). "dados"
  * vem do frontend com tipo/equipamento/numeroSerie/email/conformidade, e
  * um objeto "campos" com TODOS os valores do formulario (incluindo fotos e
  * assinaturas em base64, guardadas no Drive antes de escrever a linha).
  */
+/**
+ * Devolve o numero da linha (1-based, incluindo o cabecalho) onde esta o
+ * checklist com o id indicado, ou -1 se nao existir.
+ */
+function encontrarLinhaChecklist_(aba, id) {
+  var ultimaLinha = aba.getLastRow();
+  if (ultimaLinha < 2) return -1;
+  var valores = aba.getRange(2, 1, ultimaLinha - 1, 1).getValues();
+  for (var i = 0; i < valores.length; i++) {
+    if ((valores[i][0] || '').toString() === id) return i + 2;
+  }
+  return -1;
+}
+
 function guardarChecklist(dados) {
   var tipo = (dados.tipo || '').toString().trim();
   var equipamento = (dados.equipamento || '').toString().trim();
   var numeroSerie = (dados.numeroSerie || '').toString().trim();
   var email = (dados.email || '').toString().trim();
   var conformidade = dados.conformidade === 'Sim' ? 'Sim' : 'Nao';
+  var producaoPor = (dados.producaoPor || '').toString().trim();
+  var producaoPorEmpresa = (dados.producaoPorEmpresa || '').toString().trim();
+  var idExistente = (dados.id || '').toString().trim();
 
   if (['grupos', 'ciclos'].indexOf(tipo) === -1) {
     throw new Error('Tipo de checklist invalido.');
@@ -2593,21 +2750,54 @@ function guardarChecklist(dados) {
     throw new Error('E-mail de quem preenche o documento em falta.');
   }
 
+  var aba = obterAbaChecklists_();
+  var linhaExistente = -1;
+  var registoAnterior = null;
+  if (idExistente) {
+    linhaExistente = encontrarLinhaChecklist_(aba, idExistente);
+    if (linhaExistente !== -1) {
+      var valoresAnteriores = aba.getRange(linhaExistente, 1, 1, CABECALHOS_CHECKLISTS.length).getValues()[0];
+      registoAnterior = {};
+      CABECALHOS_CHECKLISTS.forEach(function (h, i) { registoAnterior[h] = valoresAnteriores[i]; });
+    }
+  }
+
   var raiz = DriveApp.getFolderById(FOLDER_ID);
   var pastaChecklists = obterOuCriarSubpasta(raiz, 'Checklists', true);
   var timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyyMMdd_HHmmss');
-  var nomePasta = sanitizeNome(tipo) + '_' + sanitizeNome(numeroSerie) + '_' + timestamp;
+  var nomePasta = sanitizeNome(tipo) + '_' + sanitizeNome(numeroSerie) + '_' + timestamp + (registoAnterior ? '_editado' : '');
   var pastaChecklist = pastaChecklists.createFolder(nomePasta);
 
   var contador = { n: 0 };
   var camposProcessados = processarImagensChecklist_(dados.campos || {}, pastaChecklist, 'checklist', contador);
+  camposProcessados.producaoPor = producaoPor;
+  camposProcessados.producaoPorEmpresa = producaoPorEmpresa;
 
-  var aba = obterAbaChecklists_();
-  var id = Utilities.getUuid();
-  var criadoEm = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm');
+  // Em edicao: as fotos ja enviadas anteriormente nunca se perdem - as
+  // novas fotos desta sessao juntam-se as antigas (uniao), em vez de as
+  // substituir (o formulario de edicao nao volta a carregar as fotos
+  // antigas, so mostra quantas ja existem).
+  if (registoAnterior) {
+    var dadosAnteriores = JSON.parse(registoAnterior.dadosJson || '{}');
+    var camposAnteriores = dadosAnteriores.campos || {};
+    Object.keys(camposAnteriores).forEach(function (chave) {
+      if (Array.isArray(camposAnteriores[chave]) && Array.isArray(camposProcessados[chave])) {
+        camposProcessados[chave] = camposAnteriores[chave].concat(camposProcessados[chave]);
+      }
+    });
+  }
+
+  var id = registoAnterior ? idExistente : Utilities.getUuid();
+  var agora = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm');
+  var criadoEm = registoAnterior ? registoAnterior.criadoEm : agora;
   var dadosJson = JSON.stringify({ campos: camposProcessados, pastaId: pastaChecklist.getId() });
 
-  aba.appendRow([id, tipo, equipamento, numeroSerie, email, conformidade, criadoEm, dadosJson]);
+  var novaLinha = [id, tipo, equipamento, numeroSerie, email, conformidade, criadoEm, dadosJson];
+  if (registoAnterior) {
+    aba.getRange(linhaExistente, 1, 1, novaLinha.length).setValues([novaLinha]);
+  } else {
+    aba.appendRow(novaLinha);
+  }
 
   // Faz crescer as listas de sugestoes dos campos "Outro (escrever)..." -
   // os esquemas sao PARTILHADOS com o Relatorio de Testes (mesma lista),
@@ -2631,7 +2821,13 @@ function guardarChecklist(dados) {
     enviarAlertaWhatsapp_(EMPRESA + ': checklist de ' + tipo + ' (' + numeroSerie + ') registou uma NAO CONFORMIDADE.');
   }
 
-  return { status: 'ok', id: id, mensagem: 'Checklist guardado com sucesso.' };
+  enviarChecklistPorEmail_(tipo, id, equipamento, numeroSerie, email, conformidade, camposProcessados);
+
+  return {
+    status: 'ok',
+    id: id,
+    mensagem: registoAnterior ? 'Checklist atualizado com sucesso.' : 'Checklist guardado com sucesso.'
+  };
 }
 
 function listarChecklists(parametros) {
@@ -2676,6 +2872,7 @@ function obterChecklist(parametros) {
   var dados = JSON.parse(encontrado.dadosJson || '{}');
   return {
     status: 'ok',
+    id: encontrado.id,
     tipo: encontrado.tipo,
     equipamento: encontrado.equipamento,
     numeroSerie: encontrado.numeroSerie,

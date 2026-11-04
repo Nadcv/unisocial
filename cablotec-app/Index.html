@@ -3977,6 +3977,12 @@
     APPS_SCRIPT_URL = '';
   }
 
+  // Quando a app abre a partir do link de edicao enviado por e-mail
+  // (?checklistId=...), EDICAO_ID fica com esse id e o envio seguinte
+  // atualiza o mesmo checklist em vez de criar um novo.
+  var EDICAO_ID = '';
+  var cgFotosExistentes = {};
+
   // ---------------------------------------------------------------------
   // Listas de sugestoes (esquemas, gases, etc.), partilhadas com o
   // Relatorio de Testes - crescem sozinhas quando alguem escreve um
@@ -4297,23 +4303,23 @@
     }
 
     if (PAGINA_ATUAL === 6) {
-      if (!cgFotos.fotosEtiquetas.length) {
+      if (!cgFotos.fotosEtiquetas.length && !cgFotosExistentes.fotosEtiquetas) {
         mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto das etiquetas.', 'erro');
         return false;
       }
-      if (!cgFotos.fotosControlador.length) {
+      if (!cgFotos.fotosControlador.length && !cgFotosExistentes.fotosControlador) {
         mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do controlador.', 'erro');
         return false;
       }
-      if (!cgFotos.fotosTesteEletrico.length) {
+      if (!cgFotos.fotosTesteEletrico.length && !cgFotosExistentes.fotosTesteEletrico) {
         mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do teste eléctrico.', 'erro');
         return false;
       }
-      if (!cgFotos.fotosTestePressao.length) {
+      if (!cgFotos.fotosTestePressao.length && !cgFotosExistentes.fotosTestePressao) {
         mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do teste de pressão.', 'erro');
         return false;
       }
-      if (!cgFotos.fotosTesteVacuo.length) {
+      if (!cgFotos.fotosTesteVacuo.length && !cgFotosExistentes.fotosTesteVacuo) {
         mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do teste de vácuo.', 'erro');
         return false;
       }
@@ -4366,6 +4372,8 @@
 
   function limparFormularioChecklistGrupos() {
     document.getElementById('formChecklistGrupos').reset();
+    EDICAO_ID = '';
+    cgFotosExistentes = {};
     ['cg-esquemaEletrico', 'cg-esquemaRefrigeracao', 'cg-testeEletrico'].forEach(function (idSelect) {
       var outro = document.getElementById(idSelect + '-outro');
       if (outro) outro.hidden = true;
@@ -4436,6 +4444,7 @@
       var payload = {
         acao: 'guardarChecklist',
         tipo: 'grupos',
+        id: EDICAO_ID,
         equipamento: valorTexto('cg-equipamento'),
         numeroSerie: valorTexto('cg-numeroSerie'),
         email: valorTexto('cg-email'),
@@ -4478,6 +4487,101 @@
     document.getElementById('estadoChecklistGrupos').className = 'estado';
   }
 
+  // -----------------------------------------------------------------------
+  // Edicao de um checklist ja enviado (a partir do link no e-mail). Chamada
+  // externamente pelo bloco do trocador de separadores, que le ?checklistId=
+  // da URL e busca os dados via obterChecklist antes de chamar isto.
+  // -----------------------------------------------------------------------
+  function definirRadioCg(nome, valor) {
+    if (!valor) return;
+    var radio = document.querySelector('input[name="' + nome + '"][value="' + valor + '"]');
+    if (radio) radio.checked = true;
+  }
+  function definirSelectComOutroCg(idSelect, valor) {
+    var select = document.getElementById(idSelect);
+    if (!select || !valor) return;
+    var existe = Array.prototype.some.call(select.options, function (o) { return o.value === valor; });
+    if (existe) {
+      select.value = valor;
+    } else {
+      select.value = '__outro__';
+      var outro = document.getElementById(idSelect + '-outro');
+      if (outro) { outro.hidden = false; outro.value = valor; }
+    }
+  }
+  function definirItensCg(itensDados) {
+    if (!itensDados) return;
+    Object.keys(itensDados).forEach(function (chave) {
+      var info = itensDados[chave];
+      if (info && info.valor) definirRadioCg('cg-' + chave, info.valor);
+    });
+  }
+  function assinalarFotosExistentesCg(chave, idPreviews, lista) {
+    var n = Array.isArray(lista) ? lista.length : 0;
+    if (!n) return;
+    cgFotosExistentes[chave] = n;
+    var container = document.getElementById(idPreviews);
+    if (container) {
+      container.insertAdjacentHTML('beforeend', '<div class="ajuda">' + n + ' foto(s) já enviada(s) anteriormente (mantidas ao enviar).</div>');
+    }
+  }
+
+  window.preencherChecklistGruposEdicaoGlobal = function (resultado) {
+    EDICAO_ID = resultado.id || '';
+    var c = resultado.campos || {};
+
+    document.getElementById('cg-equipamento').value = resultado.equipamento || '';
+    document.getElementById('cg-numeroSerie').value = resultado.numeroSerie || '';
+    document.getElementById('cg-email').value = resultado.email || '';
+    definirRadioCg('cg-producaoPor', c.producaoPor);
+    if (c.producaoPor === 'Subcontrato') {
+      var campoEmpresa = document.getElementById('cg-producaoPorEmpresa');
+      campoEmpresa.hidden = false;
+      campoEmpresa.value = c.producaoPorEmpresa || '';
+    }
+
+    definirSelectComOutroCg('cg-esquemaEletrico', c.esquemaEletrico);
+    definirSelectComOutroCg('cg-esquemaRefrigeracao', c.esquemaRefrigeracao);
+    definirItensCg(c.verificacaoEstruturas);
+    definirItensCg(c.grupoCondensador);
+    definirRadioCg('cg-testeEletricoOk', c.testeEletricoOk);
+    definirSelectComOutroCg('cg-testeEletrico', c.testeEletrico);
+    definirRadioCg('cg-testePressao', c.testePressao);
+    definirRadioCg('cg-testeVacuo', c.testeVacuo);
+
+    var comp = c.componentes || {};
+    if (comp.grupoCondensador) {
+      document.getElementById('cg-compGrupoCondensadorModelo').value = comp.grupoCondensador.modelo || '';
+      document.getElementById('cg-compGrupoCondensadorSerie').value = comp.grupoCondensador.serie || '';
+    }
+    if (comp.compressor) {
+      document.getElementById('cg-compCompressorModelo').value = comp.compressor.modelo || '';
+      document.getElementById('cg-compCompressorSerie').value = comp.compressor.serie || '';
+    }
+    if (comp.ventilador) {
+      document.getElementById('cg-compVentiladorModelo').value = comp.ventilador.modelo || '';
+      document.getElementById('cg-compVentiladorSerie').value = comp.ventilador.serie || '';
+    }
+    var ctrl = c.controlador || {};
+    document.getElementById('cg-controladorModelo').value = ctrl.modelo || '';
+    document.getElementById('cg-controladorSerie').value = ctrl.serie || '';
+    document.getElementById('cg-controladorVersaoFirmware').value = ctrl.versaoFirmware || '';
+    definirRadioCg('cg-temModulosExpansao', c.temModulosExpansao);
+
+    assinalarFotosExistentesCg('fotosEtiquetas', 'cg-fotosEtiquetasPreviews', c.fotosEtiquetas);
+    assinalarFotosExistentesCg('fotosControlador', 'cg-fotosControladorPreviews', c.fotosControlador);
+    assinalarFotosExistentesCg('fotosTesteEletrico', 'cg-fotosTesteEletricoPreviews', c.fotosTesteEletrico);
+    assinalarFotosExistentesCg('fotosTestePressao', 'cg-fotosTestePressaoPreviews', c.fotosTestePressao);
+    assinalarFotosExistentesCg('fotosTesteVacuo', 'cg-fotosTesteVacuoPreviews', c.fotosTesteVacuo);
+
+    definirItensCg(c.embalagem);
+    definirRadioCg('cg-naoConformidade', resultado.conformidade);
+    document.getElementById('cg-observacoes').value = c.observacoes || '';
+
+    mostrarPagina(1);
+    mostrarEstadoChecklistGrupos('A editar o checklist Nº ' + (resultado.numeroSerie || '') + '. As fotos e assinaturas anteriores mantêm-se; precisa de assinar de novo em cada página antes de enviar.', 'info');
+  };
+
   mostrarPagina(1);
 })();
 </script>
@@ -4487,6 +4591,12 @@
   if (APPS_SCRIPT_URL.indexOf('https://') !== 0) {
     APPS_SCRIPT_URL = '';
   }
+
+  // Quando a app abre a partir do link de edicao enviado por e-mail
+  // (?checklistId=...), EDICAO_ID fica com esse id e o envio seguinte
+  // atualiza o mesmo checklist em vez de criar um novo.
+  var EDICAO_ID = '';
+  var ccFotosExistentes = {};
 
   // ---------------------------------------------------------------------
   // Listas de sugestoes (esquemas partilhados com o Relatorio de Testes;
@@ -4791,15 +4901,15 @@
       return false;
     }
 
-    if (PAGINA_ATUAL_CICLOS === 5 && !ccFotos.fotosIdentificacao.length) {
+    if (PAGINA_ATUAL_CICLOS === 5 && !ccFotos.fotosIdentificacao.length && !ccFotosExistentes.fotosIdentificacao) {
       mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto da identificação do clico.', 'erro');
       return false;
     }
     if (PAGINA_ATUAL_CICLOS === 6) {
-      if (!ccFotos.fotosTesteEletrico.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste elétrico.', 'erro'); return false; }
-      if (!ccFotos.fotosTestePressao.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de pressão.', 'erro'); return false; }
-      if (!ccFotos.fotosTesteVacuo.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de vácuo.', 'erro'); return false; }
-      if (!ccFotos.fotosTesteEletricoHumidificador.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste elétrico do humidificador.', 'erro'); return false; }
+      if (!ccFotos.fotosTesteEletrico.length && !ccFotosExistentes.fotosTesteEletrico) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste elétrico.', 'erro'); return false; }
+      if (!ccFotos.fotosTestePressao.length && !ccFotosExistentes.fotosTestePressao) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de pressão.', 'erro'); return false; }
+      if (!ccFotos.fotosTesteVacuo.length && !ccFotosExistentes.fotosTesteVacuo) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de vácuo.', 'erro'); return false; }
+      if (!ccFotos.fotosTesteEletricoHumidificador.length && !ccFotosExistentes.fotosTesteEletricoHumidificador) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste elétrico do humidificador.', 'erro'); return false; }
     }
 
     esconderEstadoChecklistCiclos();
@@ -4844,6 +4954,8 @@
 
   function limparFormularioChecklistCiclos() {
     document.getElementById('formChecklistCiclos').reset();
+    EDICAO_ID = '';
+    ccFotosExistentes = {};
     ['cc-equipamento', 'cc-esquemaEletrico', 'cc-esquemaRefrigeracao', 'cc-fabricanteSonda', 'cc-modeloSonda', 'cc-fabricanteClico'].forEach(function (idSelect) {
       var outro = document.getElementById(idSelect + '-outro');
       if (outro) outro.hidden = true;
@@ -4912,6 +5024,7 @@
       var payload = {
         acao: 'guardarChecklist',
         tipo: 'ciclos',
+        id: EDICAO_ID,
         equipamento: valorSelectComOutroCiclos('cc-equipamento'),
         numeroSerie: valorTextoCiclos('cc-numeroSerie'),
         email: valorTextoCiclos('cc-email'),
@@ -4954,6 +5067,93 @@
     document.getElementById('estadoChecklistCiclos').className = 'estado';
   }
 
+  // -----------------------------------------------------------------------
+  // Edicao de um checklist ja enviado (a partir do link no e-mail). Chamada
+  // externamente pelo bloco do trocador de separadores, que le ?checklistId=
+  // da URL e busca os dados via obterChecklist antes de chamar isto.
+  // -----------------------------------------------------------------------
+  function definirRadioCc(nome, valor) {
+    if (!valor) return;
+    var radio = document.querySelector('input[name="' + nome + '"][value="' + valor + '"]');
+    if (radio) radio.checked = true;
+  }
+  function definirSelectComOutroCc(idSelect, valor) {
+    var select = document.getElementById(idSelect);
+    if (!select || !valor) return;
+    var existe = Array.prototype.some.call(select.options, function (o) { return o.value === valor; });
+    if (existe) {
+      select.value = valor;
+    } else {
+      select.value = '__outro__';
+      var outro = document.getElementById(idSelect + '-outro');
+      if (outro) { outro.hidden = false; outro.value = valor; }
+    }
+  }
+  function definirItensCc(itensDados) {
+    if (!itensDados) return;
+    Object.keys(itensDados).forEach(function (chave) {
+      var info = itensDados[chave];
+      if (info && info.valor) definirRadioCc('cc-' + chave, info.valor);
+    });
+  }
+  function assinalarFotosExistentesCc(chave, idPreviews, lista) {
+    var n = Array.isArray(lista) ? lista.length : 0;
+    if (!n) return;
+    ccFotosExistentes[chave] = n;
+    var container = document.getElementById(idPreviews);
+    if (container) {
+      container.insertAdjacentHTML('beforeend', '<div class="ajuda">' + n + ' foto(s) já enviada(s) anteriormente (mantidas ao enviar).</div>');
+    }
+  }
+
+  window.preencherChecklistCiclosEdicaoGlobal = function (resultado) {
+    EDICAO_ID = resultado.id || '';
+    var c = resultado.campos || {};
+
+    definirSelectComOutroCc('cc-equipamento', resultado.equipamento);
+    document.getElementById('cc-numeroSerie').value = resultado.numeroSerie || '';
+    document.getElementById('cc-email').value = resultado.email || '';
+    definirRadioCc('cc-producaoPor', c.producaoPor);
+    if (c.producaoPor === 'Subcontrato') {
+      var campoEmpresa = document.getElementById('cc-producaoPorEmpresa');
+      campoEmpresa.hidden = false;
+      campoEmpresa.value = c.producaoPorEmpresa || '';
+    }
+
+    definirSelectComOutroCc('cc-esquemaEletrico', c.esquemaEletrico);
+    definirSelectComOutroCc('cc-esquemaRefrigeracao', c.esquemaRefrigeracao);
+    definirItensCc(c.verificacaoEstruturas);
+    document.getElementById('cc-refa').value = c.refa || '';
+    definirRadioCc('cc-ventiladoresAdicionais', c.ventiladoresAdicionais);
+
+    assinalarFotosExistentesCc('fotosIdentificacao', 'cc-fotosIdentificacaoPreviews', c.fotosIdentificacao);
+    definirItensCc(c.clico);
+
+    assinalarFotosExistentesCc('fotosTesteEletrico', 'cc-fotosTesteEletricoPreviews', c.fotosTesteEletrico);
+    assinalarFotosExistentesCc('fotosTestePressao', 'cc-fotosTestePressaoPreviews', c.fotosTestePressao);
+    assinalarFotosExistentesCc('fotosTesteVacuo', 'cc-fotosTesteVacuoPreviews', c.fotosTesteVacuo);
+    assinalarFotosExistentesCc('fotosTesteEletricoHumidificador', 'cc-fotosTesteEletricoHumidificadorPreviews', c.fotosTesteEletricoHumidificador);
+
+    var sonda = c.sondaTemperaturaHumidade || {};
+    definirSelectComOutroCc('cc-fabricanteSonda', sonda.fabricante);
+    definirSelectComOutroCc('cc-modeloSonda', sonda.modelo);
+    document.getElementById('cc-serieSonda').value = sonda.serie || '';
+    var evap = c.evaporador || {};
+    document.getElementById('cc-fabricanteEvaporador').value = evap.fabricante || '';
+    document.getElementById('cc-modeloEvaporador').value = evap.modelo || '';
+    document.getElementById('cc-serieEvaporador').value = evap.serie || '';
+    var clicoId = c.clicoIdentificacao || {};
+    definirSelectComOutroCc('cc-fabricanteClico', clicoId.fabricante);
+    document.getElementById('cc-modeloClico').value = clicoId.modelo || '';
+    document.getElementById('cc-serieClico').value = clicoId.serie || '';
+
+    definirItensCc(c.embalagem);
+    document.getElementById('cc-observacoes').value = c.observacoes || '';
+
+    mostrarPaginaCiclos(1);
+    mostrarEstadoChecklistCiclos('A editar o checklist Nº ' + (resultado.numeroSerie || '') + '. As fotos e assinaturas anteriores mantêm-se; precisa de assinar de novo em cada página antes de enviar.', 'info');
+  };
+
   mostrarPaginaCiclos(1);
 })();
 </script>
@@ -4978,6 +5178,39 @@
   botaoRelatorios.addEventListener('click', function () { mostrarApp('relatorios'); });
   botaoProducao.addEventListener('click', function () { mostrarApp('producao'); });
   botaoChecklist.addEventListener('click', function () { mostrarApp('checklist'); });
+
+  // -------------------------------------------------------------------
+  // Link de edicao de um checklist (enviado por e-mail junto do PDF):
+  // ?checklistId=... abre a app ja no separador Checklist, com o
+  // formulario (Grupos ou Ciclos, conforme o tipo guardado) preenchido
+  // com os dados anteriores, pronto para corrigir e reenviar.
+  // -------------------------------------------------------------------
+  var APPS_SCRIPT_URL = '<?= appsScriptUrl ?>';
+  if (APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+    APPS_SCRIPT_URL = '';
+  }
+  var checklistId = new URLSearchParams(window.location.search).get('checklistId');
+  if (checklistId && APPS_SCRIPT_URL) {
+    fetch(APPS_SCRIPT_URL + '?action=obterChecklist&id=' + encodeURIComponent(checklistId))
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          alert('Não foi possível abrir o checklist para edição: ' + (dados.msg || 'não encontrado.'));
+          return;
+        }
+        mostrarApp('checklist');
+        if (dados.tipo === 'ciclos') {
+          document.getElementById('abaChecklistCiclos').click();
+          if (window.preencherChecklistCiclosEdicaoGlobal) window.preencherChecklistCiclosEdicaoGlobal(dados);
+        } else {
+          document.getElementById('abaChecklistGrupos').click();
+          if (window.preencherChecklistGruposEdicaoGlobal) window.preencherChecklistGruposEdicaoGlobal(dados);
+        }
+      })
+      .catch(function (erro) {
+        alert('Erro ao carregar o checklist para edição: ' + erro.message);
+      });
+  }
 })();
 </script>
 
