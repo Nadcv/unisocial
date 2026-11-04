@@ -185,8 +185,30 @@ assinaturas do formulário original, pela mesma ordem.
   for respondido "Sim", é enviado um alerta por WhatsApp (se
   configurado — ver secção de Novidades acima).
 
-**Ciclos** ainda não tem o seu checklist configurado (fica um aviso
-"em breve" nesse separador) — fica para uma próxima atualização.
+Dentro de **✅ Checklist → Ciclos**, está o checklist "CHECK-LIST DE
+PRODUÇÃO Clico/VA" (DP155/R06), com as mesmas 9 páginas, verificações,
+tabelas e assinaturas do formulário original, funcionando da mesma
+forma (Anterior/Guardar/Seguinte, validação por página, fotos
+comprimidas, tudo gravado na mesma aba "Checklists" ao enviar na
+última página). Este não tem a pergunta final de não conformidade
+(o original também não tem), por isso não dispara o alerta por
+WhatsApp.
+
+**Diferenças a saber** entre o formulário original (Zoho) e esta
+versão:
+
+- Os campos que no original eram **dropdowns** (Equipamento, Esquema
+  Elétrico, Esquema de refrigeração, Fabricante/Modelo da Sonda,
+  Fabricante do Clico) ficaram como **texto livre** aqui, porque as
+  listas de opções exatas desses dropdowns não apareciam nas fotos
+  enviadas. Se me indicar as opções de cada um, troco para dropdown.
+- A pergunta "Há Ventiladores adicionais?" (página 4) pode ter campos
+  extra no original quando se responde "Sim" (lógica condicional) que
+  não apareceram nas fotos — aqui fica só a pergunta, sem campos
+  extra. Diga-me se precisar deles.
+- Mantive tal e qual os nomes das verificações do original, incluindo
+  pequenas gralhas ("tampa exteriror", "base metática") — para ficar
+  igual ao documento que a equipa já conhece.
 
 ## Notas técnicas
 

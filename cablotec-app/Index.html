@@ -1325,7 +1325,271 @@
   </div>
 
   <div class="card" id="checklistCiclos" hidden>
-    <div class="ajuda">O checklist de Ciclos ainda não foi configurado — em breve.</div>
+    <form id="formChecklistCiclos">
+
+      <!-- Página 1/9 -->
+      <div class="checklist-pagina" data-pagina="1">
+        <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Clico/VA</div>
+        <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
+
+        <label class="campo-label" for="cc-equipamento">Equipamento</label>
+        <input type="text" id="cc-equipamento" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-numeroSerie">Nº Série</label>
+        <input type="text" id="cc-numeroSerie" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label">Produção do Clico/VA por:</label>
+        <div class="linha-radio">
+          <label><input type="radio" name="cc-producaoPor" value="Aralab" required /> Aralab</label>
+          <label><input type="radio" name="cc-producaoPor" value="Subcontrato" /> Subcontrato</label>
+        </div>
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-email">E-Mail de quem preenche o documento</label>
+        <input type="email" id="cc-email" required />
+
+        <div class="linha-botoes">
+          <button type="button" class="botao botao-largo cc-guardar">Guardar</button>
+          <button type="button" class="botao botao-primario botao-largo cc-seguinte">Seguinte</button>
+        </div>
+        <div class="checklist-contador">1/9</div>
+      </div>
+
+      <!-- Página 2/9 -->
+      <div class="checklist-pagina" data-pagina="2" hidden>
+        <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Clico/VA</div>
+        <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
+
+        <label class="campo-label" for="cc-esquemaEletrico">Esquema Elétrico</label>
+        <input type="text" id="cc-esquemaEletrico" />
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-esquemaRefrigeracao">Esquema de refrigeração</label>
+        <input type="text" id="cc-esquemaRefrigeracao" />
+
+        <div class="linha-botoes"><button type="button" class="botao botao-largo cc-anterior">Anterior</button></div>
+        <div class="linha-botoes">
+          <button type="button" class="botao botao-largo cc-guardar">Guardar</button>
+          <button type="button" class="botao botao-primario botao-largo cc-seguinte">Seguinte</button>
+        </div>
+        <div class="checklist-contador">2/9</div>
+      </div>
+
+      <!-- Página 3/9 -->
+      <div class="checklist-pagina" data-pagina="3" hidden>
+        <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Clico/VA</div>
+        <div class="ajuda" style="margin-bottom:4px;">DP155/R06</div>
+        <div class="checklist-intro">Verificação de conformidade das estruturas e componentes com a documentação técnica.<br /><strong>(Qualquer anomalia deverá ser comunicada de imediato à Aralab)</strong></div>
+
+        <div id="cc-pagina3-itens"></div>
+
+        <label class="campo-label" for="cc-refa">Refª</label>
+        <input type="text" id="cc-refa" required />
+        <div style="height:10px"></div>
+
+        <div id="cc-pagina3-itens2"></div>
+
+        <label class="campo-label">Assinatura do Responsável</label>
+        <div class="assinatura-wrap">
+          <canvas id="cc-assinatura3"></canvas>
+          <button type="button" class="assinatura-limpar" data-alvo="cc-assinatura3">✕</button>
+        </div>
+
+        <div class="linha-botoes"><button type="button" class="botao botao-largo cc-anterior">Anterior</button></div>
+        <div class="linha-botoes">
+          <button type="button" class="botao botao-largo cc-guardar">Guardar</button>
+          <button type="button" class="botao botao-primario botao-largo cc-seguinte">Seguinte</button>
+        </div>
+        <div class="checklist-contador">3/9</div>
+      </div>
+
+      <!-- Página 4/9 -->
+      <div class="checklist-pagina" data-pagina="4" hidden>
+        <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Clico/VA</div>
+        <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
+
+        <label class="campo-label">Há Ventiladores adicionais?</label>
+        <div class="linha-radio">
+          <label><input type="radio" name="cc-ventiladoresAdicionais" value="Sim" required /> Sim</label>
+          <label><input type="radio" name="cc-ventiladoresAdicionais" value="Não" /> Não</label>
+        </div>
+
+        <div class="linha-botoes"><button type="button" class="botao botao-largo cc-anterior">Anterior</button></div>
+        <div class="linha-botoes">
+          <button type="button" class="botao botao-largo cc-guardar">Guardar</button>
+          <button type="button" class="botao botao-primario botao-largo cc-seguinte">Seguinte</button>
+        </div>
+        <div class="checklist-contador">4/9</div>
+      </div>
+
+      <!-- Página 5/9 -->
+      <div class="checklist-pagina" data-pagina="5" hidden>
+        <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Clico/VA</div>
+        <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
+
+        <label class="campo-label">Identificação do clico (etiqueta de fabrico / supervisão)</label>
+        <div class="botoes-foto">
+          <label class="botao-foto">📷 Tirar foto<input type="file" accept="image/*" capture="environment" id="cc-fotosIdentificacaoCamera" /></label>
+          <label class="botao-foto">🖼️ Galeria<input type="file" accept="image/*" multiple id="cc-fotosIdentificacaoGaleria" /></label>
+        </div>
+        <div class="previews" id="cc-fotosIdentificacaoPreviews"></div>
+
+        <div style="height:10px"></div>
+        <div id="cc-pagina5-itens"></div>
+
+        <label class="campo-label">Assinatura do Responsável</label>
+        <div class="assinatura-wrap">
+          <canvas id="cc-assinatura5"></canvas>
+          <button type="button" class="assinatura-limpar" data-alvo="cc-assinatura5">✕</button>
+        </div>
+
+        <div class="linha-botoes"><button type="button" class="botao botao-largo cc-anterior">Anterior</button></div>
+        <div class="linha-botoes">
+          <button type="button" class="botao botao-largo cc-guardar">Guardar</button>
+          <button type="button" class="botao botao-primario botao-largo cc-seguinte">Seguinte</button>
+        </div>
+        <div class="checklist-contador">5/9</div>
+      </div>
+
+      <!-- Página 6/9 -->
+      <div class="checklist-pagina" data-pagina="6" hidden>
+        <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Clico/VA</div>
+        <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
+
+        <label class="campo-label">Teste elétrico Clico</label>
+        <div class="botoes-foto">
+          <label class="botao-foto">📷 Tirar foto<input type="file" accept="image/*" capture="environment" id="cc-fotosTesteEletricoCamera" /></label>
+          <label class="botao-foto">🖼️ Galeria<input type="file" accept="image/*" multiple id="cc-fotosTesteEletricoGaleria" /></label>
+        </div>
+        <div class="previews" id="cc-fotosTesteEletricoPreviews"></div>
+        <div class="ajuda" style="margin-bottom:12px;">Conforme IT127</div>
+
+        <label class="campo-label">Teste de pressão</label>
+        <div class="botoes-foto">
+          <label class="botao-foto">📷 Tirar foto<input type="file" accept="image/*" capture="environment" id="cc-fotosTestePressaoCamera" /></label>
+          <label class="botao-foto">🖼️ Galeria<input type="file" accept="image/*" multiple id="cc-fotosTestePressaoGaleria" /></label>
+        </div>
+        <div class="previews" id="cc-fotosTestePressaoPreviews"></div>
+        <div class="ajuda" style="margin-bottom:12px;">Conforme IT127</div>
+
+        <label class="campo-label">Teste de vácuo</label>
+        <div class="botoes-foto">
+          <label class="botao-foto">📷 Tirar foto<input type="file" accept="image/*" capture="environment" id="cc-fotosTesteVacuoCamera" /></label>
+          <label class="botao-foto">🖼️ Galeria<input type="file" accept="image/*" multiple id="cc-fotosTesteVacuoGaleria" /></label>
+        </div>
+        <div class="previews" id="cc-fotosTesteVacuoPreviews"></div>
+        <div class="ajuda" style="margin-bottom:12px;">Conforme IT127</div>
+
+        <label class="campo-label">Assinatura do Responsável</label>
+        <div class="assinatura-wrap">
+          <canvas id="cc-assinatura6"></canvas>
+          <button type="button" class="assinatura-limpar" data-alvo="cc-assinatura6">✕</button>
+        </div>
+
+        <div class="linha-botoes"><button type="button" class="botao botao-largo cc-anterior">Anterior</button></div>
+        <div class="linha-botoes">
+          <button type="button" class="botao botao-largo cc-guardar">Guardar</button>
+          <button type="button" class="botao botao-primario botao-largo cc-seguinte">Seguinte</button>
+        </div>
+        <div class="checklist-contador">6/9</div>
+      </div>
+
+      <!-- Página 7/9 -->
+      <div class="checklist-pagina" data-pagina="7" hidden>
+        <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Clico/VA</div>
+        <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
+
+        <label class="campo-label" for="cc-fabricanteSonda">Fabricante Sonda de Temperatura/Humidade</label>
+        <input type="text" id="cc-fabricanteSonda" placeholder="Ex.: Vaisala" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-modeloSonda">Modelo da Sonda de Temperatura/Humidade</label>
+        <input type="text" id="cc-modeloSonda" placeholder="Ex.: HMP110" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-serieSonda">Nº série da Sonda de Temperatura/Humidade</label>
+        <input type="text" id="cc-serieSonda" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-fabricanteEvaporador">Fabricante do Evaporador</label>
+        <input type="text" id="cc-fabricanteEvaporador" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-modeloEvaporador">Modelo do Evaporador</label>
+        <input type="text" id="cc-modeloEvaporador" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-serieEvaporador">Nº série do Evaporador</label>
+        <input type="text" id="cc-serieEvaporador" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-fabricanteClico">Fabricante do Clico</label>
+        <input type="text" id="cc-fabricanteClico" placeholder="Ex.: Z.A" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-modeloClico">Modelo do Clico</label>
+        <input type="text" id="cc-modeloClico" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label" for="cc-serieClico">Nº série do Clico</label>
+        <input type="text" id="cc-serieClico" required />
+
+        <div style="height:12px"></div>
+        <label class="campo-label">Assinatura do Responsável</label>
+        <div class="assinatura-wrap">
+          <canvas id="cc-assinatura7"></canvas>
+          <button type="button" class="assinatura-limpar" data-alvo="cc-assinatura7">✕</button>
+        </div>
+
+        <div class="linha-botoes"><button type="button" class="botao botao-largo cc-anterior">Anterior</button></div>
+        <div class="linha-botoes">
+          <button type="button" class="botao botao-largo cc-guardar">Guardar</button>
+          <button type="button" class="botao botao-primario botao-largo cc-seguinte">Seguinte</button>
+        </div>
+        <div class="checklist-contador">7/9</div>
+      </div>
+
+      <!-- Página 8/9 -->
+      <div class="checklist-pagina" data-pagina="8" hidden>
+        <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Clico/VA</div>
+        <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
+
+        <div id="cc-pagina8-itens"></div>
+
+        <label class="campo-label">Assinatura do Responsável</label>
+        <div class="assinatura-wrap">
+          <canvas id="cc-assinatura8"></canvas>
+          <button type="button" class="assinatura-limpar" data-alvo="cc-assinatura8">✕</button>
+        </div>
+
+        <div class="linha-botoes"><button type="button" class="botao botao-largo cc-anterior">Anterior</button></div>
+        <div class="linha-botoes">
+          <button type="button" class="botao botao-largo cc-guardar">Guardar</button>
+          <button type="button" class="botao botao-primario botao-largo cc-seguinte">Seguinte</button>
+        </div>
+        <div class="checklist-contador">8/9</div>
+      </div>
+
+      <!-- Página 9/9 -->
+      <div class="checklist-pagina" data-pagina="9" hidden>
+        <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Clico/VA</div>
+        <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
+
+        <label class="campo-label" for="cc-observacoes">Observações</label>
+        <textarea id="cc-observacoes"></textarea>
+
+        <div class="linha-botoes"><button type="button" class="botao botao-largo cc-anterior">Anterior</button></div>
+        <div class="linha-botoes">
+          <button type="button" class="botao botao-largo cc-guardar">Guardar</button>
+          <button type="button" class="botao-enviar botao-largo cc-enviar" style="border-radius:10px;">Enviar</button>
+        </div>
+        <div class="checklist-contador">9/9</div>
+      </div>
+
+    </form>
+    <div class="estado" id="estadoChecklistCiclos"></div>
   </div>
 </main>
 
@@ -4056,6 +4320,396 @@
   }
 
   mostrarPagina(1);
+})();
+</script>
+<script>
+(function () {
+  var APPS_SCRIPT_URL = '<?= appsScriptUrl ?>';
+  if (APPS_SCRIPT_URL.indexOf('https://') !== 0) {
+    APPS_SCRIPT_URL = '';
+  }
+
+  // ---------------------------------------------------------------------
+  // Checklist de Ciclos: itens OK/NA/NOK das páginas 3, 5 e 8 (chaves +
+  // rótulos exatamente como no formulário original "Clico/VA", DP155/R06).
+  // ---------------------------------------------------------------------
+  var CC_PAGINA3_ITENS = [
+    { chave: 'armazenamentoPreparacao', rotulo: 'Armazenamento e preparação de material' },
+    { chave: 'identificacaoClico', rotulo: 'Identificação do Clico (etiqueta com nº de obra, data de início, data de conclusão, operador, supervisor e assinaturas)' },
+    { chave: 'montagemVentiladorTampa', rotulo: 'Montagem de ventilador na tampa do evaporador' },
+    { chave: 'montagemTampaExterior', rotulo: 'Montagem de tampa exteriror para acesso ao evaporador (apenas modelo PLH)' },
+    { chave: 'fixacaoEvaporador', rotulo: 'Fixação do evaporador à estrutura' },
+    { chave: 'montagemComponentesRefrigeracao', rotulo: 'Montagem de componentes conforme esquema de refrigeração' },
+    { chave: 'brasagemComponentes', rotulo: 'Brasagem de componentes e tubos de cobre' },
+    { chave: 'selagemPontasTubos', rotulo: 'Selagem das pontas dos tubos de cobre' },
+    { chave: 'isolamentoValvulaExpansao', rotulo: 'Isolamento de válvula de expansão e troço de tubo até ao filtro' },
+    { chave: 'montagemSondasEvaporator', rotulo: 'Montagem das sonda "Evaporator" e "Evaporator Out", devidamente identificadas (consultar posição no esquema refrigeração)' },
+    { chave: 'montagemSondaTempHumidade', rotulo: 'Montagem da sonda Temperatura/Humidade Vaisala T1/H1' },
+    { chave: 'certificadoVaisala', rotulo: 'Certificado Vaisala digitalizado e arquivado' },
+    { chave: 'montagemSondasHeaterAirSafety', rotulo: 'Montagem das sondas "Heater" e "Air safety" devidamente identificadas' },
+    { chave: 'montagemTermicoResistencias', rotulo: 'Montagem de térmico (70°C/80°C) das resistências' }
+  ];
+  var CC_PAGINA3_ITENS2 = [
+    { chave: 'montagemCaixaDerivacaoSondas', rotulo: 'Montagem de caixa de derivação (sondas) com conetores de interface de acordo com esquema elétrico' },
+    { chave: 'montagemCaixaDerivacaoHeaterSteam', rotulo: 'Montagem de caixa de derivação (heater steam) com conetores e bornes identificados de acordo com layout no esquema elétrico (aplicável ao modelo PH)' },
+    { chave: 'conexaoSensoresCaixaDerivacao', rotulo: 'Conexão dos sensores na caixa de derivação conforme esquema elétrico' },
+    { chave: 'ligacaoCabosConectoresInterface', rotulo: 'Ligação dos cabos elétricos com conetores de interface em: caixas de derivação, ventilador e sonda T/H (quando solicitado)' },
+    { chave: 'conexaoResistenciasTermicoEletrovalvula', rotulo: 'Conexão das resistências, térmico e eletroválvula no conetor macho HC-EVO-B10' },
+    { chave: 'aplicacaoConetorFemeaHCEVOB10', rotulo: 'Aplicação de conetor fêmea HC-EVO-B10 (quando solicitado)' },
+    { chave: 'montagemAnelVaporHumido', rotulo: 'Montagem de anel de vapor húmido e admissão de ar para gerador humidade em tubagem de PVC (aplicável ao modelo PH)' },
+    { chave: 'identificacaoCablagem', rotulo: 'Identificação de cablagem (quando solicitada sua integração)' }
+  ];
+  var CC_PAGINA5_ITENS = [
+    { chave: 'identificacaoComponentes', rotulo: 'Identificação dos componentes' },
+    { chave: 'cravacaoPonteiras', rotulo: 'Cravação de ponteiras e aplicação em bornes/conetores de forma adequada' },
+    { chave: 'montagemEletrificacaoComponentes', rotulo: 'Montagem e eletrificação de componentes conforme esquemas elétrico e refrigeração' },
+    { chave: 'isolamentoTubosCobre', rotulo: 'Isolamento dos tubos de cobre e outros componentes' },
+    { chave: 'fixacaoComponentes', rotulo: 'Fixação adequada de todos os componentes (verificação de apertos)', nota: 'Atenção ao aperto da bobina de Cool/Dry' },
+    { chave: 'ausenciaDanosClico', rotulo: 'Ausência de danos físicos no clico (ou outros componentes)' },
+    { chave: 'limpezaGeral', rotulo: 'Limpeza geral' }
+  ];
+  var CC_PAGINA8_ITENS = [
+    { chave: 'caixaMadeira', rotulo: 'Caixa de madeira 1375 × 1275 × 1010mm (devidamente identificada)' },
+    { chave: 'protecoesPontasTubos', rotulo: 'Colocação de proteções nas pontas dos tubos de cobre ou sobreposições' },
+    { chave: 'fixacaoBaseMetatica', rotulo: 'Fixação da base metática do Clico na base da caixa de madeira' },
+    { chave: 'cantosEsponja', rotulo: 'Colocação de cantos em esponja almofadada anti-choque' },
+    { chave: 'inclusaoKitFixacao', rotulo: 'Inclusão do kit de fixação do Clico' }
+  ];
+
+  function montarItensOkNaNokCiclos(containerId, itens) {
+    var container = document.getElementById(containerId);
+    container.innerHTML = itens.map(function (item) {
+      var nota = item.nota ? '<div class="oknanok-nota">' + item.nota + '</div>' : '';
+      return '<div class="oknanok-item">' +
+        '<div class="oknanok-rotulo">' + item.rotulo + '</div>' +
+        '<div class="oknanok-opcoes">' +
+          '<label><input type="radio" name="cc-' + item.chave + '" value="OK" required /> OK</label>' +
+          '<label><input type="radio" name="cc-' + item.chave + '" value="NA" /> NA</label>' +
+          '<label><input type="radio" name="cc-' + item.chave + '" value="NOK" /> NOK</label>' +
+        '</div>' +
+        nota +
+      '</div>';
+    }).join('');
+  }
+
+  montarItensOkNaNokCiclos('cc-pagina3-itens', CC_PAGINA3_ITENS);
+  montarItensOkNaNokCiclos('cc-pagina3-itens2', CC_PAGINA3_ITENS2);
+  montarItensOkNaNokCiclos('cc-pagina5-itens', CC_PAGINA5_ITENS);
+  montarItensOkNaNokCiclos('cc-pagina8-itens', CC_PAGINA8_ITENS);
+
+  // ---------------------------------------------------------------------
+  // Assinaturas (mesma logica do Checklist de Grupos - dimensionamento so
+  // na primeira vez que a pagina fica visivel).
+  // ---------------------------------------------------------------------
+  var assinaturasCiclos = {};
+
+  function configurarAssinaturaCiclos(id) {
+    var canvas = document.getElementById(id);
+    var ctx = canvas.getContext('2d');
+    var estado = { canvas: canvas, ctx: ctx, desenhado: false, aDesenhar: false, dimensionado: false };
+    assinaturasCiclos[id] = estado;
+
+    function posicao(ev) {
+      var rect = canvas.getBoundingClientRect();
+      var ponto = ev.touches ? ev.touches[0] : ev;
+      return { x: ponto.clientX - rect.left, y: ponto.clientY - rect.top };
+    }
+    function iniciar(ev) {
+      ev.preventDefault();
+      estado.aDesenhar = true;
+      var p = posicao(ev);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+    }
+    function desenhar(ev) {
+      if (!estado.aDesenhar) return;
+      ev.preventDefault();
+      var p = posicao(ev);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      estado.desenhado = true;
+    }
+    function terminar() { estado.aDesenhar = false; }
+
+    canvas.addEventListener('mousedown', iniciar);
+    canvas.addEventListener('mousemove', desenhar);
+    window.addEventListener('mouseup', terminar);
+    canvas.addEventListener('touchstart', iniciar, { passive: false });
+    canvas.addEventListener('touchmove', desenhar, { passive: false });
+    canvas.addEventListener('touchend', terminar);
+  }
+
+  function dimensionarAssinaturaCiclosSeNecessario(id) {
+    var estado = assinaturasCiclos[id];
+    if (!estado || estado.dimensionado) return;
+    var rect = estado.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    var escalaDpi = window.devicePixelRatio || 1;
+    estado.canvas.width = rect.width * escalaDpi;
+    estado.canvas.height = rect.height * escalaDpi;
+    estado.ctx.scale(escalaDpi, escalaDpi);
+    estado.ctx.lineWidth = 2;
+    estado.ctx.lineCap = 'round';
+    estado.ctx.strokeStyle = '#1f2937';
+    estado.dimensionado = true;
+  }
+
+  function obterAssinaturaCiclosDataUrl(id) {
+    var estado = assinaturasCiclos[id];
+    if (!estado || !estado.desenhado) return null;
+    return estado.canvas.toDataURL('image/png');
+  }
+
+  ['cc-assinatura3', 'cc-assinatura5', 'cc-assinatura6', 'cc-assinatura7', 'cc-assinatura8'].forEach(configurarAssinaturaCiclos);
+
+  document.querySelectorAll('#checklistCiclos .assinatura-limpar').forEach(function (botao) {
+    botao.addEventListener('click', function () {
+      var estado = assinaturasCiclos[botao.dataset.alvo];
+      if (!estado) return;
+      estado.ctx.clearRect(0, 0, estado.canvas.width, estado.canvas.height);
+      estado.desenhado = false;
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Fotos: página 5 (identificação) e página 6 (3 testes).
+  // ---------------------------------------------------------------------
+  var ccFotos = { fotosIdentificacao: [], fotosTesteEletrico: [], fotosTestePressao: [], fotosTesteVacuo: [] };
+
+  function renderizarPreviewsChecklistCiclos(chave, idPreviews) {
+    var container = document.getElementById(idPreviews);
+    container.innerHTML = '';
+    ccFotos[chave].forEach(function (base64, indice) {
+      var thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      thumb.innerHTML = '<img src="' + base64 + '" alt="" /><button type="button" aria-label="Remover">✕</button>';
+      thumb.querySelector('button').addEventListener('click', function () {
+        ccFotos[chave].splice(indice, 1);
+        renderizarPreviewsChecklistCiclos(chave, idPreviews);
+      });
+      container.appendChild(thumb);
+    });
+  }
+
+  function ligarUploadFotosCiclos(chave, idCamera, idGaleria, idPreviews) {
+    function aoEscolher(ev) {
+      var ficheiros = Array.prototype.slice.call(ev.target.files || []);
+      if (!ficheiros.length) return;
+      mostrarEstadoChecklistCiclos('A processar fotografias...', 'info');
+      Promise.all(ficheiros.map(function (f) { return comprimirImagemGlobal(f); })).then(function (base64s) {
+        base64s.forEach(function (b64) { ccFotos[chave].push(b64); });
+        renderizarPreviewsChecklistCiclos(chave, idPreviews);
+        esconderEstadoChecklistCiclos();
+        ev.target.value = '';
+      }).catch(function (erro) {
+        mostrarEstadoChecklistCiclos('Erro ao processar imagem: ' + erro.message, 'erro');
+      });
+    }
+    document.getElementById(idCamera).addEventListener('change', aoEscolher);
+    document.getElementById(idGaleria).addEventListener('change', aoEscolher);
+  }
+
+  ligarUploadFotosCiclos('fotosIdentificacao', 'cc-fotosIdentificacaoCamera', 'cc-fotosIdentificacaoGaleria', 'cc-fotosIdentificacaoPreviews');
+  ligarUploadFotosCiclos('fotosTesteEletrico', 'cc-fotosTesteEletricoCamera', 'cc-fotosTesteEletricoGaleria', 'cc-fotosTesteEletricoPreviews');
+  ligarUploadFotosCiclos('fotosTestePressao', 'cc-fotosTestePressaoCamera', 'cc-fotosTestePressaoGaleria', 'cc-fotosTestePressaoPreviews');
+  ligarUploadFotosCiclos('fotosTesteVacuo', 'cc-fotosTesteVacuoCamera', 'cc-fotosTesteVacuoGaleria', 'cc-fotosTesteVacuoPreviews');
+
+  // ---------------------------------------------------------------------
+  // Navegação entre páginas (1 a 9) e validação dos campos obrigatórios.
+  // ---------------------------------------------------------------------
+  var PAGINA_ATUAL_CICLOS = 1;
+  var TOTAL_PAGINAS_CICLOS = 9;
+  var paginasChecklistCiclos = document.querySelectorAll('#formChecklistCiclos .checklist-pagina');
+
+  function mostrarPaginaCiclos(numero) {
+    paginasChecklistCiclos.forEach(function (p) {
+      p.hidden = Number(p.dataset.pagina) !== numero;
+    });
+    PAGINA_ATUAL_CICLOS = numero;
+    if ([3, 5, 6, 7, 8].indexOf(numero) !== -1) {
+      dimensionarAssinaturaCiclosSeNecessario('cc-assinatura' + numero);
+    }
+    document.getElementById('checklistCiclos').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function validarPaginaAtualCiclos() {
+    var pagina = document.querySelector('#formChecklistCiclos .checklist-pagina[data-pagina="' + PAGINA_ATUAL_CICLOS + '"]');
+    var campos = pagina.querySelectorAll('input[required], textarea[required]');
+    for (var i = 0; i < campos.length; i++) {
+      var campo = campos[i];
+      if (campo.type === 'radio') {
+        var grupo = pagina.querySelectorAll('input[type="radio"][name="' + campo.name + '"]');
+        var marcado = Array.prototype.some.call(grupo, function (r) { return r.checked; });
+        if (!marcado) {
+          mostrarEstadoChecklistCiclos('Preencha todos os campos obrigatórios desta página.', 'erro');
+          return false;
+        }
+      } else if (!campo.value.trim()) {
+        mostrarEstadoChecklistCiclos('Preencha todos os campos obrigatórios desta página.', 'erro');
+        campo.focus();
+        return false;
+      }
+    }
+
+    if ([3, 5, 6, 7, 8].indexOf(PAGINA_ATUAL_CICLOS) !== -1 && !obterAssinaturaCiclosDataUrl('cc-assinatura' + PAGINA_ATUAL_CICLOS)) {
+      mostrarEstadoChecklistCiclos('Assine antes de continuar.', 'erro');
+      return false;
+    }
+
+    if (PAGINA_ATUAL_CICLOS === 5 && !ccFotos.fotosIdentificacao.length) {
+      mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto da identificação do clico.', 'erro');
+      return false;
+    }
+    if (PAGINA_ATUAL_CICLOS === 6) {
+      if (!ccFotos.fotosTesteEletrico.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste elétrico.', 'erro'); return false; }
+      if (!ccFotos.fotosTestePressao.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de pressão.', 'erro'); return false; }
+      if (!ccFotos.fotosTesteVacuo.length) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de vácuo.', 'erro'); return false; }
+    }
+
+    esconderEstadoChecklistCiclos();
+    return true;
+  }
+
+  document.querySelectorAll('#formChecklistCiclos .cc-seguinte').forEach(function (botao) {
+    botao.addEventListener('click', function () {
+      if (!validarPaginaAtualCiclos()) return;
+      mostrarPaginaCiclos(Math.min(TOTAL_PAGINAS_CICLOS, PAGINA_ATUAL_CICLOS + 1));
+    });
+  });
+  document.querySelectorAll('#formChecklistCiclos .cc-anterior').forEach(function (botao) {
+    botao.addEventListener('click', function () {
+      mostrarPaginaCiclos(Math.max(1, PAGINA_ATUAL_CICLOS - 1));
+    });
+  });
+  document.querySelectorAll('#formChecklistCiclos .cc-guardar').forEach(function (botao) {
+    botao.addEventListener('click', function () {
+      mostrarEstadoChecklistCiclos('Progresso desta página guardado nesta sessão. Continue a preencher sem fechar o browser; só o "Enviar" final grava tudo.', 'sucesso');
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Envio final (página 9).
+  // ---------------------------------------------------------------------
+  function valorRadioCiclos(nome) {
+    var marcado = document.querySelector('input[name="' + nome + '"]:checked');
+    return marcado ? marcado.value : '';
+  }
+  function valorTextoCiclos(id) {
+    var el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  }
+  function valoresItensCiclos(itens) {
+    var resultado = {};
+    itens.forEach(function (item) {
+      resultado[item.chave] = { rotulo: item.rotulo, valor: valorRadioCiclos('cc-' + item.chave) };
+    });
+    return resultado;
+  }
+
+  function limparFormularioChecklistCiclos() {
+    document.getElementById('formChecklistCiclos').reset();
+    Object.keys(ccFotos).forEach(function (chave) { ccFotos[chave] = []; });
+    renderizarPreviewsChecklistCiclos('fotosIdentificacao', 'cc-fotosIdentificacaoPreviews');
+    renderizarPreviewsChecklistCiclos('fotosTesteEletrico', 'cc-fotosTesteEletricoPreviews');
+    renderizarPreviewsChecklistCiclos('fotosTestePressao', 'cc-fotosTestePressaoPreviews');
+    renderizarPreviewsChecklistCiclos('fotosTesteVacuo', 'cc-fotosTesteVacuoPreviews');
+    ['cc-assinatura3', 'cc-assinatura5', 'cc-assinatura6', 'cc-assinatura7', 'cc-assinatura8'].forEach(function (id) {
+      var estado = assinaturasCiclos[id];
+      if (estado) {
+        estado.ctx.clearRect(0, 0, estado.canvas.width, estado.canvas.height);
+        estado.desenhado = false;
+      }
+    });
+    mostrarPaginaCiclos(1);
+  }
+
+  document.querySelectorAll('#formChecklistCiclos .cc-enviar').forEach(function (botao) {
+    botao.addEventListener('click', function () {
+      if (!validarPaginaAtualCiclos()) return;
+      if (!APPS_SCRIPT_URL) {
+        mostrarEstadoChecklistCiclos('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+        return;
+      }
+
+      var campos = {
+        esquemaEletrico: valorTextoCiclos('cc-esquemaEletrico'),
+        esquemaRefrigeracao: valorTextoCiclos('cc-esquemaRefrigeracao'),
+        verificacaoEstruturas: valoresItensCiclos(CC_PAGINA3_ITENS.concat(CC_PAGINA3_ITENS2)),
+        refa: valorTextoCiclos('cc-refa'),
+        assinaturaPagina3: obterAssinaturaCiclosDataUrl('cc-assinatura3'),
+        ventiladoresAdicionais: valorRadioCiclos('cc-ventiladoresAdicionais'),
+        fotosIdentificacao: ccFotos.fotosIdentificacao,
+        clico: valoresItensCiclos(CC_PAGINA5_ITENS),
+        assinaturaPagina5: obterAssinaturaCiclosDataUrl('cc-assinatura5'),
+        fotosTesteEletrico: ccFotos.fotosTesteEletrico,
+        fotosTestePressao: ccFotos.fotosTestePressao,
+        fotosTesteVacuo: ccFotos.fotosTesteVacuo,
+        assinaturaPagina6: obterAssinaturaCiclosDataUrl('cc-assinatura6'),
+        sondaTemperaturaHumidade: {
+          fabricante: valorTextoCiclos('cc-fabricanteSonda'),
+          modelo: valorTextoCiclos('cc-modeloSonda'),
+          serie: valorTextoCiclos('cc-serieSonda')
+        },
+        evaporador: {
+          fabricante: valorTextoCiclos('cc-fabricanteEvaporador'),
+          modelo: valorTextoCiclos('cc-modeloEvaporador'),
+          serie: valorTextoCiclos('cc-serieEvaporador')
+        },
+        clicoIdentificacao: {
+          fabricante: valorTextoCiclos('cc-fabricanteClico'),
+          modelo: valorTextoCiclos('cc-modeloClico'),
+          serie: valorTextoCiclos('cc-serieClico')
+        },
+        assinaturaPagina7: obterAssinaturaCiclosDataUrl('cc-assinatura7'),
+        embalagem: valoresItensCiclos(CC_PAGINA8_ITENS),
+        assinaturaPagina8: obterAssinaturaCiclosDataUrl('cc-assinatura8'),
+        observacoes: valorTextoCiclos('cc-observacoes')
+      };
+
+      var payload = {
+        acao: 'guardarChecklist',
+        tipo: 'ciclos',
+        equipamento: valorTextoCiclos('cc-equipamento'),
+        numeroSerie: valorTextoCiclos('cc-numeroSerie'),
+        email: valorTextoCiclos('cc-email'),
+        conformidade: 'Nao',
+        campos: campos
+      };
+
+      botao.disabled = true;
+      botao.textContent = 'A enviar...';
+      mostrarEstadoChecklistCiclos('A enviar checklist, aguarde (pode demorar com as fotos)...', 'info');
+
+      fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+        .then(respostaParaJsonGlobal)
+        .then(function (dados) {
+          if (dados.status !== 'ok') {
+            mostrarEstadoChecklistCiclos('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+            return;
+          }
+          mostrarEstadoChecklistCiclos('Checklist enviado e guardado com sucesso!', 'sucesso');
+          limparFormularioChecklistCiclos();
+        })
+        .catch(function (erro) {
+          mostrarEstadoChecklistCiclos('Erro de rede/ligação: ' + erro.message, 'erro');
+        })
+        .finally(function () {
+          botao.disabled = false;
+          botao.textContent = 'Enviar';
+        });
+    });
+  });
+
+  function mostrarEstadoChecklistCiclos(texto, tipo) {
+    var el = document.getElementById('estadoChecklistCiclos');
+    el.textContent = texto;
+    el.className = 'estado mostrar ' + tipo;
+  }
+  function esconderEstadoChecklistCiclos() {
+    document.getElementById('estadoChecklistCiclos').className = 'estado';
+  }
+
+  mostrarPaginaCiclos(1);
 })();
 </script>
 <script>
