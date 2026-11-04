@@ -222,7 +222,11 @@ pela primeira vez ou numa correção — a aplicação:
    formulário, os itens OK/NA/NOK aparecem numa tabela Item/Resultado,
    as fotos e assinaturas ficam incorporadas como imagens, e há um
    contador "N/Total" (ex.: "1/8") no fundo de cada página, tal como no
-   ecrã.
+   ecrã. **As cores são exatamente as mesmas da aplicação** (texto
+   principal `#1f2937`, código DP a cinza `#5f6b7a`) — não se usam
+   "Título 1/2" do Google Docs (que trariam a cor de tema do Docs),
+   nem nenhuma cor nova; é deliberadamente o mesmo visual simples do
+   formulário, sem alterações.
 3. Envia esse PDF por e-mail para o endereço preenchido em "E-Mail de
    quem preenche o documento" (página 1), com um **link de edição** no
    corpo da mensagem.

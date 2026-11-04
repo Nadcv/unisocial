@@ -2762,14 +2762,25 @@ function criarDocChecklist_(tipo, numeroChecklist, equipamento, numeroSerie, ema
   corpo.clear();
   corpo.setPageWidth(A4_LARGURA_PT_);
   corpo.setPageHeight(A4_ALTURA_PT_);
+  // Mesma cor de texto principal usada em todo o formulario no ecra
+  // (var(--texto): #1f2937), para o PDF ficar visualmente igual.
+  var atributosTexto = {};
+  atributosTexto[DocumentApp.Attribute.FOREGROUND_COLOR] = '#1f2937';
+  corpo.setAttributes(atributosTexto);
 
-  corpo.appendParagraph(EMPRESA).setHeading(DocumentApp.ParagraphHeading.HEADING1);
-  corpo.appendParagraph('Checklist de Produção — Nº ' + numeroChecklist).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  // Nota: nao se usa DocumentApp.ParagraphHeading (Titulo 1/2) em lado
+  // nenhum deste documento - esses estilos aplicam uma cor de tema
+  // propria do Google Docs, diferente do preto simples usado em todo o
+  // formulario no ecra. O pedido foi para o PDF ficar exatamente como o
+  // formulario, sem cores novas - por isso tudo aqui e texto preto
+  // simples, so a negrito/tamanho onde o ecra tambem o e.
+  corpo.appendParagraph(EMPRESA).setBold(true).setFontSize(16);
+  corpo.appendParagraph('Checklist de Produção — Nº ' + numeroChecklist).setBold(true).setFontSize(12);
 
   for (var pagina = 1; pagina <= totalPaginas; pagina++) {
     corpo.appendPageBreak();
     corpo.appendParagraph(tituloForm).setBold(true).setFontSize(13);
-    corpo.appendParagraph(codigoForm).setFontSize(9).setForegroundColor('#666666');
+    corpo.appendParagraph(codigoForm).setFontSize(9).setForegroundColor('#5f6b7a');
     corpo.appendParagraph(' ');
 
     if (pagina === 1) {
