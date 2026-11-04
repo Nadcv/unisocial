@@ -1269,7 +1269,31 @@
         </div>
         <div class="previews" id="cg-fotosControladorPreviews"></div>
 
-        <div style="height:12px"></div>
+        <div style="height:14px"></div>
+        <label class="campo-label">Fotos Teste Eléctrico</label>
+        <div class="botoes-foto">
+          <label class="botao-foto">📷 Tirar foto<input type="file" accept="image/*" capture="environment" id="cg-fotosTesteEletricoCamera" /></label>
+          <label class="botao-foto">🖼️ Galeria<input type="file" accept="image/*" multiple id="cg-fotosTesteEletricoGaleria" /></label>
+        </div>
+        <div class="previews" id="cg-fotosTesteEletricoPreviews"></div>
+        <div class="ajuda" style="margin-bottom:12px;">Conforme IT128</div>
+
+        <label class="campo-label">Fotos Teste de Pressão</label>
+        <div class="botoes-foto">
+          <label class="botao-foto">📷 Tirar foto<input type="file" accept="image/*" capture="environment" id="cg-fotosTestePressaoCamera" /></label>
+          <label class="botao-foto">🖼️ Galeria<input type="file" accept="image/*" multiple id="cg-fotosTestePressaoGaleria" /></label>
+        </div>
+        <div class="previews" id="cg-fotosTestePressaoPreviews"></div>
+        <div class="ajuda" style="margin-bottom:12px;">Conforme IT128</div>
+
+        <label class="campo-label">Fotos Teste de Vácuo</label>
+        <div class="botoes-foto">
+          <label class="botao-foto">📷 Tirar foto<input type="file" accept="image/*" capture="environment" id="cg-fotosTesteVacuoCamera" /></label>
+          <label class="botao-foto">🖼️ Galeria<input type="file" accept="image/*" multiple id="cg-fotosTesteVacuoGaleria" /></label>
+        </div>
+        <div class="previews" id="cg-fotosTesteVacuoPreviews"></div>
+        <div class="ajuda" style="margin-bottom:12px;">Conforme IT128</div>
+
         <label class="campo-label">Assinatura do Responsável</label>
         <div class="assinatura-wrap">
           <canvas id="cg-assinatura6"></canvas>
@@ -4171,7 +4195,7 @@
   // ---------------------------------------------------------------------
   // Fotos (etiquetas e controlador, página 6).
   // ---------------------------------------------------------------------
-  var cgFotos = { fotosEtiquetas: [], fotosControlador: [] };
+  var cgFotos = { fotosEtiquetas: [], fotosControlador: [], fotosTesteEletrico: [], fotosTestePressao: [], fotosTesteVacuo: [] };
 
   function renderizarPreviewsChecklist(chave, idPreviews) {
     var container = document.getElementById(idPreviews);
@@ -4208,6 +4232,9 @@
 
   ligarUploadFotos('fotosEtiquetas', 'cg-fotosEtiquetasCamera', 'cg-fotosEtiquetasGaleria', 'cg-fotosEtiquetasPreviews');
   ligarUploadFotos('fotosControlador', 'cg-fotosControladorCamera', 'cg-fotosControladorGaleria', 'cg-fotosControladorPreviews');
+  ligarUploadFotos('fotosTesteEletrico', 'cg-fotosTesteEletricoCamera', 'cg-fotosTesteEletricoGaleria', 'cg-fotosTesteEletricoPreviews');
+  ligarUploadFotos('fotosTestePressao', 'cg-fotosTestePressaoCamera', 'cg-fotosTestePressaoGaleria', 'cg-fotosTestePressaoPreviews');
+  ligarUploadFotos('fotosTesteVacuo', 'cg-fotosTesteVacuoCamera', 'cg-fotosTesteVacuoGaleria', 'cg-fotosTesteVacuoPreviews');
 
   // ---------------------------------------------------------------------
   // Navegação entre páginas (1 a 8) e validação dos campos obrigatórios
@@ -4275,6 +4302,18 @@
         mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do controlador.', 'erro');
         return false;
       }
+      if (!cgFotos.fotosTesteEletrico.length) {
+        mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do teste eléctrico.', 'erro');
+        return false;
+      }
+      if (!cgFotos.fotosTestePressao.length) {
+        mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do teste de pressão.', 'erro');
+        return false;
+      }
+      if (!cgFotos.fotosTesteVacuo.length) {
+        mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do teste de vácuo.', 'erro');
+        return false;
+      }
     }
 
     esconderEstadoChecklistGrupos();
@@ -4331,8 +4370,14 @@
     document.getElementById('cg-producaoPorEmpresa').hidden = true;
     cgFotos.fotosEtiquetas = [];
     cgFotos.fotosControlador = [];
+    cgFotos.fotosTesteEletrico = [];
+    cgFotos.fotosTestePressao = [];
+    cgFotos.fotosTesteVacuo = [];
     renderizarPreviewsChecklist('fotosEtiquetas', 'cg-fotosEtiquetasPreviews');
     renderizarPreviewsChecklist('fotosControlador', 'cg-fotosControladorPreviews');
+    renderizarPreviewsChecklist('fotosTesteEletrico', 'cg-fotosTesteEletricoPreviews');
+    renderizarPreviewsChecklist('fotosTestePressao', 'cg-fotosTestePressaoPreviews');
+    renderizarPreviewsChecklist('fotosTesteVacuo', 'cg-fotosTesteVacuoPreviews');
     ['cg-assinatura3', 'cg-assinatura4', 'cg-assinatura5', 'cg-assinatura6', 'cg-assinatura7'].forEach(function (id) {
       var estado = assinaturas[id];
       if (estado) {
@@ -4376,6 +4421,9 @@
         },
         temModulosExpansao: valorRadio('cg-temModulosExpansao'),
         fotosControlador: cgFotos.fotosControlador,
+        fotosTesteEletrico: cgFotos.fotosTesteEletrico,
+        fotosTestePressao: cgFotos.fotosTestePressao,
+        fotosTesteVacuo: cgFotos.fotosTesteVacuo,
         assinaturaPagina6: obterAssinaturaDataUrl('cg-assinatura6'),
         embalagem: valoresItens(CG_PAGINA7_ITENS),
         assinaturaPagina7: obterAssinaturaDataUrl('cg-assinatura7'),

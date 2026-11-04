@@ -206,6 +206,11 @@ WhatsApp.
   tal como os testes de pressão e de vácuo logo abaixo; o campo de
   seleção do gás (ex.: R513A) ficou com o rótulo **"Gás"**, por baixo
   desse OK/NA/NOK.
+- Na página 6/8 (Grupos), depois de "Fotos Controlador" foram
+  acrescentados 3 campos de fotos obrigatórios — **"Fotos Teste
+  Eléctrico"**, **"Fotos Teste de Pressão"** e **"Fotos Teste de
+  Vácuo"** (todos "Conforme IT128") — para documentar com imagem os
+  testes já marcados OK/NA/NOK na página anterior.
 
 ## Campos de escolha com "Outro (escrever)..."
 
