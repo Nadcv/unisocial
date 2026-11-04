@@ -848,6 +848,15 @@
     <div id="historicoContainer" style="margin-top:12px;"></div>
 
     <div style="height:16px"></div>
+    <div class="card-titulo" style="font-size:0.9rem;">Relatório de entrega</div>
+    <div class="ajuda" style="margin-bottom:8px;">Dados do registo, etapas e materiais deste número de série, prontos para entregar ao cliente.</div>
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-largo" id="botaoEntregaWord">📄 Word</button>
+      <button type="button" class="botao botao-largo" id="botaoEntregaExcel">📊 Excel</button>
+      <button type="button" class="botao botao-largo" id="botaoEntregaPdf">🧾 PDF</button>
+    </div>
+
+    <div style="height:16px"></div>
     <div class="card-titulo" style="font-size:0.9rem;">Mudar número de série (só em último caso)</div>
     <input type="text" id="serialNovo" placeholder="Novo número de série" autocomplete="off" />
     <div class="linha-botoes">
@@ -2566,6 +2575,24 @@
 
   document.getElementById('botaoBaixarMateriaisExcel').addEventListener('click', function () { baixarTabelaMateriais('xlsx'); });
   document.getElementById('botaoBaixarMateriaisPdf').addEventListener('click', function () { baixarTabelaMateriais('pdf'); });
+
+  function baixarRelatorioEntrega(formato) {
+    var serial = campoSerial.value.trim();
+    if (!serial) {
+      mostrarEstado('Indique o número de série.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+    var url = APPS_SCRIPT_URL + '?action=gerarRelatorioEntrega&tipo=' + TIPO_ATUAL + '&serial=' + encodeURIComponent(serial) + '&formato=' + formato;
+    window.open(url, '_blank');
+  }
+
+  document.getElementById('botaoEntregaWord').addEventListener('click', function () { baixarRelatorioEntrega('docx'); });
+  document.getElementById('botaoEntregaExcel').addEventListener('click', function () { baixarRelatorioEntrega('xlsx'); });
+  document.getElementById('botaoEntregaPdf').addEventListener('click', function () { baixarRelatorioEntrega('pdf'); });
 
   function montarEtapas(etapasGuardadas) {
     etapasGuardadas = etapasGuardadas || {};

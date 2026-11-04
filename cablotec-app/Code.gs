@@ -157,6 +157,9 @@ function doGet(e) {
   if (acao === 'baixarMateriais') {
     return baixarMateriais(e.parameter);
   }
+  if (acao === 'gerarRelatorioEntrega') {
+    return gerarRelatorioEntrega(e.parameter);
+  }
   if (acao === 'listarMateriaisStock') {
     return respostaJson(listarMateriaisStock());
   }
@@ -1352,6 +1355,193 @@ function criarAbaTemporariaMateriais(itens, nomeTipo, modelo) {
 
 function sanitizeNomeFicheiro(texto) {
   return texto.toString().replace(/[^a-zA-Z0-9_-]+/g, '_');
+}
+
+/**
+ * Gera o relatorio de entrega de um numero de serie (dados do registo +
+ * etapas + materiais do modelo) em Word, Excel ou PDF, e devolve uma
+ * pagina HTML que despoleta logo o download (sem deixar ficheiros no
+ * Drive). O Word/PDF sao gerados a partir de um Google Doc temporario
+ * (melhor para texto/tabelas formatadas); o Excel a partir de uma aba
+ * temporaria na propria Sheet (consistente com "Baixar materiais").
+ */
+function gerarRelatorioEntrega(parametros) {
+  var tipo = (parametros.tipo || '').toString().trim();
+  var serial = (parametros.serial || '').toString().trim();
+  var formato = ['docx', 'pdf', 'xlsx'].indexOf(parametros.formato) !== -1 ? parametros.formato : 'pdf';
+
+  if (!serial) {
+    return HtmlService.createHtmlOutput('<p>Numero de serie em falta.</p>');
+  }
+
+  var temporario = null;
+  try {
+    var aba = obterAba(tipo);
+    var linha = encontrarLinha(aba, serial);
+    if (linha === -1) {
+      throw new Error('Registo nao encontrado para o numero de serie ' + serial + '.');
+    }
+
+    var valores = aba.getRange(linha, 1, 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues()[0];
+    var dados = linhaParaObjeto(valores);
+    var materiais = listarMateriaisPadrao(tipo, dados.grupo).itens;
+
+    var blob, mimeType;
+    if (formato === 'xlsx') {
+      temporario = criarFolhaRelatorioEntrega_(dados, materiais, tipo);
+      blob = exportarAbaComoBlob(temporario, 'xlsx');
+      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    } else {
+      temporario = criarDocRelatorioEntrega_(dados, materiais, tipo);
+      blob = exportarDocComoBlob_(temporario, formato);
+      mimeType = formato === 'docx'
+        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : 'application/pdf';
+    }
+
+    var base64 = Utilities.base64Encode(blob.getBytes());
+    var nomeFicheiro = 'Entrega_' + sanitizeNomeFicheiro(serial) + '.' + formato;
+
+    var html = '<html><body onload="document.getElementById(\'l\').click();">' +
+      '<a id="l" href="data:' + mimeType + ';base64,' + base64 + '" download="' + nomeFicheiro + '">A transferir...</a>' +
+      '<p>Se o download nao comecar sozinho, toque no link acima. Pode fechar esta janela depois.</p>' +
+      '</body></html>';
+    return HtmlService.createHtmlOutput(html);
+  } catch (erro) {
+    var mensagem = erro && erro.message ? erro.message : String(erro);
+    return HtmlService.createHtmlOutput('<p>Erro ao gerar o ficheiro: ' + mensagem + '</p>');
+  } finally {
+    if (temporario) {
+      if (formato === 'xlsx') {
+        SpreadsheetApp.getActiveSpreadsheet().deleteSheet(temporario);
+      } else {
+        DriveApp.getFileById(temporario.getId()).setTrashed(true);
+      }
+    }
+  }
+}
+
+function montarLinhasMateriaisRelatorio_(itens, categoria) {
+  var linhas = [['Codigo', 'Descricao', 'Quantidade']];
+  var filtrados = itens.filter(function (m) { return m.categoria === categoria; });
+  if (!filtrados.length) {
+    linhas.push(['-', 'Nenhum material registado', '-']);
+  } else {
+    filtrados.forEach(function (m) {
+      linhas.push([m.codigo, m.descricao || '-', m.quantidade || '-']);
+    });
+  }
+  return linhas;
+}
+
+function criarDocRelatorioEntrega_(dados, materiais, tipo) {
+  var nomeTipo = tipo === 'ciclos' ? 'Ciclos' : 'Grupos';
+  var doc = DocumentApp.create('_tmp_entrega_' + new Date().getTime());
+  var corpo = doc.getBody();
+  corpo.clear();
+
+  corpo.appendParagraph(EMPRESA).setHeading(DocumentApp.ParagraphHeading.HEADING1);
+  corpo.appendParagraph('Relatorio de Entrega - ' + nomeTipo).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  corpo.appendParagraph(' ');
+
+  corpo.appendTable([
+    ['Numero de serie', dados.serial],
+    ['Grupo/Tipo', dados.grupo],
+    ['Estado geral', dados.estado],
+    ['Previsao de saida', dados.previsaoSaida || '-'],
+    ['Data de entrega', dados.dataEntrega || '-'],
+    ['Criado em', dados.criadoEm],
+    ['Materiais em falta', dados.materiaisEmFalta || '-'],
+    ['Materiais entregues', dados.materiaisEntregues || '-']
+  ]);
+
+  corpo.appendParagraph(' ');
+  corpo.appendParagraph('Etapas de producao').setHeading(DocumentApp.ParagraphHeading.HEADING3);
+  var linhasEtapas = [['Etapa', 'Concluida em', 'Nota']];
+  ETAPAS.forEach(function (et) {
+    var info = dados.etapas[et.chave] || {};
+    linhasEtapas.push([et.rotulo, info.data || '-', info.nota || '-']);
+  });
+  corpo.appendTable(linhasEtapas);
+
+  corpo.appendParagraph(' ');
+  corpo.appendParagraph('Materiais - parte eletrica').setHeading(DocumentApp.ParagraphHeading.HEADING3);
+  corpo.appendTable(montarLinhasMateriaisRelatorio_(materiais, 'Eletrica'));
+
+  corpo.appendParagraph(' ');
+  corpo.appendParagraph('Materiais - parte de frio').setHeading(DocumentApp.ParagraphHeading.HEADING3);
+  corpo.appendTable(montarLinhasMateriaisRelatorio_(materiais, 'Frio'));
+
+  doc.saveAndClose();
+  return doc;
+}
+
+function criarFolhaRelatorioEntrega_(dados, materiais, tipo) {
+  var nomeTipo = tipo === 'ciclos' ? 'Ciclos' : 'Grupos';
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.insertSheet('_tmp_entrega_' + new Date().getTime());
+
+  var linhaAtual = 1;
+  aba.getRange(linhaAtual, 1, 1, 4).merge().setValue(EMPRESA + ' - Relatorio de Entrega (' + nomeTipo + ')').setFontWeight('bold').setFontSize(13);
+  linhaAtual = linhaAtual + 2;
+
+  var campos = [
+    ['Numero de serie', dados.serial],
+    ['Grupo/Tipo', dados.grupo],
+    ['Estado geral', dados.estado],
+    ['Previsao de saida', dados.previsaoSaida || '-'],
+    ['Data de entrega', dados.dataEntrega || '-'],
+    ['Criado em', dados.criadoEm],
+    ['Materiais em falta', dados.materiaisEmFalta || '-'],
+    ['Materiais entregues', dados.materiaisEntregues || '-']
+  ];
+  campos.forEach(function (linha) {
+    aba.getRange(linhaAtual, 1).setValue(linha[0]).setFontWeight('bold');
+    aba.getRange(linhaAtual, 2).setValue(linha[1]);
+    linhaAtual = linhaAtual + 1;
+  });
+  linhaAtual = linhaAtual + 1;
+
+  aba.getRange(linhaAtual, 1).setValue('Etapas de producao').setFontWeight('bold');
+  linhaAtual = linhaAtual + 1;
+  aba.getRange(linhaAtual, 1, 1, 3).setValues([['Etapa', 'Concluida em', 'Nota']]).setFontWeight('bold');
+  linhaAtual = linhaAtual + 1;
+  ETAPAS.forEach(function (et) {
+    var info = dados.etapas[et.chave] || {};
+    aba.getRange(linhaAtual, 1, 1, 3).setValues([[et.rotulo, info.data || '-', info.nota || '-']]);
+    linhaAtual = linhaAtual + 1;
+  });
+  linhaAtual = linhaAtual + 1;
+
+  ['Eletrica', 'Frio'].forEach(function (categoria) {
+    var rotuloCategoria = categoria === 'Eletrica' ? 'Materiais - parte eletrica' : 'Materiais - parte de frio';
+    aba.getRange(linhaAtual, 1).setValue(rotuloCategoria).setFontWeight('bold');
+    linhaAtual = linhaAtual + 1;
+    var linhasMateriais = montarLinhasMateriaisRelatorio_(materiais, categoria);
+    aba.getRange(linhaAtual, 1, linhasMateriais.length, 3).setValues(linhasMateriais);
+    aba.getRange(linhaAtual, 1, 1, 3).setFontWeight('bold');
+    linhaAtual = linhaAtual + linhasMateriais.length + 1;
+  });
+
+  aba.autoResizeColumns(1, 4);
+  return aba;
+}
+
+function exportarDocComoBlob_(doc, formato) {
+  var id = doc.getId();
+  var url = 'https://docs.google.com/document/d/' + id + '/export?format=' + formato;
+  var opcoes = {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  };
+
+  var resposta = UrlFetchApp.fetch(url, opcoes);
+  if (resposta.getResponseCode() !== 200) {
+    throw new Error('Falha ao exportar o documento como ' + formato + ' (codigo ' + resposta.getResponseCode() + ').');
+  }
+
+  var nomeFicheiro = doc.getName() + '.' + formato;
+  return resposta.getBlob().setName(nomeFicheiro);
 }
 
 /**

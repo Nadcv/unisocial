@@ -102,6 +102,15 @@ de Produção guarda os seus registos) — não é um script standalone.
 
 ## Novidades
 
+- **Relatório de entrega (Word / Excel / PDF)** — dentro de um registo
+  de Controlo de Produção, três botões ("📄 Word", "📊 Excel",
+  "🧾 PDF") geram um relatório de entrega com os dados do registo
+  (número de série, grupo, estados, datas, materiais em falta/
+  entregues), as etapas concluídas (com data e nota) e a lista de
+  materiais elétrica/frio desse modelo — pronto para entregar ao
+  cliente. O Word e o PDF são gerados a partir de um Google Doc
+  temporário (apagado logo depois de descarregado); o Excel a partir
+  de uma aba temporária na própria Sheet.
 - **📷 Ler código QR / 🏷️ Gerar etiqueta** — junto ao número de série,
   nos dois separadores. "Ler código QR" é uma **alternativa** a
   escrever à mão (abre a câmara e preenche o campo sozinho); "Gerar
