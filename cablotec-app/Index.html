@@ -1098,11 +1098,13 @@
         <div class="ajuda" style="margin-bottom:14px;">DP156/R05</div>
 
         <label class="campo-label" for="cg-esquemaEletrico">Esquema Elétrico</label>
-        <input type="text" id="cg-esquemaEletrico" required />
+        <select id="cg-esquemaEletrico" required><option value="">Selecione...</option></select>
+        <input type="text" id="cg-esquemaEletrico-outro" class="campo-outro" placeholder="Escreva o novo código..." autocomplete="off" hidden />
 
         <div style="height:12px"></div>
         <label class="campo-label" for="cg-esquemaRefrigeracao">Esquema de refrigeração</label>
-        <input type="text" id="cg-esquemaRefrigeracao" required />
+        <select id="cg-esquemaRefrigeracao" required><option value="">Selecione...</option></select>
+        <input type="text" id="cg-esquemaRefrigeracao-outro" class="campo-outro" placeholder="Escreva o novo código..." autocomplete="off" hidden />
 
         <div class="linha-botoes">
           <button type="button" class="botao botao-largo cl-anterior">Anterior</button>
@@ -1171,7 +1173,8 @@
         <div class="ajuda" style="margin-bottom:14px;">DP156/R05</div>
 
         <label class="campo-label" for="cg-testeEletrico">Teste Eléctrico</label>
-        <input type="text" id="cg-testeEletrico" placeholder="Ex.: R513A" required />
+        <select id="cg-testeEletrico" required><option value="">Selecione...</option></select>
+        <input type="text" id="cg-testeEletrico-outro" class="campo-outro" placeholder="Escreva o novo gás..." autocomplete="off" hidden />
 
         <div class="oknanok-item" style="margin-top:14px;">
           <div class="oknanok-rotulo">Teste de pressão</div>
@@ -1333,7 +1336,8 @@
         <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
 
         <label class="campo-label" for="cc-equipamento">Equipamento</label>
-        <input type="text" id="cc-equipamento" required />
+        <select id="cc-equipamento" required><option value="">Selecione...</option></select>
+        <input type="text" id="cc-equipamento-outro" class="campo-outro" placeholder="Escreva o novo equipamento..." autocomplete="off" hidden />
 
         <div style="height:12px"></div>
         <label class="campo-label" for="cc-numeroSerie">Nº Série</label>
@@ -1363,11 +1367,13 @@
         <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
 
         <label class="campo-label" for="cc-esquemaEletrico">Esquema Elétrico</label>
-        <input type="text" id="cc-esquemaEletrico" />
+        <select id="cc-esquemaEletrico"><option value="">Selecione...</option></select>
+        <input type="text" id="cc-esquemaEletrico-outro" class="campo-outro" placeholder="Escreva o novo código..." autocomplete="off" hidden />
 
         <div style="height:12px"></div>
         <label class="campo-label" for="cc-esquemaRefrigeracao">Esquema de refrigeração</label>
-        <input type="text" id="cc-esquemaRefrigeracao" />
+        <select id="cc-esquemaRefrigeracao"><option value="">Selecione...</option></select>
+        <input type="text" id="cc-esquemaRefrigeracao-outro" class="campo-outro" placeholder="Escreva o novo código..." autocomplete="off" hidden />
 
         <div class="linha-botoes"><button type="button" class="botao botao-largo cc-anterior">Anterior</button></div>
         <div class="linha-botoes">
@@ -1502,11 +1508,13 @@
         <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
 
         <label class="campo-label" for="cc-fabricanteSonda">Fabricante Sonda de Temperatura/Humidade</label>
-        <input type="text" id="cc-fabricanteSonda" placeholder="Ex.: Vaisala" required />
+        <select id="cc-fabricanteSonda" required><option value="">Selecione...</option></select>
+        <input type="text" id="cc-fabricanteSonda-outro" class="campo-outro" placeholder="Escreva o novo fabricante..." autocomplete="off" hidden />
 
         <div style="height:12px"></div>
         <label class="campo-label" for="cc-modeloSonda">Modelo da Sonda de Temperatura/Humidade</label>
-        <input type="text" id="cc-modeloSonda" placeholder="Ex.: HMP110" required />
+        <select id="cc-modeloSonda" required><option value="">Selecione...</option></select>
+        <input type="text" id="cc-modeloSonda-outro" class="campo-outro" placeholder="Escreva o novo modelo..." autocomplete="off" hidden />
 
         <div style="height:12px"></div>
         <label class="campo-label" for="cc-serieSonda">Nº série da Sonda de Temperatura/Humidade</label>
@@ -1526,7 +1534,8 @@
 
         <div style="height:12px"></div>
         <label class="campo-label" for="cc-fabricanteClico">Fabricante do Clico</label>
-        <input type="text" id="cc-fabricanteClico" placeholder="Ex.: Z.A" required />
+        <select id="cc-fabricanteClico" required><option value="">Selecione...</option></select>
+        <input type="text" id="cc-fabricanteClico-outro" class="campo-outro" placeholder="Escreva o novo fabricante..." autocomplete="off" hidden />
 
         <div style="height:12px"></div>
         <label class="campo-label" for="cc-modeloClico">Modelo do Clico</label>
@@ -3923,6 +3932,53 @@
   }
 
   // ---------------------------------------------------------------------
+  // Listas de sugestoes (esquemas, gases, etc.), partilhadas com o
+  // Relatorio de Testes - crescem sozinhas quando alguem escreve um
+  // valor novo em "Outro (escrever)...".
+  // ---------------------------------------------------------------------
+  var LISTAS_JSON = '<?!= listasJson ?>';
+  var LISTAS_CG = { esquemasEletrico: [], esquemasFrio: [], gases: [] };
+  if (LISTAS_JSON.indexOf('{') === 0) {
+    try { LISTAS_CG = JSON.parse(LISTAS_JSON); } catch (erroListasCg) { /* mantem os valores por omissao */ }
+  }
+
+  function preencherSelectComOutro(idSelect, valores) {
+    var select = document.getElementById(idSelect);
+    if (!select) return;
+    var opcoes = '<option value="">Selecione...</option>';
+    (valores || []).forEach(function (valor) {
+      opcoes = opcoes + '<option value="' + valor + '">' + valor + '</option>';
+    });
+    opcoes = opcoes + '<option value="__outro__">Outro (escrever)...</option>';
+    select.innerHTML = opcoes;
+  }
+
+  function ligarSelectComOutro(idSelect) {
+    var select = document.getElementById(idSelect);
+    var outro = document.getElementById(idSelect + '-outro');
+    if (!select || !outro) return;
+    select.addEventListener('change', function () {
+      outro.hidden = select.value !== '__outro__';
+      if (!outro.hidden) outro.focus();
+    });
+  }
+
+  function valorSelectComOutro(idSelect) {
+    var select = document.getElementById(idSelect);
+    if (!select) return '';
+    if (select.value === '__outro__') {
+      var outro = document.getElementById(idSelect + '-outro');
+      return outro ? outro.value.trim() : '';
+    }
+    return select.value;
+  }
+
+  preencherSelectComOutro('cg-esquemaEletrico', LISTAS_CG.esquemasEletrico);
+  preencherSelectComOutro('cg-esquemaRefrigeracao', LISTAS_CG.esquemasFrio);
+  preencherSelectComOutro('cg-testeEletrico', LISTAS_CG.gases);
+  ['cg-esquemaEletrico', 'cg-esquemaRefrigeracao', 'cg-testeEletrico'].forEach(ligarSelectComOutro);
+
+  // ---------------------------------------------------------------------
   // Abas Grupos / Ciclos (dentro do separador Checklist).
   // ---------------------------------------------------------------------
   var abaChecklistGrupos = document.getElementById('abaChecklistGrupos');
@@ -4144,7 +4200,7 @@
 
   function validarPaginaAtual() {
     var pagina = document.querySelector('#formChecklistGrupos .checklist-pagina[data-pagina="' + PAGINA_ATUAL + '"]');
-    var campos = pagina.querySelectorAll('input[required], textarea[required]');
+    var campos = pagina.querySelectorAll('input[required], textarea[required], select[required]');
     for (var i = 0; i < campos.length; i++) {
       var campo = campos[i];
       if (campo.type === 'radio') {
@@ -4152,6 +4208,15 @@
         var marcado = Array.prototype.some.call(grupo, function (r) { return r.checked; });
         if (!marcado) {
           mostrarEstadoChecklistGrupos('Preencha todos os campos obrigatórios desta página.', 'erro');
+          return false;
+        }
+      } else if (campo.tagName === 'SELECT') {
+        if (!campo.value) {
+          mostrarEstadoChecklistGrupos('Preencha todos os campos obrigatórios desta página.', 'erro');
+          return false;
+        }
+        if (campo.value === '__outro__' && !valorSelectComOutro(campo.id)) {
+          mostrarEstadoChecklistGrupos('Escreva o valor em "' + campo.id + '" (escolheu "Outro").', 'erro');
           return false;
         }
       } else if (!campo.value.trim()) {
@@ -4224,6 +4289,10 @@
 
   function limparFormularioChecklistGrupos() {
     document.getElementById('formChecklistGrupos').reset();
+    ['cg-esquemaEletrico', 'cg-esquemaRefrigeracao', 'cg-testeEletrico'].forEach(function (idSelect) {
+      var outro = document.getElementById(idSelect + '-outro');
+      if (outro) outro.hidden = true;
+    });
     cgFotos.fotosEtiquetas = [];
     cgFotos.fotosControlador = [];
     renderizarPreviewsChecklist('fotosEtiquetas', 'cg-fotosEtiquetasPreviews');
@@ -4247,13 +4316,13 @@
       }
 
       var campos = {
-        esquemaEletrico: valorTexto('cg-esquemaEletrico'),
-        esquemaRefrigeracao: valorTexto('cg-esquemaRefrigeracao'),
+        esquemaEletrico: valorSelectComOutro('cg-esquemaEletrico'),
+        esquemaRefrigeracao: valorSelectComOutro('cg-esquemaRefrigeracao'),
         verificacaoEstruturas: valoresItens(CG_PAGINA3_ITENS.concat(CG_PAGINA3_ITENS2)),
         assinaturaPagina3: obterAssinaturaDataUrl('cg-assinatura3'),
         grupoCondensador: valoresItens(CG_PAGINA4_ITENS),
         assinaturaPagina4: obterAssinaturaDataUrl('cg-assinatura4'),
-        testeEletrico: valorTexto('cg-testeEletrico'),
+        testeEletrico: valorSelectComOutro('cg-testeEletrico'),
         testePressao: valorRadio('cg-testePressao'),
         testeVacuo: valorRadio('cg-testeVacuo'),
         assinaturaPagina5: obterAssinaturaDataUrl('cg-assinatura5'),
@@ -4328,6 +4397,56 @@
   if (APPS_SCRIPT_URL.indexOf('https://') !== 0) {
     APPS_SCRIPT_URL = '';
   }
+
+  // ---------------------------------------------------------------------
+  // Listas de sugestoes (esquemas partilhados com o Relatorio de Testes;
+  // equipamentos/fabricantes/modelos proprios deste checklist) - crescem
+  // sozinhas quando alguem escreve um valor novo em "Outro (escrever)...".
+  // ---------------------------------------------------------------------
+  var LISTAS_JSON = '<?!= listasJson ?>';
+  var LISTAS_CC = { esquemasEletrico: [], esquemasFrio: [], checklistEquipamentosCiclos: [], checklistFabricantesSonda: [], checklistModelosSonda: [], checklistFabricantesClico: [] };
+  if (LISTAS_JSON.indexOf('{') === 0) {
+    try { LISTAS_CC = JSON.parse(LISTAS_JSON); } catch (erroListasCc) { /* mantem os valores por omissao */ }
+  }
+
+  function preencherSelectComOutroCiclos(idSelect, valores) {
+    var select = document.getElementById(idSelect);
+    if (!select) return;
+    var opcoes = '<option value="">Selecione...</option>';
+    (valores || []).forEach(function (valor) {
+      opcoes = opcoes + '<option value="' + valor + '">' + valor + '</option>';
+    });
+    opcoes = opcoes + '<option value="__outro__">Outro (escrever)...</option>';
+    select.innerHTML = opcoes;
+  }
+
+  function ligarSelectComOutroCiclos(idSelect) {
+    var select = document.getElementById(idSelect);
+    var outro = document.getElementById(idSelect + '-outro');
+    if (!select || !outro) return;
+    select.addEventListener('change', function () {
+      outro.hidden = select.value !== '__outro__';
+      if (!outro.hidden) outro.focus();
+    });
+  }
+
+  function valorSelectComOutroCiclos(idSelect) {
+    var select = document.getElementById(idSelect);
+    if (!select) return '';
+    if (select.value === '__outro__') {
+      var outro = document.getElementById(idSelect + '-outro');
+      return outro ? outro.value.trim() : '';
+    }
+    return select.value;
+  }
+
+  preencherSelectComOutroCiclos('cc-equipamento', LISTAS_CC.checklistEquipamentosCiclos);
+  preencherSelectComOutroCiclos('cc-esquemaEletrico', LISTAS_CC.esquemasEletrico);
+  preencherSelectComOutroCiclos('cc-esquemaRefrigeracao', LISTAS_CC.esquemasFrio);
+  preencherSelectComOutroCiclos('cc-fabricanteSonda', LISTAS_CC.checklistFabricantesSonda);
+  preencherSelectComOutroCiclos('cc-modeloSonda', LISTAS_CC.checklistModelosSonda);
+  preencherSelectComOutroCiclos('cc-fabricanteClico', LISTAS_CC.checklistFabricantesClico);
+  ['cc-equipamento', 'cc-esquemaEletrico', 'cc-esquemaRefrigeracao', 'cc-fabricanteSonda', 'cc-modeloSonda', 'cc-fabricanteClico'].forEach(ligarSelectComOutroCiclos);
 
   // ---------------------------------------------------------------------
   // Checklist de Ciclos: itens OK/NA/NOK das páginas 3, 5 e 8 (chaves +
@@ -4534,7 +4653,7 @@
 
   function validarPaginaAtualCiclos() {
     var pagina = document.querySelector('#formChecklistCiclos .checklist-pagina[data-pagina="' + PAGINA_ATUAL_CICLOS + '"]');
-    var campos = pagina.querySelectorAll('input[required], textarea[required]');
+    var campos = pagina.querySelectorAll('input[required], textarea[required], select[required]');
     for (var i = 0; i < campos.length; i++) {
       var campo = campos[i];
       if (campo.type === 'radio') {
@@ -4542,6 +4661,15 @@
         var marcado = Array.prototype.some.call(grupo, function (r) { return r.checked; });
         if (!marcado) {
           mostrarEstadoChecklistCiclos('Preencha todos os campos obrigatórios desta página.', 'erro');
+          return false;
+        }
+      } else if (campo.tagName === 'SELECT') {
+        if (!campo.value) {
+          mostrarEstadoChecklistCiclos('Preencha todos os campos obrigatórios desta página.', 'erro');
+          return false;
+        }
+        if (campo.value === '__outro__' && !valorSelectComOutroCiclos(campo.id)) {
+          mostrarEstadoChecklistCiclos('Escreva o valor em "' + campo.id + '" (escolheu "Outro").', 'erro');
           return false;
         }
       } else if (!campo.value.trim()) {
@@ -4608,6 +4736,10 @@
 
   function limparFormularioChecklistCiclos() {
     document.getElementById('formChecklistCiclos').reset();
+    ['cc-equipamento', 'cc-esquemaEletrico', 'cc-esquemaRefrigeracao', 'cc-fabricanteSonda', 'cc-modeloSonda', 'cc-fabricanteClico'].forEach(function (idSelect) {
+      var outro = document.getElementById(idSelect + '-outro');
+      if (outro) outro.hidden = true;
+    });
     Object.keys(ccFotos).forEach(function (chave) { ccFotos[chave] = []; });
     renderizarPreviewsChecklistCiclos('fotosIdentificacao', 'cc-fotosIdentificacaoPreviews');
     renderizarPreviewsChecklistCiclos('fotosTesteEletrico', 'cc-fotosTesteEletricoPreviews');
@@ -4632,8 +4764,8 @@
       }
 
       var campos = {
-        esquemaEletrico: valorTextoCiclos('cc-esquemaEletrico'),
-        esquemaRefrigeracao: valorTextoCiclos('cc-esquemaRefrigeracao'),
+        esquemaEletrico: valorSelectComOutroCiclos('cc-esquemaEletrico'),
+        esquemaRefrigeracao: valorSelectComOutroCiclos('cc-esquemaRefrigeracao'),
         verificacaoEstruturas: valoresItensCiclos(CC_PAGINA3_ITENS.concat(CC_PAGINA3_ITENS2)),
         refa: valorTextoCiclos('cc-refa'),
         assinaturaPagina3: obterAssinaturaCiclosDataUrl('cc-assinatura3'),
@@ -4646,8 +4778,8 @@
         fotosTesteVacuo: ccFotos.fotosTesteVacuo,
         assinaturaPagina6: obterAssinaturaCiclosDataUrl('cc-assinatura6'),
         sondaTemperaturaHumidade: {
-          fabricante: valorTextoCiclos('cc-fabricanteSonda'),
-          modelo: valorTextoCiclos('cc-modeloSonda'),
+          fabricante: valorSelectComOutroCiclos('cc-fabricanteSonda'),
+          modelo: valorSelectComOutroCiclos('cc-modeloSonda'),
           serie: valorTextoCiclos('cc-serieSonda')
         },
         evaporador: {
@@ -4656,7 +4788,7 @@
           serie: valorTextoCiclos('cc-serieEvaporador')
         },
         clicoIdentificacao: {
-          fabricante: valorTextoCiclos('cc-fabricanteClico'),
+          fabricante: valorSelectComOutroCiclos('cc-fabricanteClico'),
           modelo: valorTextoCiclos('cc-modeloClico'),
           serie: valorTextoCiclos('cc-serieClico')
         },
@@ -4669,7 +4801,7 @@
       var payload = {
         acao: 'guardarChecklist',
         tipo: 'ciclos',
-        equipamento: valorTextoCiclos('cc-equipamento'),
+        equipamento: valorSelectComOutroCiclos('cc-equipamento'),
         numeroSerie: valorTextoCiclos('cc-numeroSerie'),
         email: valorTextoCiclos('cc-email'),
         conformidade: 'Nao',

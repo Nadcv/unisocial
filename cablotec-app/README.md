@@ -194,18 +194,33 @@ comprimidas, tudo gravado na mesma aba "Checklists" ao enviar na
 (o original também não tem), por isso não dispara o alerta por
 WhatsApp.
 
+## Campos de escolha com "Outro (escrever)..."
+
+Os campos que no formulário original eram dropdowns já estão como
+**listas que crescem sozinhas**, exatamente como o resto da aplicação
+(ex.: o campo "Grupo" dos Relatórios): escolhe-se um valor já existente
+ou "Outro (escrever)...", escreve-se o novo valor, e ele fica
+disponível para a próxima vez — sem precisar de mexer no código.
+
+- **Equipamento** (Ciclos) — lista própria, começa vazia.
+- **Esquema Elétrico** e **Esquema de refrigeração** (Grupos e
+  Ciclos) — usam as **mesmas listas** já existentes no Relatório de
+  Testes (`esquemasEletrico`/`esquemasFrio`): se adicionar um esquema
+  novo aqui, ele passa a aparecer também nos Relatórios, e vice-versa
+  — é uma única lista partilhada, não uma por formulário.
+- **Teste Eléctrico** (Grupos) — usa a mesma lista de gases
+  (`gases`) já existente nos Relatórios.
+- **Fabricante/Modelo da Sonda** e **Fabricante do Clico** (Ciclos)
+  — listas próprias do Checklist, começam com o único exemplo visto
+  nas fotos (Vaisala / HMP110 / Z.A) e crescem a partir daí.
+
 **Diferenças a saber** entre o formulário original (Zoho) e esta
 versão:
 
-- Os campos que no original eram **dropdowns** (Equipamento, Esquema
-  Elétrico, Esquema de refrigeração, Fabricante/Modelo da Sonda,
-  Fabricante do Clico) ficaram como **texto livre** aqui, porque as
-  listas de opções exatas desses dropdowns não apareciam nas fotos
-  enviadas. Se me indicar as opções de cada um, troco para dropdown.
-- A pergunta "Há Ventiladores adicionais?" (página 4) pode ter campos
-  extra no original quando se responde "Sim" (lógica condicional) que
-  não apareceram nas fotos — aqui fica só a pergunta, sem campos
-  extra. Diga-me se precisar deles.
+- A pergunta "Há Ventiladores adicionais?" (página 4, Ciclos) pode ter
+  campos extra no original quando se responde "Sim" (lógica
+  condicional) que não apareceram nas fotos — aqui fica só a
+  pergunta, sem campos extra. Diga-me se precisar deles.
 - Mantive tal e qual os nomes das verificações do original, incluindo
   pequenas gralhas ("tampa exteriror", "base metática") — para ficar
   igual ao documento que a equipa já conhece.

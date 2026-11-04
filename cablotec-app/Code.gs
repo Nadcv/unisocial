@@ -115,6 +115,16 @@ var LISTAS_PADRAO = {
   ciclosProducao: [
     'PH',
     'PLH'
+  ],
+  checklistEquipamentosCiclos: [],
+  checklistFabricantesSonda: [
+    'Vaisala'
+  ],
+  checklistModelosSonda: [
+    'HMP110'
+  ],
+  checklistFabricantesClico: [
+    'Z.A'
   ]
 };
 
@@ -195,7 +205,11 @@ function doGet(e) {
     ciclosPhPlh: obterLista('ciclosPhPlh'),
     tecnicos: obterLista('tecnicos'),
     gruposProducao: obterLista('gruposProducao'),
-    ciclosProducao: obterLista('ciclosProducao')
+    ciclosProducao: obterLista('ciclosProducao'),
+    checklistEquipamentosCiclos: obterLista('checklistEquipamentosCiclos'),
+    checklistFabricantesSonda: obterLista('checklistFabricantesSonda'),
+    checklistModelosSonda: obterLista('checklistModelosSonda'),
+    checklistFabricantesClico: obterLista('checklistFabricantesClico')
   };
 
   var template = HtmlService.createTemplateFromFile('Index');
@@ -2519,6 +2533,24 @@ function guardarChecklist(dados) {
   var dadosJson = JSON.stringify({ campos: camposProcessados, pastaId: pastaChecklist.getId() });
 
   aba.appendRow([id, tipo, equipamento, numeroSerie, email, conformidade, criadoEm, dadosJson]);
+
+  // Faz crescer as listas de sugestoes dos campos "Outro (escrever)..." -
+  // os esquemas sao PARTILHADOS com o Relatorio de Testes (mesma lista),
+  // os restantes sao especificos do Checklist.
+  var camposOriginais = dados.campos || {};
+  adicionarValorNaLista('esquemasEletrico', (camposOriginais.esquemaEletrico || '').toString().trim());
+  adicionarValorNaLista('esquemasFrio', (camposOriginais.esquemaRefrigeracao || '').toString().trim());
+  if (tipo === 'grupos') {
+    adicionarValorNaLista('gases', (camposOriginais.testeEletrico || '').toString().trim());
+  }
+  if (tipo === 'ciclos') {
+    adicionarValorNaLista('checklistEquipamentosCiclos', equipamento);
+    var sondaInfo = camposOriginais.sondaTemperaturaHumidade || {};
+    adicionarValorNaLista('checklistFabricantesSonda', (sondaInfo.fabricante || '').toString().trim());
+    adicionarValorNaLista('checklistModelosSonda', (sondaInfo.modelo || '').toString().trim());
+    var clicoInfo = camposOriginais.clicoIdentificacao || {};
+    adicionarValorNaLista('checklistFabricantesClico', (clicoInfo.fabricante || '').toString().trim());
+  }
 
   if (conformidade === 'Sim') {
     enviarAlertaWhatsapp_(EMPRESA + ': checklist de ' + tipo + ' (' + numeroSerie + ') registou uma NAO CONFORMIDADE.');
