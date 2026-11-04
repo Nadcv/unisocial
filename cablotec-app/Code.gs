@@ -2703,6 +2703,9 @@ function enviarChecklistPorEmail_(tipo, id, equipamento, numeroSerie, email, con
     });
   } catch (erroEmail) {
     // Best effort - o checklist ja ficou guardado antes disto ser chamado.
+    // Fica registado no Registo de execucoes (Apps Script) para conseguir
+    // perceber o motivo sem bloquear quem esta a preencher o checklist.
+    console.error('Falha ao gerar/enviar o PDF do checklist: ' + (erroEmail && erroEmail.message ? erroEmail.message : erroEmail));
   } finally {
     if (doc) {
       try { DriveApp.getFileById(doc.getId()).setTrashed(true); } catch (erroLimpeza) { /* ignora */ }
