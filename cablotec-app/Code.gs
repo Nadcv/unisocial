@@ -194,6 +194,9 @@ function doGet(e) {
   if (acao === 'obterChecklist') {
     return respostaJson(obterChecklist(e.parameter));
   }
+  if (acao === 'pdfChecklist') {
+    return gerarPdfChecklistSobDemanda_(e.parameter);
+  }
 
   // --- Pagina principal: um unico HTML com tres separadores (Relatorios,
   // Controlo de Producao e Checklist), alternados por um botao no topo. ---
@@ -2056,12 +2059,84 @@ function enviarResumosAutomaticos() {
     } catch (erroEnvio) {
       // Nao interrompe o envio do outro tipo se um deles falhar.
     }
+
+    try {
+      var pendentes = obterTerminadosSemChecklist_(tipo, 2);
+      if (pendentes.length) {
+        enviarAlertaChecklistsPendentes_(tipo, pendentes, config.emails);
+      }
+    } catch (erroPendentes) {
+      // Mesma logica "best effort" - nunca bloqueia o resto do envio.
+    }
   });
 
   if (config.frequencia === 'unico') {
     config.ativo = false;
     guardarConfigEnvioAutomatico(config);
   }
+}
+
+/**
+ * Lista os registos de producao "Terminado" (de um tipo) que ainda nao
+ * tem nenhum checklist de producao enviado com o mesmo numero de serie,
+ * e cuja ultima atualizacao ja tem pelo menos "diasMinimos" dias - para
+ * nao alertar logo no mesmo dia em que terminou.
+ */
+function obterTerminadosSemChecklist_(tipo, diasMinimos) {
+  var aba = obterAba(tipo);
+  if (aba.getLastRow() < 2) return [];
+
+  var todasAsLinhas = aba.getRange(2, 1, aba.getLastRow() - 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues();
+  var terminados = [];
+  todasAsLinhas.forEach(function (linha) {
+    if (!linha[COL.SERIAL - 1]) return;
+    var item = linhaParaObjeto(linha);
+    if (item.estado === 'Terminado') terminados.push(item);
+  });
+  if (!terminados.length) return [];
+
+  var abaChecklists = obterAbaChecklists_();
+  var checklists = lerLinhasComoObjetos_(abaChecklists, CABECALHOS_CHECKLISTS).filter(function (c) { return c.tipo === tipo; });
+  var seriaisComChecklist = {};
+  checklists.forEach(function (c) {
+    seriaisComChecklist[(c.numeroSerie || '').toString().trim().toLowerCase()] = true;
+  });
+
+  var agora = new Date().getTime();
+  var limiteMs = (diasMinimos || 0) * 24 * 60 * 60 * 1000;
+
+  return terminados.filter(function (item) {
+    var chave = (item.serial || '').toString().trim().toLowerCase();
+    if (seriaisComChecklist[chave]) return false;
+    var dataAtualizado = new Date((item.atualizadoEm || '').replace(' ', 'T'));
+    if (isNaN(dataAtualizado.getTime())) return true;
+    return (agora - dataAtualizado.getTime()) >= limiteMs;
+  });
+}
+
+/**
+ * Envia um e-mail (para os mesmos destinatarios do resumo automatico) e
+ * um alerta WhatsApp (se configurado) a listar as maquinas "Terminado"
+ * que ainda nao tem checklist de producao enviado.
+ */
+function enviarAlertaChecklistsPendentes_(tipo, pendentes, emailsConfig) {
+  var nomeTipo = tipo === 'ciclos' ? 'Ciclos' : 'Grupos';
+  var corpo = EMPRESA + ' - ' + pendentes.length + ' máquina(s) "Terminado" (' + nomeTipo +
+    ') ainda sem checklist de produção enviado:\n\n';
+  pendentes.forEach(function (item) {
+    corpo = corpo + '- ' + item.serial + (item.grupo ? ' (' + item.grupo + ')' : '') +
+      ' - última atualização em ' + item.atualizadoEm + '\n';
+  });
+  corpo = corpo + '\nPreencha o Checklist de Produção correspondente assim que possível.\n\n' +
+    'Este e-mail foi gerado automaticamente pela aplicação de Controlo de Produção.';
+
+  MailApp.sendEmail({
+    to: emailsConfig,
+    subject: EMPRESA + ' - Checklists em falta (' + nomeTipo + ') - ' + pendentes.length,
+    body: corpo
+  });
+
+  enviarAlertaWhatsapp_(EMPRESA + ': ' + pendentes.length + ' máquina(s) "Terminado" (' + nomeTipo + ') ainda sem checklist enviado.');
 }
 
 function exportarAbaComoBlob(aba, formato) {
@@ -3052,4 +3127,48 @@ function obterChecklist(parametros) {
     criadoEm: encontrado.criadoEm,
     campos: dados.campos || {}
   };
+}
+
+/**
+ * Regenera o PDF de um checklist ja enviado, a pedido (ex.: botao "PDF"
+ * no Historico), e devolve uma pagina que inicia logo o download -
+ * mesmo padrao usado em gerarRelatorioEntrega.
+ */
+function gerarPdfChecklistSobDemanda_(parametros) {
+  var temporario = null;
+  try {
+    var id = (parametros.id || '').toString().trim();
+    if (!id) {
+      throw new Error('ID do checklist em falta.');
+    }
+
+    var aba = obterAbaChecklists_();
+    var itens = lerLinhasComoObjetos_(aba, CABECALHOS_CHECKLISTS);
+    var encontrado = itens.filter(function (item) { return item.id === id; })[0];
+    if (!encontrado) {
+      throw new Error('Checklist nao encontrado.');
+    }
+
+    var dados = JSON.parse(encontrado.dadosJson || '{}');
+    var numeroChecklist = dados.numeroChecklist || encontrado.id;
+
+    temporario = criarDocChecklist_(encontrado.tipo, numeroChecklist, encontrado.equipamento,
+      encontrado.numeroSerie, encontrado.email, encontrado.conformidade, dados.campos || {});
+    var blob = exportarDocComoBlob_(temporario, 'pdf');
+    var base64 = Utilities.base64Encode(blob.getBytes());
+    var nomeFicheiro = 'Checklist_' + sanitizeNomeFicheiro(numeroChecklist) + '.pdf';
+
+    var html = '<html><body onload="document.getElementById(\'l\').click();">' +
+      '<a id="l" href="data:application/pdf;base64,' + base64 + '" download="' + nomeFicheiro + '">A transferir...</a>' +
+      '<p>Se o download nao comecar sozinho, toque no link acima. Pode fechar esta janela depois.</p>' +
+      '</body></html>';
+    return HtmlService.createHtmlOutput(html);
+  } catch (erro) {
+    var mensagem = erro && erro.message ? erro.message : String(erro);
+    return HtmlService.createHtmlOutput('<p>Erro ao gerar o PDF: ' + mensagem + '</p>');
+  } finally {
+    if (temporario) {
+      try { DriveApp.getFileById(temporario.getId()).setTrashed(true); } catch (erroLimpeza) { /* ignora */ }
+    }
+  }
 }

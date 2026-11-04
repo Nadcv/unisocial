@@ -439,6 +439,8 @@
     cursor: pointer;
   }
   .filtro.filtro-ativo { background: var(--azul); border-color: var(--azul); color: #fff; }
+  .item-lista-acoes { display: flex; gap: 6px; margin-top: 8px; }
+  .item-lista-acoes button { padding: 7px 10px; font-size: 0.78rem; }
   .link-drive { font-size: 0.82rem; display: inline-block; margin-top: 8px; }
   .dashboard-grid { display: flex; flex-wrap: wrap; gap: 8px; }
   .stat-grupo { flex: 1 1 260px; }
@@ -1088,6 +1090,7 @@
   <div class="abas">
     <button type="button" class="aba aba-ativa" id="abaChecklistGrupos">Grupos</button>
     <button type="button" class="aba" id="abaChecklistCiclos">Ciclos</button>
+    <button type="button" class="aba" id="abaChecklistHistorico">Histórico</button>
   </div>
 </header>
 
@@ -1106,6 +1109,8 @@
         <div style="height:12px"></div>
         <label class="campo-label" for="cg-numeroSerie">Nº Série</label>
         <input type="text" id="cg-numeroSerie" required />
+        <div style="height:8px"></div>
+        <button type="button" class="botao-secundario" id="botaoLerQRChecklistGrupos">📷 Ler código QR</button>
 
         <div style="height:12px"></div>
         <label class="campo-label">Produção do Grupo por</label>
@@ -1410,6 +1415,8 @@
         <div style="height:12px"></div>
         <label class="campo-label" for="cc-numeroSerie">Nº Série</label>
         <input type="text" id="cc-numeroSerie" required />
+        <div style="height:8px"></div>
+        <button type="button" class="botao-secundario" id="botaoLerQRChecklistCiclos">📷 Ler código QR</button>
 
         <div style="height:12px"></div>
         <label class="campo-label">Produção do Clico/VA por:</label>
@@ -1675,6 +1682,23 @@
 
     </form>
     <div class="estado" id="estadoChecklistCiclos"></div>
+  </div>
+
+  <div class="card" id="checklistHistorico" hidden>
+    <div class="card-titulo">Checklists enviados</div>
+    <div class="filtros">
+      <button type="button" class="filtro filtro-ativo" data-filtro-tipo="todos">Todos</button>
+      <button type="button" class="filtro" data-filtro-tipo="grupos">Grupos</button>
+      <button type="button" class="filtro" data-filtro-tipo="ciclos">Ciclos</button>
+    </div>
+    <div style="height:10px"></div>
+    <input type="text" id="historicoPesquisa" placeholder="Pesquisar por nº de série, equipamento ou nº do checklist..." autocomplete="off" />
+    <div style="height:10px"></div>
+    <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:400;">
+      <input type="checkbox" id="historicoSoNaoConformidade" style="width:18px; height:18px;" /> Mostrar só com não conformidade
+    </label>
+    <div style="height:12px"></div>
+    <div id="listaHistoricoChecklists"></div>
   </div>
 </main>
 
@@ -4099,24 +4123,120 @@
   ligarProducaoPorSubcontrato('cg-producaoPor', 'cg-producaoPorEmpresa');
 
   // ---------------------------------------------------------------------
-  // Abas Grupos / Ciclos (dentro do separador Checklist).
+  // Abas Grupos / Ciclos / Histórico (dentro do separador Checklist).
   // ---------------------------------------------------------------------
   var abaChecklistGrupos = document.getElementById('abaChecklistGrupos');
   var abaChecklistCiclos = document.getElementById('abaChecklistCiclos');
+  var abaChecklistHistorico = document.getElementById('abaChecklistHistorico');
   var cardChecklistGrupos = document.getElementById('checklistGrupos');
   var cardChecklistCiclos = document.getElementById('checklistCiclos');
+  var cardChecklistHistorico = document.getElementById('checklistHistorico');
 
-  abaChecklistGrupos.addEventListener('click', function () {
-    abaChecklistGrupos.className = 'aba aba-ativa';
-    abaChecklistCiclos.className = 'aba';
-    cardChecklistGrupos.hidden = false;
-    cardChecklistCiclos.hidden = true;
+  function mostrarAbaChecklist(nome) {
+    abaChecklistGrupos.className = nome === 'grupos' ? 'aba aba-ativa' : 'aba';
+    abaChecklistCiclos.className = nome === 'ciclos' ? 'aba aba-ativa' : 'aba';
+    abaChecklistHistorico.className = nome === 'historico' ? 'aba aba-ativa' : 'aba';
+    cardChecklistGrupos.hidden = nome !== 'grupos';
+    cardChecklistCiclos.hidden = nome !== 'ciclos';
+    cardChecklistHistorico.hidden = nome !== 'historico';
+    if (nome === 'historico') carregarHistoricoChecklists();
+  }
+
+  abaChecklistGrupos.addEventListener('click', function () { mostrarAbaChecklist('grupos'); });
+  abaChecklistCiclos.addEventListener('click', function () { mostrarAbaChecklist('ciclos'); });
+  abaChecklistHistorico.addEventListener('click', function () { mostrarAbaChecklist('historico'); });
+
+  // ---------------------------------------------------------------------
+  // Histórico: lista de checklists já enviados (Grupos e Ciclos), com
+  // filtro por tipo/não-conformidade e pesquisa por texto. Cada item
+  // tem um botão para reabrir/editar e outro para descarregar o PDF.
+  // ---------------------------------------------------------------------
+  var listaHistoricoChecklists = document.getElementById('listaHistoricoChecklists');
+  var historicoPesquisa = document.getElementById('historicoPesquisa');
+  var historicoSoNaoConformidade = document.getElementById('historicoSoNaoConformidade');
+  var filtrosHistorico = document.querySelectorAll('#checklistHistorico .filtro');
+  var FILTRO_TIPO_HISTORICO = 'todos';
+  var ITENS_HISTORICO_CACHE = [];
+
+  filtrosHistorico.forEach(function (botao) {
+    botao.addEventListener('click', function () {
+      FILTRO_TIPO_HISTORICO = botao.dataset.filtroTipo;
+      filtrosHistorico.forEach(function (b) { b.className = 'filtro'; });
+      botao.className = 'filtro filtro-ativo';
+      renderizarHistoricoChecklists();
+    });
   });
-  abaChecklistCiclos.addEventListener('click', function () {
-    abaChecklistCiclos.className = 'aba aba-ativa';
-    abaChecklistGrupos.className = 'aba';
-    cardChecklistCiclos.hidden = false;
-    cardChecklistGrupos.hidden = true;
+  historicoPesquisa.addEventListener('input', renderizarHistoricoChecklists);
+  historicoSoNaoConformidade.addEventListener('change', renderizarHistoricoChecklists);
+
+  function carregarHistoricoChecklists() {
+    if (!APPS_SCRIPT_URL) return;
+    listaHistoricoChecklists.innerHTML = '<div class="ajuda">A carregar...</div>';
+    fetch(APPS_SCRIPT_URL + '?action=listarChecklists').then(respostaParaJsonGlobal).then(function (dados) {
+      if (dados.status !== 'ok') {
+        listaHistoricoChecklists.innerHTML = '<div class="ajuda">Erro: ' + (dados.msg || 'falha desconhecida.') + '</div>';
+        return;
+      }
+      ITENS_HISTORICO_CACHE = dados.itens || [];
+      renderizarHistoricoChecklists();
+    }).catch(function (erro) {
+      listaHistoricoChecklists.innerHTML = '<div class="ajuda">Erro de rede/ligação: ' + erro.message + '</div>';
+    });
+  }
+
+  function renderizarHistoricoChecklists() {
+    var texto = historicoPesquisa.value.trim().toLowerCase();
+    var soNaoConformidade = historicoSoNaoConformidade.checked;
+
+    var itens = ITENS_HISTORICO_CACHE.filter(function (item) {
+      if (FILTRO_TIPO_HISTORICO !== 'todos' && item.tipo !== FILTRO_TIPO_HISTORICO) return false;
+      if (soNaoConformidade && item.conformidade !== 'Sim') return false;
+      if (texto) {
+        var alvo = (item.numeroSerie + ' ' + item.equipamento + ' ' + item.numeroChecklist).toLowerCase();
+        if (alvo.indexOf(texto) === -1) return false;
+      }
+      return true;
+    });
+
+    if (!itens.length) {
+      listaHistoricoChecklists.innerHTML = '<div class="ajuda">Nenhum checklist encontrado.</div>';
+      return;
+    }
+
+    var html = '';
+    itens.forEach(function (item) {
+      var idSeguro = item.id.replace(/"/g, '&quot;');
+      html = html + '<div class="item-lista">' +
+        '<div class="linha1">' + (item.numeroChecklist || item.id) + ' — ' + item.numeroSerie +
+          (item.conformidade === 'Sim' ? ' <span class="badge badge-atraso">Não conformidade</span>' : '') + '</div>' +
+        '<div class="linha2">' + (item.tipo === 'ciclos' ? 'Ciclos' : 'Grupos') + ' · ' + (item.equipamento || '-') + ' · ' + (item.criadoEm || '') + '</div>' +
+        '<div class="item-lista-acoes">' +
+          '<button type="button" class="botao-secundario" data-acao="editar" data-id="' + idSeguro + '">Ver / Editar</button>' +
+          '<button type="button" class="botao-secundario" data-acao="pdf" data-id="' + idSeguro + '">PDF</button>' +
+        '</div>' +
+      '</div>';
+    });
+    listaHistoricoChecklists.innerHTML = html;
+  }
+
+  listaHistoricoChecklists.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('button[data-acao]');
+    if (!botao || !APPS_SCRIPT_URL) return;
+    var id = botao.dataset.id;
+    if (botao.dataset.acao === 'editar') {
+      window.location.href = APPS_SCRIPT_URL + '?checklistId=' + encodeURIComponent(id);
+    } else if (botao.dataset.acao === 'pdf') {
+      window.open(APPS_SCRIPT_URL + '?action=pdfChecklist&id=' + encodeURIComponent(id), '_blank');
+    }
+  });
+
+  // Leitura de QR (alternativa a escrever o numero de serie a mao) na
+  // pagina 1 do Checklist - mesma camara/funcao partilhada com os
+  // outros dois separadores.
+  document.getElementById('botaoLerQRChecklistGrupos').addEventListener('click', function () {
+    abrirLeitorQR(function (texto) {
+      document.getElementById('cg-numeroSerie').value = texto;
+    });
   });
 
   // ---------------------------------------------------------------------
@@ -5010,6 +5130,15 @@
     }
     return true;
   }
+
+  // Leitura de QR (alternativa a escrever o numero de serie a mao) na
+  // pagina 1 do Checklist - mesma camara/funcao partilhada com os
+  // outros dois separadores.
+  document.getElementById('botaoLerQRChecklistCiclos').addEventListener('click', function () {
+    abrirLeitorQR(function (texto) {
+      document.getElementById('cc-numeroSerie').value = texto;
+    });
+  });
 
   document.querySelectorAll('#formChecklistCiclos .cc-seguinte').forEach(function (botao) {
     botao.addEventListener('click', function () {

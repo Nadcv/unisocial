@@ -288,6 +288,45 @@ WhatsApp.
   Vácuo"** (todos "Conforme IT128") — para documentar com imagem os
   testes já marcados OK/NA/NOK na página anterior.
 
+### Histórico de checklists enviados
+
+Dentro de **✅ Checklist**, há agora uma terceira aba, **"Histórico"**,
+com a lista de todos os checklists já enviados (Grupos e Ciclos
+juntos):
+
+- Filtros por tipo (Todos/Grupos/Ciclos) e uma caixa para "Mostrar só
+  com não conformidade".
+- Pesquisa por texto (número de série, equipamento ou número do
+  checklist).
+- Cada item mostra o número do checklist, número de série, equipamento,
+  data de envio e um aviso vermelho se houve não conformidade.
+- Botão **"Ver / Editar"** — reabre esse checklist preenchido (igual ao
+  link que chega por e-mail).
+- Botão **"PDF"** — gera e descarrega de novo o PDF desse checklist, a
+  qualquer momento (não precisa de ir à caixa de correio procurar o
+  e-mail original).
+
+### Leitor de código QR no Checklist
+
+Na página 1 de ambos os formulários (Grupos e Ciclos), junto ao campo
+"Nº Série", há agora também o botão **"📷 Ler código QR"** — a mesma
+câmara/alternativa já usada em Relatórios e Controlo de Produção, para
+preencher o número de série lendo uma etiqueta QR em vez de escrever à
+mão.
+
+### Lembrete automático de checklists em falta
+
+Se tiver o **"Envio automático de resumos"** ativado (dentro de
+Controlo de Produção — ver "Já existe" acima), de cada vez que esse
+envio agendado correr, a aplicação verifica também se há máquinas
+marcadas como **"Terminado"** há pelo menos 2 dias que **ainda não
+têm nenhum checklist de produção enviado** com o mesmo número de
+série. Se houver, envia um e-mail extra (para os mesmos destinatários
+configurados) a listar essas máquinas, e um alerta por WhatsApp (se
+configurado). Este lembrete usa o mesmo agendamento do resumo — não há
+uma configuração própria separada; se quiser um horário diferente só
+para isto, diga-me e eu acrescento essa opção.
+
 ## Campos de escolha com "Outro (escrever)..."
 
 Os campos que no formulário original eram dropdowns já estão como
