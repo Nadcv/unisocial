@@ -1,6 +1,6 @@
-# Cablotec — Relatórios &amp; Controlo de Produção (aplicação unificada)
+# Cablotec — Relatórios, Controlo de Produção &amp; Checklist (aplicação unificada)
 
-Esta pasta junta as duas aplicações da Cablotec numa só:
+Esta pasta junta três partes da Cablotec numa só aplicação:
 
 - **📷 Relatórios** — recolha de fotos para o "Relatório de Testes" e o
   "Relatório de Ciclos" das máquinas (rascunhos, correção de envios
@@ -8,11 +8,14 @@ Esta pasta junta as duas aplicações da Cablotec numa só:
 - **🏭 Controlo de Produção** — números de série em produção por etapa
   (Grupos e Ciclos), materiais por modelo (elétrica + frio), resumos por
   e-mail manuais e automáticos.
+- **✅ Checklist** — checklist de produção detalhado por página, igual
+  ao formulário "CHECK-LIST DE PRODUÇÃO Grupo Cond. Walkin" (DP156/R05)
+  usado até agora — ver secção própria abaixo.
 
-Um botão no topo (📷 Relatórios / 🏭 Controlo de Produção) alterna entre
-as duas partes — é a mesma aplicação, o mesmo URL, o mesmo projeto no
-Apps Script. O atalho "Ver fotos/relatórios deste número de série" (no
-Controlo de Produção) já chama a mesma implementação diretamente, sem
+Um botão no topo (📷 Relatórios / 🏭 Controlo de Produção / ✅ Checklist)
+alterna entre as três partes — é a mesma aplicação, o mesmo URL, o mesmo
+projeto no Apps Script. O atalho "Ver fotos/relatórios deste número de
+série" (no Controlo de Produção) já chama a mesma implementação diretamente, sem
 depender de nenhum URL externo.
 
 ## Já existe: Envio de produção por e-mail (um único sítio)
@@ -152,6 +155,39 @@ de Produção guarda os seus registos) — não é um script standalone.
   experimental e best-effort: dependendo do browser, pode não
   registar-se.
 
+## Checklist de Produção
+
+Dentro de **✅ Checklist → Grupos**, está o checklist "CHECK-LIST DE
+PRODUÇÃO Grupo Cond. Walkin" (DP156/R05), com as mesmas 8 páginas,
+campos, verificações OK/NA/NOK, tabelas de componentes, fotos e
+assinaturas do formulário original, pela mesma ordem.
+
+**Como funciona:**
+
+- Navega-se por "Anterior"/"Seguinte", com validação dos campos
+  obrigatórios de cada página antes de avançar (tal como no original).
+- **"Guardar"**, em cada página, só guarda o progresso nesta sessão do
+  browser (para poder ir para trás e para a frente sem perder o que já
+  escreveu) — **não** envia nada para o servidor. Se fechar o separador/
+  app antes de chegar ao fim, perde o que preencheu. Só o **"Enviar"**
+  da última página grava tudo definitivamente (Sheet + Drive). Se
+  precisar de retomar um checklist a meio dias depois (como o rascunho
+  dos Relatórios), diga-me e acrescento isso.
+- As assinaturas são feitas com o dedo/rato diretamente no ecrã.
+- As fotos (etiquetas, controlador) são comprimidas antes de enviar,
+  tal como nos Relatórios.
+- Ao enviar, tudo fica guardado numa aba nova **"Checklists"** da
+  Google Sheet (uma linha por checklist, com os dados num campo JSON
+  para o formulário poder evoluir sem reformatar a folha), e as fotos/
+  assinaturas ficam numa subpasta `Checklists/` dentro da pasta do
+  Drive configurada em `FOLDER_ID`.
+- Se "Durante a produção do grupo, houve alguma não conformidade..."
+  for respondido "Sim", é enviado um alerta por WhatsApp (se
+  configurado — ver secção de Novidades acima).
+
+**Ciclos** ainda não tem o seu checklist configurado (fica um aviso
+"em breve" nesse separador) — fica para uma próxima atualização.
+
 ## Notas técnicas
 
 - As duas partes partilham o mesmo `doGet`/`doPost`: os Relatórios
@@ -177,3 +213,7 @@ de Produção guarda os seus registos) — não é um script standalone.
 - O manifesto e o service worker do PWA são servidos pelo próprio
   `doGet` (`?action=manifest` e `?action=sw`), para não precisar de
   nenhum ficheiro extra no projeto.
+- O Checklist cria uma aba nova "Checklists" na primeira vez que for
+  usado. Os ids de elementos deste separador usam todos o prefixo
+  `cg-` (Checklist Grupos), por isso não há colisão com os ids de
+  Relatórios ou Controlo de Produção.

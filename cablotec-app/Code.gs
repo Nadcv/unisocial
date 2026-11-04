@@ -175,9 +175,15 @@ function doGet(e) {
   if (acao === 'sw') {
     return respostaServiceWorker_();
   }
+  if (acao === 'listarChecklists') {
+    return respostaJson(listarChecklists(e.parameter));
+  }
+  if (acao === 'obterChecklist') {
+    return respostaJson(obterChecklist(e.parameter));
+  }
 
-  // --- Pagina principal: um unico HTML com os dois separadores (Relatorios
-  // e Controlo de Producao), alternados por um botao no topo. ---
+  // --- Pagina principal: um unico HTML com tres separadores (Relatorios,
+  // Controlo de Producao e Checklist), alternados por um botao no topo. ---
   var tipoParametro = e && e.parameter ? e.parameter.tipo : '';
   var tipoRelatorio = tipoParametro === 'ciclos' ? 'ciclos' : 'testes';
 
@@ -266,6 +272,8 @@ function doPost(e) {
         resposta = removerMaterialStock(dados);
       } else if (dados.acao === 'registarMovimentoStock') {
         resposta = registarMovimentoStock(dados);
+      } else if (dados.acao === 'guardarChecklist') {
+        resposta = guardarChecklist(dados);
       } else {
         throw new Error('Acao desconhecida.');
       }
@@ -2411,4 +2419,162 @@ function respostaServiceWorker_() {
   var saida = ContentService.createTextOutput(js);
   saida.setMimeType(ContentService.MimeType.JAVASCRIPT);
   return saida;
+}
+
+// ===========================================================================
+// Checklist de Producao (Grupos e Ciclos) - formularios detalhados de
+// verificacao de qualidade, com varias paginas, fotos e assinaturas.
+// Guardados numa unica aba "Checklists" (uma linha por submissao); os
+// campos especificos de cada tipo ficam dentro de "dadosJson", para o
+// layout de cada checklist poder evoluir sem redesenhar a folha de calculo.
+// ===========================================================================
+var ABA_CHECKLISTS = 'Checklists';
+var CABECALHOS_CHECKLISTS = ['id', 'tipo', 'equipamento', 'numeroSerie', 'email', 'conformidade', 'criadoEm', 'dadosJson'];
+
+function obterAbaChecklists_() {
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.getSheetByName(ABA_CHECKLISTS);
+  if (aba) return aba;
+  aba = folha.insertSheet(ABA_CHECKLISTS);
+  aba.getRange(1, 1, 1, CABECALHOS_CHECKLISTS.length).setValues([CABECALHOS_CHECKLISTS]);
+  aba.setFrozenRows(1);
+  aba.getRange(1, 1, 1, CABECALHOS_CHECKLISTS.length).setFontWeight('bold');
+  return aba;
+}
+
+/**
+ * Guarda a imagem de uma foto ou assinatura (data:image/...;base64,...)
+ * numa subpasta do Drive dedicada a este checklist, e devolve {id, nome}
+ * para ficar guardado em dadosJson (em vez do base64 completo, que
+ * tornaria a Sheet enorme).
+ */
+function guardarImagemChecklist_(pastaChecklist, dataUrl, nomeBase) {
+  var blob = base64ParaBlob(dataUrl, nomeBase);
+  if (!blob) return null;
+  var ficheiro = pastaChecklist.createFile(blob);
+  return { id: ficheiro.getId(), nome: ficheiro.getName() };
+}
+
+/**
+ * Percorre recursivamente os dados de um checklist, convertendo qualquer
+ * valor "data:image/..." (fotos ou assinaturas) num ficheiro no Drive e
+ * substituindo-o pela referencia {id, nome}. Mantem a estrutura tal como o
+ * frontend a enviou (campos simples, tabelas, listas de fotos).
+ */
+function processarImagensChecklist_(valor, pastaChecklist, prefixo, contador) {
+  if (Array.isArray(valor)) {
+    return valor.map(function (item, indice) {
+      return processarImagensChecklist_(item, pastaChecklist, prefixo + '_' + (indice + 1), contador);
+    });
+  }
+  if (valor && typeof valor === 'object') {
+    var resultado = {};
+    Object.keys(valor).forEach(function (chave) {
+      resultado[chave] = processarImagensChecklist_(valor[chave], pastaChecklist, prefixo + '_' + chave, contador);
+    });
+    return resultado;
+  }
+  if (typeof valor === 'string' && valor.indexOf('data:image/') === 0) {
+    contador.n = contador.n + 1;
+    return guardarImagemChecklist_(pastaChecklist, valor, prefixo + '_' + contador.n);
+  }
+  return valor;
+}
+
+/**
+ * Guarda uma submissao completa de checklist (Grupos ou Ciclos). "dados"
+ * vem do frontend com tipo/equipamento/numeroSerie/email/conformidade, e
+ * um objeto "campos" com TODOS os valores do formulario (incluindo fotos e
+ * assinaturas em base64, guardadas no Drive antes de escrever a linha).
+ */
+function guardarChecklist(dados) {
+  var tipo = (dados.tipo || '').toString().trim();
+  var equipamento = (dados.equipamento || '').toString().trim();
+  var numeroSerie = (dados.numeroSerie || '').toString().trim();
+  var email = (dados.email || '').toString().trim();
+  var conformidade = dados.conformidade === 'Sim' ? 'Sim' : 'Nao';
+
+  if (['grupos', 'ciclos'].indexOf(tipo) === -1) {
+    throw new Error('Tipo de checklist invalido.');
+  }
+  if (!numeroSerie) {
+    throw new Error('Numero de serie em falta.');
+  }
+  if (!email) {
+    throw new Error('E-mail de quem preenche o documento em falta.');
+  }
+
+  var raiz = DriveApp.getFolderById(FOLDER_ID);
+  var pastaChecklists = obterOuCriarSubpasta(raiz, 'Checklists', true);
+  var timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyyMMdd_HHmmss');
+  var nomePasta = sanitizeNome(tipo) + '_' + sanitizeNome(numeroSerie) + '_' + timestamp;
+  var pastaChecklist = pastaChecklists.createFolder(nomePasta);
+
+  var contador = { n: 0 };
+  var camposProcessados = processarImagensChecklist_(dados.campos || {}, pastaChecklist, 'checklist', contador);
+
+  var aba = obterAbaChecklists_();
+  var id = Utilities.getUuid();
+  var criadoEm = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm');
+  var dadosJson = JSON.stringify({ campos: camposProcessados, pastaId: pastaChecklist.getId() });
+
+  aba.appendRow([id, tipo, equipamento, numeroSerie, email, conformidade, criadoEm, dadosJson]);
+
+  if (conformidade === 'Sim') {
+    enviarAlertaWhatsapp_(EMPRESA + ': checklist de ' + tipo + ' (' + numeroSerie + ') registou uma NAO CONFORMIDADE.');
+  }
+
+  return { status: 'ok', id: id, mensagem: 'Checklist guardado com sucesso.' };
+}
+
+function listarChecklists(parametros) {
+  var tipo = (parametros.tipo || '').toString().trim();
+  var aba = obterAbaChecklists_();
+  var itens = lerLinhasComoObjetos_(aba, CABECALHOS_CHECKLISTS);
+
+  if (tipo) {
+    itens = itens.filter(function (item) { return item.tipo === tipo; });
+  }
+
+  itens.sort(function (a, b) { return b.criadoEm.localeCompare(a.criadoEm); });
+
+  var resumo = itens.map(function (item) {
+    return {
+      id: item.id,
+      tipo: item.tipo,
+      equipamento: item.equipamento,
+      numeroSerie: item.numeroSerie,
+      conformidade: item.conformidade,
+      criadoEm: item.criadoEm
+    };
+  });
+
+  return { status: 'ok', itens: resumo };
+}
+
+function obterChecklist(parametros) {
+  var id = (parametros.id || '').toString().trim();
+  if (!id) {
+    throw new Error('ID do checklist em falta.');
+  }
+
+  var aba = obterAbaChecklists_();
+  var itens = lerLinhasComoObjetos_(aba, CABECALHOS_CHECKLISTS);
+  var encontrado = itens.filter(function (item) { return item.id === id; })[0];
+
+  if (!encontrado) {
+    throw new Error('Checklist nao encontrado.');
+  }
+
+  var dados = JSON.parse(encontrado.dadosJson || '{}');
+  return {
+    status: 'ok',
+    tipo: encontrado.tipo,
+    equipamento: encontrado.equipamento,
+    numeroSerie: encontrado.numeroSerie,
+    email: encontrado.email,
+    conformidade: encontrado.conformidade,
+    criadoEm: encontrado.criadoEm,
+    campos: dados.campos || {}
+  };
 }
