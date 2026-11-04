@@ -2578,7 +2578,7 @@ function processarImagensChecklist_(valor, pastaChecklist, prefixo, contador) {
 
 /**
  * Converte uma chave em camelCase (ex.: "testeEletricoOk") num rotulo
- * legivel (ex.: "Teste Eletrico Ok"), para o PDF generico do checklist.
+ * legivel (ex.: "Teste Eletrico Ok"), para o PDF do checklist.
  */
 function rotuloCampoChecklist_(chave) {
   var comEspacos = chave.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
@@ -2590,9 +2590,9 @@ function inserirImagemChecklistDoc_(corpo, ref) {
     var ficheiro = DriveApp.getFileById(ref.id);
     var imagem = corpo.appendImage(ficheiro.getBlob().copyBlob());
     var largura = imagem.getWidth();
-    if (largura > 280) {
-      imagem.setWidth(280);
-      imagem.setHeight(Math.round(imagem.getHeight() * (280 / largura)));
+    if (largura > 320) {
+      imagem.setWidth(320);
+      imagem.setHeight(Math.round(imagem.getHeight() * (320 / largura)));
     }
   } catch (erroImagem) {
     corpo.appendParagraph('[imagem indisponivel: ' + (ref.nome || ref.id) + ']');
@@ -2604,67 +2604,168 @@ function ehReferenciaImagemChecklist_(valor) {
 }
 
 /**
- * Percorre recursivamente "campos" (o mesmo objeto guardado em dadosJson)
- * e escreve-o no documento de forma generica: paragrafos "Rotulo: valor"
- * para campos simples, titulos a negrito para grupos/sub-objetos, listas
- * de fotos como imagens incorporadas, e os itens OK/NA/NOK no formato
- * {rotulo, valor} como "Rotulo: OK/NA/NOK".
+ * Um "grupo de itens" e o formato guardado pelas verificacoes OK/NA/NOK:
+ * um objeto em que CADA filho e {rotulo, valor} - ex.: verificacaoEstruturas,
+ * grupoCondensador, embalagem, clico. Estes ficam numa tabela Item/Resultado,
+ * para parecer com as listas OK/NA/NOK do formulario original.
  */
-function renderizarCampoChecklistDoc_(corpo, rotulo, valor) {
-  if (valor === null || valor === undefined || valor === '') return;
-
-  if (Array.isArray(valor)) {
-    if (!valor.length) return;
-    if (ehReferenciaImagemChecklist_(valor[0])) {
-      corpo.appendParagraph(rotulo + ' (' + valor.length + ' foto(s))').setBold(true);
-      valor.forEach(function (ref) { inserirImagemChecklistDoc_(corpo, ref); });
-      return;
-    }
-    corpo.appendParagraph(rotulo).setBold(true);
-    valor.forEach(function (item, indice) {
-      renderizarCampoChecklistDoc_(corpo, String(indice + 1) + '.', item);
-    });
-    return;
-  }
-
-  if (typeof valor === 'object') {
-    if (ehReferenciaImagemChecklist_(valor)) {
-      corpo.appendParagraph(rotulo).setBold(true);
-      inserirImagemChecklistDoc_(corpo, valor);
-      return;
-    }
-    if (typeof valor.valor === 'string' && typeof valor.rotulo === 'string') {
-      corpo.appendParagraph(valor.rotulo + ': ' + (valor.valor || '-'));
-      return;
-    }
-    corpo.appendParagraph(rotulo).setBold(true);
-    Object.keys(valor).forEach(function (chaveFilha) {
-      renderizarCampoChecklistDoc_(corpo, rotuloCampoChecklist_(chaveFilha), valor[chaveFilha]);
-    });
-    return;
-  }
-
-  if (typeof valor === 'string' && valor.indexOf('data:image/') === 0) return;
-  corpo.appendParagraph(rotulo + ': ' + valor);
+function ehGrupoDeItensChecklist_(valor) {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return false;
+  var chaves = Object.keys(valor);
+  if (!chaves.length) return false;
+  return chaves.every(function (k) {
+    var v = valor[k];
+    return v && typeof v === 'object' && typeof v.rotulo === 'string' && typeof v.valor === 'string';
+  });
 }
 
-function criarDocChecklist_(tipo, equipamento, numeroSerie, conformidade, campos) {
+/**
+ * Achata um objeto de campos simples (eventualmente aninhado, ex.:
+ * componentes.grupoCondensador.modelo) em pares [rotulo, valor], para
+ * tabelas de 2 colunas tipo "Campo | Valor".
+ */
+function achatarCamposChecklist_(valor, prefixo, linhas) {
+  if (valor === null || valor === undefined || valor === '') return;
+  if (Array.isArray(valor)) return;
+  if (ehReferenciaImagemChecklist_(valor)) return;
+  if (typeof valor === 'object') {
+    Object.keys(valor).forEach(function (k) {
+      var novoPrefixo = prefixo ? prefixo + ' — ' + rotuloCampoChecklist_(k) : rotuloCampoChecklist_(k);
+      achatarCamposChecklist_(valor[k], novoPrefixo, linhas);
+    });
+    return;
+  }
+  if (typeof valor === 'string' && valor.indexOf('data:image/') === 0) return;
+  linhas.push([prefixo, String(valor)]);
+}
+
+function negritoLinhaTabela_(linha) {
+  for (var c = 0; c < linha.getNumCells(); c++) {
+    linha.getCell(c).editAsText().setBold(true);
+  }
+}
+
+// Mapas chave -> seccao (replicam a ordem/agrupamento por pagina do
+// formulario no ecra), para o PDF seguir o mesmo padrao visual.
+var SECCOES_CHECKLIST_GRUPOS_ = {
+  esquemaEletrico: 'Página 2 — Esquemas',
+  esquemaRefrigeracao: 'Página 2 — Esquemas',
+  verificacaoEstruturas: 'Página 3 — Verificação de Estruturas e Montagem',
+  assinaturaPagina3: 'Página 3 — Verificação de Estruturas e Montagem',
+  grupoCondensador: 'Página 4 — Grupo Condensador',
+  assinaturaPagina4: 'Página 4 — Grupo Condensador',
+  testeEletricoOk: 'Página 5 — Testes',
+  testeEletrico: 'Página 5 — Testes',
+  testePressao: 'Página 5 — Testes',
+  testeVacuo: 'Página 5 — Testes',
+  assinaturaPagina5: 'Página 5 — Testes',
+  componentes: 'Página 6 — Componentes e Controlador',
+  fotosEtiquetas: 'Página 6 — Componentes e Controlador',
+  controlador: 'Página 6 — Componentes e Controlador',
+  temModulosExpansao: 'Página 6 — Componentes e Controlador',
+  fotosControlador: 'Página 6 — Componentes e Controlador',
+  fotosTesteEletrico: 'Página 6 — Componentes e Controlador',
+  fotosTestePressao: 'Página 6 — Componentes e Controlador',
+  fotosTesteVacuo: 'Página 6 — Componentes e Controlador',
+  assinaturaPagina6: 'Página 6 — Componentes e Controlador',
+  embalagem: 'Página 7 — Embalagem',
+  assinaturaPagina7: 'Página 7 — Embalagem',
+  observacoes: 'Página 8 — Observações'
+};
+var SECCOES_CHECKLIST_CICLOS_ = {
+  esquemaEletrico: 'Página 2 — Esquemas',
+  esquemaRefrigeracao: 'Página 2 — Esquemas',
+  verificacaoEstruturas: 'Página 3 — Verificação',
+  refa: 'Página 3 — Verificação',
+  assinaturaPagina3: 'Página 3 — Verificação',
+  ventiladoresAdicionais: 'Página 4 — Ventiladores Adicionais',
+  fotosIdentificacao: 'Página 5 — Identificação do Clico',
+  clico: 'Página 5 — Identificação do Clico',
+  assinaturaPagina5: 'Página 5 — Identificação do Clico',
+  fotosTesteEletrico: 'Página 6 — Testes',
+  fotosTestePressao: 'Página 6 — Testes',
+  fotosTesteVacuo: 'Página 6 — Testes',
+  fotosTesteEletricoHumidificador: 'Página 6 — Testes',
+  assinaturaPagina6: 'Página 6 — Testes',
+  sondaTemperaturaHumidade: 'Página 7 — Componentes',
+  evaporador: 'Página 7 — Componentes',
+  clicoIdentificacao: 'Página 7 — Componentes',
+  assinaturaPagina7: 'Página 7 — Componentes',
+  embalagem: 'Página 8 — Embalagem',
+  assinaturaPagina8: 'Página 8 — Embalagem',
+  observacoes: 'Página 9 — Observações'
+};
+
+// Tamanho A4 em pontos (21 x 29,7 cm) - por omissao o DocumentApp.create()
+// segue o idioma/regiao da conta Google, por isso fixa-se sempre A4 aqui.
+var A4_LARGURA_PT_ = 595.3;
+var A4_ALTURA_PT_ = 841.9;
+
+function criarDocChecklist_(tipo, numeroChecklist, equipamento, numeroSerie, conformidade, campos) {
   var nomeTipo = tipo === 'ciclos' ? 'Clico/VA' : 'Grupo Cond. Walkin';
+  var seccoes = tipo === 'ciclos' ? SECCOES_CHECKLIST_CICLOS_ : SECCOES_CHECKLIST_GRUPOS_;
   var doc = DocumentApp.create('_tmp_checklist_' + new Date().getTime());
   var corpo = doc.getBody();
   corpo.clear();
+  corpo.setPageWidth(A4_LARGURA_PT_);
+  corpo.setPageHeight(A4_ALTURA_PT_);
 
   corpo.appendParagraph(EMPRESA).setHeading(DocumentApp.ParagraphHeading.HEADING1);
-  corpo.appendParagraph('Checklist de Producao - ' + nomeTipo).setHeading(DocumentApp.ParagraphHeading.HEADING2);
-  corpo.appendTable([
-    ['Numero de serie', numeroSerie],
-    ['Equipamento', equipamento],
-    ['Conformidade', conformidade === 'Sim' ? 'Houve nao conformidade' : 'Sem nao conformidade']
-  ]);
+  corpo.appendParagraph('Checklist de Produção — ' + nomeTipo).setHeading(DocumentApp.ParagraphHeading.HEADING2);
+  var linhasCabecalho = [
+    ['Número do checklist', numeroChecklist],
+    ['Número de série', numeroSerie],
+    ['Equipamento', equipamento]
+  ];
+  if (campos.producaoPor) {
+    linhasCabecalho.push(['Produção por', campos.producaoPor + (campos.producaoPorEmpresa ? ' (' + campos.producaoPorEmpresa + ')' : '')]);
+  }
+  linhasCabecalho.push(['Conformidade', conformidade === 'Sim' ? 'Houve não conformidade' : 'Sem não conformidade']);
+  corpo.appendTable(linhasCabecalho);
   corpo.appendParagraph(' ');
 
+  var seccaoAtual = '';
   Object.keys(campos).forEach(function (chave) {
-    renderizarCampoChecklistDoc_(corpo, rotuloCampoChecklist_(chave), campos[chave]);
+    if (chave === 'producaoPor' || chave === 'producaoPorEmpresa') return;
+    var valor = campos[chave];
+    if (valor === null || valor === undefined || valor === '') return;
+    if (Array.isArray(valor) && !valor.length) return;
+
+    var seccao = seccoes[chave] || rotuloCampoChecklist_(chave);
+    if (seccao !== seccaoAtual) {
+      corpo.appendParagraph(seccao).setHeading(DocumentApp.ParagraphHeading.HEADING3);
+      seccaoAtual = seccao;
+    }
+
+    if (ehReferenciaImagemChecklist_(valor)) {
+      corpo.appendParagraph(rotuloCampoChecklist_(chave)).setBold(true);
+      inserirImagemChecklistDoc_(corpo, valor);
+      return;
+    }
+
+    if (Array.isArray(valor)) {
+      corpo.appendParagraph(rotuloCampoChecklist_(chave) + ' (' + valor.length + ' foto(s))').setBold(true);
+      valor.forEach(function (ref) { inserirImagemChecklistDoc_(corpo, ref); });
+      return;
+    }
+
+    if (ehGrupoDeItensChecklist_(valor)) {
+      var linhasItens = [['Item', 'Resultado']];
+      Object.keys(valor).forEach(function (k) { linhasItens.push([valor[k].rotulo, valor[k].valor || '-']); });
+      var tabelaItens = corpo.appendTable(linhasItens);
+      negritoLinhaTabela_(tabelaItens.getRow(0));
+      corpo.appendParagraph(' ');
+      return;
+    }
+
+    if (typeof valor === 'object') {
+      var linhasCampos = [];
+      achatarCamposChecklist_(valor, rotuloCampoChecklist_(chave), linhasCampos);
+      if (linhasCampos.length) corpo.appendTable(linhasCampos);
+      return;
+    }
+
+    corpo.appendParagraph(rotuloCampoChecklist_(chave) + ': ' + valor);
   });
 
   doc.saveAndClose();
@@ -2677,19 +2778,20 @@ function criarDocChecklist_(tipo, equipamento, numeroSerie, conformidade, campos
  * uma falha aqui (ex.: Gmail indisponivel) nao deve impedir o checklist
  * de ficar guardado.
  */
-function enviarChecklistPorEmail_(tipo, id, equipamento, numeroSerie, email, conformidade, campos) {
+function enviarChecklistPorEmail_(tipo, id, numeroChecklist, equipamento, numeroSerie, email, conformidade, campos) {
   if (!email) return;
   var doc = null;
   try {
-    doc = criarDocChecklist_(tipo, equipamento, numeroSerie, conformidade, campos);
-    var pdfBlob = exportarDocComoBlob_(doc, 'pdf').setName('Checklist_' + sanitizeNomeFicheiro(numeroSerie) + '.pdf');
+    doc = criarDocChecklist_(tipo, numeroChecklist, equipamento, numeroSerie, conformidade, campos);
+    var pdfBlob = exportarDocComoBlob_(doc, 'pdf').setName('Checklist_' + sanitizeNomeFicheiro(numeroChecklist) + '.pdf');
 
     var nomeTipo = tipo === 'ciclos' ? 'Clico/VA' : 'Grupo Cond. Walkin';
     var linkEdicao = ScriptApp.getService().getUrl() + '?checklistId=' + encodeURIComponent(id);
     var corpo = EMPRESA + ' - Checklist de producao (' + nomeTipo + ')\n\n' +
+      'Numero do checklist: ' + numeroChecklist + '\n' +
       'Numero de serie: ' + numeroSerie + '\n' +
       'Equipamento: ' + equipamento + '\n\n' +
-      'Em anexo, o PDF com todos os dados deste checklist.\n\n' +
+      'Em anexo, o PDF (formato A4) com todos os dados deste checklist.\n\n' +
       'Para corrigir ou completar alguma coisa neste checklist mais tarde, abra o link abaixo ' +
       '(reabre o formulario ja preenchido, com as fotos ja enviadas mantidas):\n' +
       linkEdicao + '\n\n' +
@@ -2697,7 +2799,7 @@ function enviarChecklistPorEmail_(tipo, id, equipamento, numeroSerie, email, con
 
     MailApp.sendEmail({
       to: email,
-      subject: EMPRESA + ' - Checklist ' + nomeTipo + ' - ' + numeroSerie,
+      subject: EMPRESA + ' - Checklist ' + numeroChecklist + ' - ' + nomeTipo + ' - ' + numeroSerie,
       body: corpo,
       attachments: [pdfBlob]
     });
@@ -2731,6 +2833,21 @@ function encontrarLinhaChecklist_(aba, id) {
     if ((valores[i][0] || '').toString() === id) return i + 2;
   }
   return -1;
+}
+
+/**
+ * Numero sequencial legivel do checklist (ex.: "CG-0001", "CC-0001"),
+ * diferente do id tecnico (UUID, usado so no link de edicao). Uma
+ * sequencia por tipo, guardada nas Propriedades do Script. So e gerado
+ * uma vez por checklist - ao editar, mantem-se o mesmo numero.
+ */
+function proximoNumeroChecklist_(tipo) {
+  var propriedades = PropertiesService.getScriptProperties();
+  var chave = 'contadorChecklist_' + tipo;
+  var atual = parseInt(propriedades.getProperty(chave) || '0', 10) + 1;
+  propriedades.setProperty(chave, String(atual));
+  var prefixo = tipo === 'ciclos' ? 'CC' : 'CG';
+  return prefixo + '-' + ('0000' + atual).slice(-4);
 }
 
 function guardarChecklist(dados) {
@@ -2793,7 +2910,16 @@ function guardarChecklist(dados) {
   var id = registoAnterior ? idExistente : Utilities.getUuid();
   var agora = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm');
   var criadoEm = registoAnterior ? registoAnterior.criadoEm : agora;
-  var dadosJson = JSON.stringify({ campos: camposProcessados, pastaId: pastaChecklist.getId() });
+
+  var numeroChecklist;
+  if (registoAnterior) {
+    var dadosAnterioresParaNumero = JSON.parse(registoAnterior.dadosJson || '{}');
+    numeroChecklist = dadosAnterioresParaNumero.numeroChecklist || proximoNumeroChecklist_(tipo);
+  } else {
+    numeroChecklist = proximoNumeroChecklist_(tipo);
+  }
+
+  var dadosJson = JSON.stringify({ campos: camposProcessados, pastaId: pastaChecklist.getId(), numeroChecklist: numeroChecklist });
 
   var novaLinha = [id, tipo, equipamento, numeroSerie, email, conformidade, criadoEm, dadosJson];
   if (registoAnterior) {
@@ -2824,11 +2950,12 @@ function guardarChecklist(dados) {
     enviarAlertaWhatsapp_(EMPRESA + ': checklist de ' + tipo + ' (' + numeroSerie + ') registou uma NAO CONFORMIDADE.');
   }
 
-  enviarChecklistPorEmail_(tipo, id, equipamento, numeroSerie, email, conformidade, camposProcessados);
+  enviarChecklistPorEmail_(tipo, id, numeroChecklist, equipamento, numeroSerie, email, conformidade, camposProcessados);
 
   return {
     status: 'ok',
     id: id,
+    numeroChecklist: numeroChecklist,
     mensagem: registoAnterior ? 'Checklist atualizado com sucesso.' : 'Checklist guardado com sucesso.'
   };
 }
@@ -2845,8 +2972,11 @@ function listarChecklists(parametros) {
   itens.sort(function (a, b) { return b.criadoEm.localeCompare(a.criadoEm); });
 
   var resumo = itens.map(function (item) {
+    var dadosItem = {};
+    try { dadosItem = JSON.parse(item.dadosJson || '{}'); } catch (erroDados) { dadosItem = {}; }
     return {
       id: item.id,
+      numeroChecklist: dadosItem.numeroChecklist || '',
       tipo: item.tipo,
       equipamento: item.equipamento,
       numeroSerie: item.numeroSerie,
@@ -2876,6 +3006,7 @@ function obterChecklist(parametros) {
   return {
     status: 'ok',
     id: encontrado.id,
+    numeroChecklist: dados.numeroChecklist || '',
     tipo: encontrado.tipo,
     equipamento: encontrado.equipamento,
     numeroSerie: encontrado.numeroSerie,

@@ -166,6 +166,7 @@
     line-height: 1;
     cursor: pointer;
   }
+  .thumb-zoom img { cursor: zoom-in; }
   .thumb-generico {
     width: 100%;
     height: 100%;
@@ -553,6 +554,38 @@
     background: #fafbfc;
     cursor: pointer;
     font-weight: 600;
+  }
+
+  /* ---- Zoom de fotos (Checklist) - ver uma foto ja tirada em tamanho grande ---- */
+  #zoomFotoOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  #zoomFotoOverlay[hidden] { display: none; }
+  #zoomFotoOverlay img {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+  #zoomFotoFechar {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
   }
 
   /* ---- Checklist de Producao (formulario por paginas) ---- */
@@ -1655,6 +1688,11 @@
   </div>
 </div>
 
+<div id="zoomFotoOverlay" hidden>
+  <button type="button" id="zoomFotoFechar" aria-label="Fechar">✕</button>
+  <img id="zoomFotoImg" src="" alt="" />
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
@@ -1735,6 +1773,25 @@
   }
 
   document.getElementById('qrFechar').addEventListener('click', fecharLeitorQR);
+
+  // ---------------------------------------------------------------------
+  // Zoom de fotos (Checklist): ver uma foto ja tirada/escolhida em
+  // tamanho grande, antes de enviar. Global (window.*) para poder ser
+  // chamado a partir dos blocos de Checklist Grupos e Ciclos.
+  // ---------------------------------------------------------------------
+  function abrirZoomFotoGlobal(src) {
+    document.getElementById('zoomFotoImg').src = src;
+    document.getElementById('zoomFotoOverlay').hidden = false;
+  }
+  function fecharZoomFotoGlobal() {
+    document.getElementById('zoomFotoOverlay').hidden = true;
+    document.getElementById('zoomFotoImg').src = '';
+  }
+  window.abrirZoomFotoGlobal = abrirZoomFotoGlobal;
+  document.getElementById('zoomFotoFechar').addEventListener('click', fecharZoomFotoGlobal);
+  document.getElementById('zoomFotoOverlay').addEventListener('click', function (ev) {
+    if (ev.target.id === 'zoomFotoOverlay') fecharZoomFotoGlobal();
+  });
 
   function gerarEtiquetaQR(texto, valorQr) {
     if (!texto) {
@@ -4211,8 +4268,11 @@
     container.innerHTML = '';
     cgFotos[chave].forEach(function (base64, indice) {
       var thumb = document.createElement('div');
-      thumb.className = 'thumb';
+      thumb.className = 'thumb thumb-zoom';
       thumb.innerHTML = '<img src="' + base64 + '" alt="" /><button type="button" aria-label="Remover">✕</button>';
+      thumb.querySelector('img').addEventListener('click', function () {
+        abrirZoomFotoGlobal(base64);
+      });
       thumb.querySelector('button').addEventListener('click', function () {
         cgFotos[chave].splice(indice, 1);
         renderizarPreviewsChecklist(chave, idPreviews);
@@ -4481,7 +4541,7 @@
             mostrarEstadoChecklistGrupos('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
             return;
           }
-          mostrarEstadoChecklistGrupos('Checklist enviado e guardado com sucesso!', 'sucesso');
+          mostrarEstadoChecklistGrupos('Checklist ' + (dados.numeroChecklist || '') + ' enviado e guardado com sucesso! O PDF (A4) e o link de edição foram enviados por e-mail.', 'sucesso');
           limparFormularioChecklistGrupos();
         })
         .catch(function (erro) {
@@ -4595,7 +4655,7 @@
     document.getElementById('cg-observacoes').value = c.observacoes || '';
 
     mostrarPagina(1);
-    mostrarEstadoChecklistGrupos('A editar o checklist Nº ' + (resultado.numeroSerie || '') + '. As fotos e assinaturas anteriores mantêm-se; precisa de assinar de novo em cada página antes de enviar.', 'info');
+    mostrarEstadoChecklistGrupos('A editar o checklist ' + (resultado.numeroChecklist || '') + ' (Nº série ' + (resultado.numeroSerie || '') + '). As fotos e assinaturas anteriores mantêm-se; precisa de assinar de novo em cada página antes de enviar.', 'info');
   };
 
   mostrarPagina(1);
@@ -4827,8 +4887,11 @@
     container.innerHTML = '';
     ccFotos[chave].forEach(function (base64, indice) {
       var thumb = document.createElement('div');
-      thumb.className = 'thumb';
+      thumb.className = 'thumb thumb-zoom';
       thumb.innerHTML = '<img src="' + base64 + '" alt="" /><button type="button" aria-label="Remover">✕</button>';
+      thumb.querySelector('img').addEventListener('click', function () {
+        abrirZoomFotoGlobal(base64);
+      });
       thumb.querySelector('button').addEventListener('click', function () {
         ccFotos[chave].splice(indice, 1);
         renderizarPreviewsChecklistCiclos(chave, idPreviews);
@@ -5077,7 +5140,7 @@
             mostrarEstadoChecklistCiclos('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
             return;
           }
-          mostrarEstadoChecklistCiclos('Checklist enviado e guardado com sucesso!', 'sucesso');
+          mostrarEstadoChecklistCiclos('Checklist ' + (dados.numeroChecklist || '') + ' enviado e guardado com sucesso! O PDF (A4) e o link de edição foram enviados por e-mail.', 'sucesso');
           limparFormularioChecklistCiclos();
         })
         .catch(function (erro) {
@@ -5183,7 +5246,7 @@
     document.getElementById('cc-observacoes').value = c.observacoes || '';
 
     mostrarPaginaCiclos(1);
-    mostrarEstadoChecklistCiclos('A editar o checklist Nº ' + (resultado.numeroSerie || '') + '. As fotos e assinaturas anteriores mantêm-se; precisa de assinar de novo em cada página antes de enviar.', 'info');
+    mostrarEstadoChecklistCiclos('A editar o checklist ' + (resultado.numeroChecklist || '') + ' (Nº série ' + (resultado.numeroSerie || '') + '). As fotos e assinaturas anteriores mantêm-se; precisa de assinar de novo em cada página antes de enviar.', 'info');
   };
 
   mostrarPaginaCiclos(1);

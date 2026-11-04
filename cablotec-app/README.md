@@ -210,12 +210,20 @@ assinaturas do formulário original, pela mesma ordem.
 Sempre que um checklist (Grupos ou Ciclos) é enviado com sucesso — seja
 pela primeira vez ou numa correção — a aplicação:
 
-1. Gera automaticamente um **PDF** com todos os dados desse checklist
-   (campos, respostas OK/NA/NOK, fotos e assinaturas incorporadas).
-2. Envia esse PDF por e-mail para o endereço preenchido em "E-Mail de
+1. Gera um **número de checklist** sequencial e legível (ex.: `CG-0001`
+   para Grupos, `CC-0001` para Ciclos — contadores independentes),
+   diferente do id técnico interno. Ao editar/corrigir um checklist já
+   enviado, o número **mantém-se o mesmo** (não gera um novo).
+2. Gera automaticamente um **PDF em formato A4**, organizado pelas
+   mesmas páginas/secções do formulário no ecrã (ex.: "Página 3 —
+   Verificação de Estruturas e Montagem"), com os itens OK/NA/NOK numa
+   tabela Item/Resultado (tal como aparecem no ecrã), as fotos e
+   assinaturas incorporadas como imagens, e o número do checklist bem
+   visível no topo.
+3. Envia esse PDF por e-mail para o endereço preenchido em "E-Mail de
    quem preenche o documento" (página 1), com um **link de edição** no
    corpo da mensagem.
-3. Abrir esse link mais tarde leva direto à aplicação, já no separador
+4. Abrir esse link mais tarde leva direto à aplicação, já no separador
    Checklist certo (Grupos ou Ciclos), com **todos os campos
    preenchidos** tal como ficaram guardados — só é preciso corrigir o
    que for preciso e enviar de novo.
@@ -236,7 +244,14 @@ pela primeira vez ou numa correção — a aplicação:
   mantém-se, só a data de atualização muda.
 - Esta funcionalidade de PDF/e-mail/edição é "best effort": se o envio
   do e-mail falhar por algum motivo, o checklist fica guardado na
-  mesma — só não chega o PDF/link dessa vez.
+  mesma — só não chega o PDF/link dessa vez. Qualquer falha fica
+  registada em **Execuções** (menu lateral do editor Apps Script), para
+  conseguir perceber o motivo.
+
+**Zoom nas fotos:** em qualquer campo de fotos do Checklist, depois de
+tirar/escolher uma foto, basta tocar na miniatura para a ver em
+tamanho grande (toque fora da foto, ou no ✕, para fechar). O botão ✕
+pequeno no canto da miniatura continua a servir para remover a foto.
 
 Dentro de **✅ Checklist → Ciclos**, está o checklist "CHECK-LIST DE
 PRODUÇÃO Clico/VA" (DP155/R06), com as mesmas 9 páginas, verificações,
