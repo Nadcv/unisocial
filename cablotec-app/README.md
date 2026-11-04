@@ -178,8 +178,14 @@ assinaturas do formulário original, pela mesma ordem.
 
 **Como funciona:**
 
-- Navega-se por "Anterior"/"Seguinte", com validação dos campos
-  obrigatórios de cada página antes de avançar (tal como no original).
+- Navega-se por "Anterior"/"Seguinte" **sem restrições** — pode avançar
+  para a página seguinte mesmo com campos, assinaturas ou fotos por
+  preencher nessa página, para poder preencher a checklist aos poucos,
+  por qualquer ordem, ao longo do tempo. A validação completa (todas as
+  páginas, de 1 até à última) só acontece ao clicar **"Enviar"** na
+  última página: se faltar alguma coisa em qualquer página, a app volta
+  a mostrar a primeira página com um campo em falta, com a mensagem a
+  indicar qual.
 - **"Guardar"**, em cada página, só guarda o progresso nesta sessão do
   browser (para poder ir para trás e para a frente sem perder o que já
   escreveu) — **não** envia nada para o servidor. Se fechar o separador/
@@ -235,9 +241,10 @@ pela primeira vez ou numa correção — a aplicação:
 Dentro de **✅ Checklist → Ciclos**, está o checklist "CHECK-LIST DE
 PRODUÇÃO Clico/VA" (DP155/R06), com as mesmas 9 páginas, verificações,
 tabelas e assinaturas do formulário original, funcionando da mesma
-forma (Anterior/Guardar/Seguinte, validação por página, fotos
-comprimidas, tudo gravado na mesma aba "Checklists" ao enviar na
-última página). Este não tem a pergunta final de não conformidade
+forma (Anterior/Guardar/Seguinte sem restrições, validação completa só
+no "Enviar" final, fotos comprimidas, tudo gravado na mesma aba
+"Checklists" ao enviar na última página). Este não tem a pergunta final
+de não conformidade
 (o original também não tem), por isso não dispara o alerta por
 WhatsApp.
 - Na página 6/9 (testes do Clico), além dos 3 testes do formulário

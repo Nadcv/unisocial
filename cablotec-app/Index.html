@@ -4264,8 +4264,12 @@
     document.getElementById('checklistGrupos').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function validarPaginaAtual() {
-    var pagina = document.querySelector('#formChecklistGrupos .checklist-pagina[data-pagina="' + PAGINA_ATUAL + '"]');
+  // Valida uma pagina especifica (nao tem de ser a atual - usado tambem
+  // para validar TODAS as paginas de uma vez antes do "Enviar" final,
+  // já que "Seguinte" deixa avançar sem restrições, para poder preencher
+  // o checklist aos poucos, em qualquer ordem/momento).
+  function validarPagina(numero) {
+    var pagina = document.querySelector('#formChecklistGrupos .checklist-pagina[data-pagina="' + numero + '"]');
     var campos = pagina.querySelectorAll('input[required], textarea[required], select[required]');
     for (var i = 0; i < campos.length; i++) {
       var campo = campos[i];
@@ -4273,36 +4277,36 @@
         var grupo = pagina.querySelectorAll('input[type="radio"][name="' + campo.name + '"]');
         var marcado = Array.prototype.some.call(grupo, function (r) { return r.checked; });
         if (!marcado) {
-          mostrarEstadoChecklistGrupos('Preencha todos os campos obrigatórios desta página.', 'erro');
+          mostrarEstadoChecklistGrupos('Preencha todos os campos obrigatórios da página ' + numero + '.', 'erro');
           return false;
         }
       } else if (campo.tagName === 'SELECT') {
         if (!campo.value) {
-          mostrarEstadoChecklistGrupos('Preencha todos os campos obrigatórios desta página.', 'erro');
+          mostrarEstadoChecklistGrupos('Preencha todos os campos obrigatórios da página ' + numero + '.', 'erro');
           return false;
         }
         if (campo.value === '__outro__' && !valorSelectComOutro(campo.id)) {
-          mostrarEstadoChecklistGrupos('Escreva o valor em "' + campo.id + '" (escolheu "Outro").', 'erro');
+          mostrarEstadoChecklistGrupos('Escreva o valor em "' + campo.id + '" (escolheu "Outro"), na página ' + numero + '.', 'erro');
           return false;
         }
       } else if (!campo.value.trim()) {
-        mostrarEstadoChecklistGrupos('Preencha todos os campos obrigatórios desta página.', 'erro');
+        mostrarEstadoChecklistGrupos('Preencha todos os campos obrigatórios da página ' + numero + '.', 'erro');
         campo.focus();
         return false;
       }
     }
 
-    if (PAGINA_ATUAL === 1 && valorRadio('cg-producaoPor') === 'Subcontrato' && !document.getElementById('cg-producaoPorEmpresa').value.trim()) {
+    if (numero === 1 && valorRadio('cg-producaoPor') === 'Subcontrato' && !document.getElementById('cg-producaoPorEmpresa').value.trim()) {
       mostrarEstadoChecklistGrupos('Escreva o nome da empresa subcontratada.', 'erro');
       return false;
     }
 
-    if (PAGINA_ATUAL >= 3 && PAGINA_ATUAL <= 7 && !obterAssinaturaDataUrl('cg-assinatura' + PAGINA_ATUAL)) {
-      mostrarEstadoChecklistGrupos('Assine antes de continuar.', 'erro');
+    if (numero >= 3 && numero <= 7 && !obterAssinaturaDataUrl('cg-assinatura' + numero)) {
+      mostrarEstadoChecklistGrupos('Assine antes de enviar (página ' + numero + ').', 'erro');
       return false;
     }
 
-    if (PAGINA_ATUAL === 6) {
+    if (numero === 6) {
       if (!cgFotos.fotosEtiquetas.length && !cgFotosExistentes.fotosEtiquetas) {
         mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto das etiquetas.', 'erro');
         return false;
@@ -4329,9 +4333,21 @@
     return true;
   }
 
+  // Valida todas as paginas de uma vez (usado so pelo "Enviar" final); se
+  // alguma falhar, mostra essa pagina para o utilizador poder corrigir.
+  function validarChecklistCompleto() {
+    for (var numero = 1; numero <= TOTAL_PAGINAS; numero++) {
+      if (!validarPagina(numero)) {
+        mostrarPagina(numero);
+        return false;
+      }
+    }
+    return true;
+  }
+
   document.querySelectorAll('#formChecklistGrupos .cl-seguinte').forEach(function (botao) {
     botao.addEventListener('click', function () {
-      if (!validarPaginaAtual()) return;
+      esconderEstadoChecklistGrupos();
       mostrarPagina(Math.min(TOTAL_PAGINAS, PAGINA_ATUAL + 1));
     });
   });
@@ -4401,7 +4417,7 @@
 
   document.querySelectorAll('#formChecklistGrupos .cl-enviar').forEach(function (botao) {
     botao.addEventListener('click', function () {
-      if (!validarPaginaAtual()) return;
+      if (!validarChecklistCompleto()) return;
       if (!APPS_SCRIPT_URL) {
         mostrarEstadoChecklistGrupos('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
         return;
@@ -4863,8 +4879,12 @@
     document.getElementById('checklistCiclos').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function validarPaginaAtualCiclos() {
-    var pagina = document.querySelector('#formChecklistCiclos .checklist-pagina[data-pagina="' + PAGINA_ATUAL_CICLOS + '"]');
+  // Valida uma pagina especifica (nao tem de ser a atual - usado tambem
+  // para validar TODAS as paginas de uma vez antes do "Enviar" final,
+  // já que "Seguinte" deixa avançar sem restrições, para poder preencher
+  // o checklist aos poucos, em qualquer ordem/momento).
+  function validarPaginaCiclos(numero) {
+    var pagina = document.querySelector('#formChecklistCiclos .checklist-pagina[data-pagina="' + numero + '"]');
     var campos = pagina.querySelectorAll('input[required], textarea[required], select[required]');
     for (var i = 0; i < campos.length; i++) {
       var campo = campos[i];
@@ -4872,40 +4892,40 @@
         var grupo = pagina.querySelectorAll('input[type="radio"][name="' + campo.name + '"]');
         var marcado = Array.prototype.some.call(grupo, function (r) { return r.checked; });
         if (!marcado) {
-          mostrarEstadoChecklistCiclos('Preencha todos os campos obrigatórios desta página.', 'erro');
+          mostrarEstadoChecklistCiclos('Preencha todos os campos obrigatórios da página ' + numero + '.', 'erro');
           return false;
         }
       } else if (campo.tagName === 'SELECT') {
         if (!campo.value) {
-          mostrarEstadoChecklistCiclos('Preencha todos os campos obrigatórios desta página.', 'erro');
+          mostrarEstadoChecklistCiclos('Preencha todos os campos obrigatórios da página ' + numero + '.', 'erro');
           return false;
         }
         if (campo.value === '__outro__' && !valorSelectComOutroCiclos(campo.id)) {
-          mostrarEstadoChecklistCiclos('Escreva o valor em "' + campo.id + '" (escolheu "Outro").', 'erro');
+          mostrarEstadoChecklistCiclos('Escreva o valor em "' + campo.id + '" (escolheu "Outro"), na página ' + numero + '.', 'erro');
           return false;
         }
       } else if (!campo.value.trim()) {
-        mostrarEstadoChecklistCiclos('Preencha todos os campos obrigatórios desta página.', 'erro');
+        mostrarEstadoChecklistCiclos('Preencha todos os campos obrigatórios da página ' + numero + '.', 'erro');
         campo.focus();
         return false;
       }
     }
 
-    if (PAGINA_ATUAL_CICLOS === 1 && valorRadioCiclos('cc-producaoPor') === 'Subcontrato' && !document.getElementById('cc-producaoPorEmpresa').value.trim()) {
+    if (numero === 1 && valorRadioCiclos('cc-producaoPor') === 'Subcontrato' && !document.getElementById('cc-producaoPorEmpresa').value.trim()) {
       mostrarEstadoChecklistCiclos('Escreva o nome da empresa subcontratada.', 'erro');
       return false;
     }
 
-    if ([3, 5, 6, 7, 8].indexOf(PAGINA_ATUAL_CICLOS) !== -1 && !obterAssinaturaCiclosDataUrl('cc-assinatura' + PAGINA_ATUAL_CICLOS)) {
-      mostrarEstadoChecklistCiclos('Assine antes de continuar.', 'erro');
+    if ([3, 5, 6, 7, 8].indexOf(numero) !== -1 && !obterAssinaturaCiclosDataUrl('cc-assinatura' + numero)) {
+      mostrarEstadoChecklistCiclos('Assine antes de enviar (página ' + numero + ').', 'erro');
       return false;
     }
 
-    if (PAGINA_ATUAL_CICLOS === 5 && !ccFotos.fotosIdentificacao.length && !ccFotosExistentes.fotosIdentificacao) {
+    if (numero === 5 && !ccFotos.fotosIdentificacao.length && !ccFotosExistentes.fotosIdentificacao) {
       mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto da identificação do clico.', 'erro');
       return false;
     }
-    if (PAGINA_ATUAL_CICLOS === 6) {
+    if (numero === 6) {
       if (!ccFotos.fotosTesteEletrico.length && !ccFotosExistentes.fotosTesteEletrico) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste elétrico.', 'erro'); return false; }
       if (!ccFotos.fotosTestePressao.length && !ccFotosExistentes.fotosTestePressao) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de pressão.', 'erro'); return false; }
       if (!ccFotos.fotosTesteVacuo.length && !ccFotosExistentes.fotosTesteVacuo) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de vácuo.', 'erro'); return false; }
@@ -4916,9 +4936,21 @@
     return true;
   }
 
+  // Valida todas as paginas de uma vez (usado so pelo "Enviar" final); se
+  // alguma falhar, mostra essa pagina para o utilizador poder corrigir.
+  function validarChecklistCiclosCompleto() {
+    for (var numero = 1; numero <= TOTAL_PAGINAS_CICLOS; numero++) {
+      if (!validarPaginaCiclos(numero)) {
+        mostrarPaginaCiclos(numero);
+        return false;
+      }
+    }
+    return true;
+  }
+
   document.querySelectorAll('#formChecklistCiclos .cc-seguinte').forEach(function (botao) {
     botao.addEventListener('click', function () {
-      if (!validarPaginaAtualCiclos()) return;
+      esconderEstadoChecklistCiclos();
       mostrarPaginaCiclos(Math.min(TOTAL_PAGINAS_CICLOS, PAGINA_ATUAL_CICLOS + 1));
     });
   });
@@ -4979,7 +5011,7 @@
 
   document.querySelectorAll('#formChecklistCiclos .cc-enviar').forEach(function (botao) {
     botao.addEventListener('click', function () {
-      if (!validarPaginaAtualCiclos()) return;
+      if (!validarChecklistCiclosCompleto()) return;
       if (!APPS_SCRIPT_URL) {
         mostrarEstadoChecklistCiclos('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
         return;
