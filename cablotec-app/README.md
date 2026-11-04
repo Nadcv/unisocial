@@ -214,12 +214,15 @@ pela primeira vez ou numa correção — a aplicação:
    para Grupos, `CC-0001` para Ciclos — contadores independentes),
    diferente do id técnico interno. Ao editar/corrigir um checklist já
    enviado, o número **mantém-se o mesmo** (não gera um novo).
-2. Gera automaticamente um **PDF em formato A4**, organizado pelas
-   mesmas páginas/secções do formulário no ecrã (ex.: "Página 3 —
-   Verificação de Estruturas e Montagem"), com os itens OK/NA/NOK numa
-   tabela Item/Resultado (tal como aparecem no ecrã), as fotos e
-   assinaturas incorporadas como imagens, e o número do checklist bem
-   visível no topo.
+2. Gera automaticamente um **PDF em formato A4**, reproduzindo página a
+   página o mesmo formulário tal como aparece no ecrã durante o
+   preenchimento: o título ("CHECK-LIST DE PRODUÇÃO Grupo Cond. Walkin"
+   / "DP156/R05", ou o equivalente de Ciclos) repete-se no topo de cada
+   página, os campos seguem a mesma ordem da respetiva página do
+   formulário, os itens OK/NA/NOK aparecem numa tabela Item/Resultado,
+   as fotos e assinaturas ficam incorporadas como imagens, e há um
+   contador "N/Total" (ex.: "1/8") no fundo de cada página, tal como no
+   ecrã.
 3. Envia esse PDF por e-mail para o endereço preenchido em "E-Mail de
    quem preenche o documento" (página 1), com um **link de edição** no
    corpo da mensagem.
