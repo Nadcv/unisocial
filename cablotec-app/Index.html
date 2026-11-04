@@ -1173,7 +1173,17 @@
         <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Grupo Cond. Walkin</div>
         <div class="ajuda" style="margin-bottom:14px;">DP156/R05</div>
 
-        <label class="campo-label" for="cg-testeEletrico">Teste Eléctrico</label>
+        <div class="oknanok-item">
+          <div class="oknanok-rotulo">Teste Eléctrico</div>
+          <div class="oknanok-opcoes">
+            <label><input type="radio" name="cg-testeEletricoOk" value="OK" required /> OK</label>
+            <label><input type="radio" name="cg-testeEletricoOk" value="NA" /> NA</label>
+            <label><input type="radio" name="cg-testeEletricoOk" value="NOK" /> NOK</label>
+          </div>
+          <div class="oknanok-nota">Conforme IT128</div>
+        </div>
+
+        <label class="campo-label" for="cg-testeEletrico" style="margin-top:12px;">Gás</label>
         <select id="cg-testeEletrico" required><option value="">Selecione...</option></select>
         <input type="text" id="cg-testeEletrico-outro" class="campo-outro" placeholder="Escreva o novo gás..." autocomplete="off" hidden />
 
@@ -4348,6 +4358,7 @@
         assinaturaPagina3: obterAssinaturaDataUrl('cg-assinatura3'),
         grupoCondensador: valoresItens(CG_PAGINA4_ITENS),
         assinaturaPagina4: obterAssinaturaDataUrl('cg-assinatura4'),
+        testeEletricoOk: valorRadio('cg-testeEletricoOk'),
         testeEletrico: valorSelectComOutro('cg-testeEletrico'),
         testePressao: valorRadio('cg-testePressao'),
         testeVacuo: valorRadio('cg-testeVacuo'),

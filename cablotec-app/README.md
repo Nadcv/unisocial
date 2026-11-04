@@ -201,6 +201,11 @@ WhatsApp.
   em "Produção por", aparece um campo de texto obrigatório para
   escrever o nome da empresa subcontratada. Ao escolher "Aralab", o
   campo esconde-se e limpa automaticamente.
+- Na página 5/8 (Grupos), o campo "Teste Eléctrico" passou a ter
+  também as opções **OK/NA/NOK** (obrigatório, "Conforme IT128"),
+  tal como os testes de pressão e de vácuo logo abaixo; o campo de
+  seleção do gás (ex.: R513A) ficou com o rótulo **"Gás"**, por baixo
+  desse OK/NA/NOK.
 
 ## Campos de escolha com "Outro (escrever)..."
 
