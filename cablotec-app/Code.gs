@@ -155,6 +155,9 @@ function doGet(e) {
   if (acao === 'obter') {
     return respostaJson(obterRegisto(e.parameter.tipo, e.parameter.serial));
   }
+  if (acao === 'verRegisto') {
+    return paginaVerRegisto_(e.parameter.tipo, e.parameter.serial);
+  }
   if (acao === 'resumo') {
     return respostaJson(obterResumoGeral());
   }
@@ -1660,6 +1663,78 @@ function obterRegisto(tipo, serial) {
 
   var valores = aba.getRange(linha, 1, 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues()[0];
   return { status: 'ok', existe: true, dados: linhaParaObjeto(valores) };
+}
+
+/**
+ * Pagina publica (HTML simples, sem JavaScript nem login) que mostra o
+ * estado de um registo de producao - pensada para abrir diretamente a
+ * partir da etiqueta QR, mesmo fora da aplicacao (ex.: camara normal do
+ * telemovel), sem precisar de abrir a app e procurar o numero de serie.
+ */
+function escaparHtml_(texto) {
+  return (texto === null || texto === undefined ? '' : texto.toString())
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function paginaVerRegisto_(tipo, serial) {
+  var estilo = 'body{font-family:system-ui,sans-serif;background:#f1f5f9;margin:0;padding:20px;color:#1e293b;}' +
+    '.cartao{max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.1);}' +
+    'h1{font-size:1.3rem;margin:0 0 4px;}' +
+    '.sub{color:#64748b;font-size:.9rem;margin-bottom:14px;}' +
+    '.badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85rem;font-weight:600;margin-bottom:14px;}' +
+    '.badge-curso{background:#dbeafe;color:#1d4ed8;}' +
+    '.badge-terminado{background:#dcfce7;color:#15803d;}' +
+    '.badge-atraso{background:#fee2e2;color:#b91c1c;}' +
+    '.linha{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #e2e8f0;font-size:.95rem;}' +
+    '.linha span:first-child{color:#64748b;}' +
+    'h2{font-size:1rem;margin:18px 0 8px;}' +
+    '.etapa{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.92rem;}' +
+    '.etapa .ok{color:#15803d;font-weight:700;}' +
+    '.etapa .pendente{color:#94a3b8;}' +
+    '.erro{color:#b91c1c;}';
+
+  var corpo;
+  try {
+    var resultado = obterRegisto(tipo, serial);
+    if (!resultado.existe) {
+      corpo = '<h1>Nao encontrado</h1><p class="sub">Nao existe nenhum registo com o numero de serie "' +
+        escaparHtml_(serial) + '" (' + escaparHtml_(tipo) + ').</p>';
+    } else {
+      var d = resultado.dados;
+      var classeBadge = d.emAtraso === 'Sim' ? 'badge-atraso' : (d.estado === 'Terminado' ? 'badge-terminado' : 'badge-curso');
+      var textoBadge = d.emAtraso === 'Sim' ? 'Em atraso' : d.estado;
+
+      var linhasEtapas = ETAPAS.map(function (et) {
+        var info = d.etapas[et.chave] || {};
+        var feito = !!info.data;
+        return '<div class="etapa"><span class="' + (feito ? 'ok' : 'pendente') + '">' + (feito ? '✓' : '○') + '</span>' +
+          '<span>' + escaparHtml_(et.rotulo) + (feito ? ' - ' + escaparHtml_(info.data) : '') + '</span></div>';
+      }).join('');
+
+      corpo = '<h1>Nº ' + escaparHtml_(d.serial) + '</h1>' +
+        '<div class="sub">' + escaparHtml_(tipo === 'ciclos' ? 'Ciclo/VA' : 'Grupo Condensador') + '</div>' +
+        '<span class="badge ' + classeBadge + '">' + escaparHtml_(textoBadge) + '</span>' +
+        '<div class="linha"><span>Modelo</span><span>' + escaparHtml_(d.grupo) + '</span></div>' +
+        (d.previsaoSaida ? '<div class="linha"><span>Previsão de saída</span><span>' + escaparHtml_(d.previsaoSaida) + '</span></div>' : '') +
+        (d.dataEntrega ? '<div class="linha"><span>Data de entrega</span><span>' + escaparHtml_(d.dataEntrega) + '</span></div>' : '') +
+        '<div class="linha"><span>Atualizado em</span><span>' + escaparHtml_(d.atualizadoEm) + '</span></div>' +
+        '<h2>Etapas</h2>' + linhasEtapas;
+    }
+  } catch (erro) {
+    corpo = '<h1 class="erro">Erro</h1><p class="sub">' + escaparHtml_(erro.message) + '</p>';
+  }
+
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>' + EMPRESA + ' - ' + escaparHtml_(serial) + '</title>' +
+    '<style>' + estilo + '</style></head><body><div class="cartao">' + corpo + '</div></body></html>';
+
+  return HtmlService.createHtmlOutput(html)
+    .setTitle(EMPRESA + ' - ' + serial)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
 }
 
 /**

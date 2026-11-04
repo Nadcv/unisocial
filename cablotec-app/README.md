@@ -121,6 +121,20 @@ de Produção guarda os seus registos) — não é um script standalone.
   colar na máquina, para poder ser lido depois. Precisa de internet
   normal (duas bibliotecas pequenas carregadas de um CDN) e de
   permissão de câmara no browser.
+  - No **Controlo de Produção**, a etiqueta gerada codifica um
+    **link direto** para uma página pública de consulta (`?action=
+    verRegisto&tipo=...&serial=...`), não apenas o número de série.
+    Isto significa que qualquer câmara normal do telemóvel (sem ser a
+    desta aplicação) consegue ler essa etiqueta e abrir logo uma
+    página simples a mostrar o estado do grupo/ciclo (badge
+    Em curso/Terminado/Em atraso, modelo, previsão de saída, data de
+    entrega e lista de etapas concluídas), sem precisar de abrir a
+    aplicação nem de procurar o número de série à mão. Essa página é
+    só de leitura (não tem botões de editar) e não exige login Google
+    (desde que a implementação esteja com "Quem tem acesso" em
+    "Qualquer pessoa" — ver secção acima). No separador Relatórios, a
+    etiqueta continua a codificar só o número de série, porque aí não
+    existe uma página de estado para abrir.
 - **Armazém — stock de materiais** (dentro de Controlo de Produção) —
   diferente da tabela "Materiais por modelo" (que é só a lista do que
   cada modelo precisa): aqui regista-se o stock real (quantidade

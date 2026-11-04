@@ -1736,11 +1736,12 @@
 
   document.getElementById('qrFechar').addEventListener('click', fecharLeitorQR);
 
-  function gerarEtiquetaQR(texto) {
+  function gerarEtiquetaQR(texto, valorQr) {
     if (!texto) {
       alert('Escreva primeiro o número de série.');
       return;
     }
+    var dadosQr = valorQr || texto;
     var janela = window.open('', '_blank');
     if (!janela) {
       alert('O browser bloqueou a janela nova. Permita pop-ups para gerar a etiqueta.');
@@ -1757,7 +1758,7 @@
       '<body style="text-align:center; font-family:sans-serif; padding:20px;">' +
       '<h3>' + texto + '</h3><div id="q" style="display:inline-block;"></div>' +
       '<p><button onclick="window.print()" style="margin-top:16px;padding:10px 16px; font-size:1rem;">Imprimir</button></p>' +
-      '<script>new QRCode(document.getElementById("q"), { text: ' + JSON.stringify(texto) + ', width: 240, height: 240 });' + scriptFechar +
+      '<script>new QRCode(document.getElementById("q"), { text: ' + JSON.stringify(dadosQr) + ', width: 240, height: 240 });' + scriptFechar +
       '</body>'
     );
     janela.document.close();
@@ -3059,7 +3060,9 @@
     });
   });
   document.getElementById('botaoGerarQRProducao').addEventListener('click', function () {
-    gerarEtiquetaQR(campoSerial.value.trim());
+    var serial = campoSerial.value.trim();
+    var link = (serial && APPS_SCRIPT_URL) ? APPS_SCRIPT_URL + '?action=verRegisto&tipo=' + TIPO_ATUAL + '&serial=' + encodeURIComponent(serial) : '';
+    gerarEtiquetaQR(serial, link);
   });
 
   var cardRegisto = document.getElementById('cardRegisto');
