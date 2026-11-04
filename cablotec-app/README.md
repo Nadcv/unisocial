@@ -197,6 +197,10 @@ WhatsApp.
   original (elétrico, pressão, vácuo), foi acrescentado um 4º campo de
   fotos — **"Teste elétrico Humidificador"** — também obrigatório,
   pedido fora do formulário original.
+- Na página 1 de ambos (Grupos e Ciclos), ao escolher **"Subcontrato"**
+  em "Produção por", aparece um campo de texto obrigatório para
+  escrever o nome da empresa subcontratada. Ao escolher "Aralab", o
+  campo esconde-se e limpa automaticamente.
 
 ## Campos de escolha com "Outro (escrever)..."
 

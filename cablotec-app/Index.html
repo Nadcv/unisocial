@@ -1080,6 +1080,7 @@
           <label><input type="radio" name="cg-producaoPor" value="Aralab" required /> Aralab</label>
           <label><input type="radio" name="cg-producaoPor" value="Subcontrato" /> Subcontrato</label>
         </div>
+        <input type="text" id="cg-producaoPorEmpresa" class="campo-outro" placeholder="Nome da empresa subcontratada..." autocomplete="off" hidden />
 
         <div style="height:12px"></div>
         <label class="campo-label" for="cg-email">E-Mail de quem preenche o documento</label>
@@ -1349,6 +1350,7 @@
           <label><input type="radio" name="cc-producaoPor" value="Aralab" required /> Aralab</label>
           <label><input type="radio" name="cc-producaoPor" value="Subcontrato" /> Subcontrato</label>
         </div>
+        <input type="text" id="cc-producaoPorEmpresa" class="campo-outro" placeholder="Nome da empresa subcontratada..." autocomplete="off" hidden />
 
         <div style="height:12px"></div>
         <label class="campo-label" for="cc-email">E-Mail de quem preenche o documento</label>
@@ -3985,6 +3987,17 @@
   preencherSelectComOutro('cg-testeEletrico', LISTAS_CG.gases);
   ['cg-esquemaEletrico', 'cg-esquemaRefrigeracao', 'cg-testeEletrico'].forEach(ligarSelectComOutro);
 
+  function ligarProducaoPorSubcontrato(nomeRadio, idCampoEmpresa) {
+    var campoEmpresa = document.getElementById(idCampoEmpresa);
+    document.querySelectorAll('input[name="' + nomeRadio + '"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        campoEmpresa.hidden = radio.value !== 'Subcontrato';
+        if (campoEmpresa.hidden) campoEmpresa.value = '';
+      });
+    });
+  }
+  ligarProducaoPorSubcontrato('cg-producaoPor', 'cg-producaoPorEmpresa');
+
   // ---------------------------------------------------------------------
   // Abas Grupos / Ciclos (dentro do separador Checklist).
   // ---------------------------------------------------------------------
@@ -4233,6 +4246,11 @@
       }
     }
 
+    if (PAGINA_ATUAL === 1 && valorRadio('cg-producaoPor') === 'Subcontrato' && !document.getElementById('cg-producaoPorEmpresa').value.trim()) {
+      mostrarEstadoChecklistGrupos('Escreva o nome da empresa subcontratada.', 'erro');
+      return false;
+    }
+
     if (PAGINA_ATUAL >= 3 && PAGINA_ATUAL <= 7 && !obterAssinaturaDataUrl('cg-assinatura' + PAGINA_ATUAL)) {
       mostrarEstadoChecklistGrupos('Assine antes de continuar.', 'erro');
       return false;
@@ -4300,6 +4318,7 @@
       var outro = document.getElementById(idSelect + '-outro');
       if (outro) outro.hidden = true;
     });
+    document.getElementById('cg-producaoPorEmpresa').hidden = true;
     cgFotos.fotosEtiquetas = [];
     cgFotos.fotosControlador = [];
     renderizarPreviewsChecklist('fotosEtiquetas', 'cg-fotosEtiquetasPreviews');
@@ -4358,6 +4377,8 @@
         equipamento: valorTexto('cg-equipamento'),
         numeroSerie: valorTexto('cg-numeroSerie'),
         email: valorTexto('cg-email'),
+        producaoPor: valorRadio('cg-producaoPor'),
+        producaoPorEmpresa: valorRadio('cg-producaoPor') === 'Subcontrato' ? valorTexto('cg-producaoPorEmpresa') : '',
         conformidade: valorRadio('cg-naoConformidade'),
         campos: campos
       };
@@ -4454,6 +4475,17 @@
   preencherSelectComOutroCiclos('cc-modeloSonda', LISTAS_CC.checklistModelosSonda);
   preencherSelectComOutroCiclos('cc-fabricanteClico', LISTAS_CC.checklistFabricantesClico);
   ['cc-equipamento', 'cc-esquemaEletrico', 'cc-esquemaRefrigeracao', 'cc-fabricanteSonda', 'cc-modeloSonda', 'cc-fabricanteClico'].forEach(ligarSelectComOutroCiclos);
+
+  function ligarProducaoPorSubcontratoCiclos(nomeRadio, idCampoEmpresa) {
+    var campoEmpresa = document.getElementById(idCampoEmpresa);
+    document.querySelectorAll('input[name="' + nomeRadio + '"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        campoEmpresa.hidden = radio.value !== 'Subcontrato';
+        if (campoEmpresa.hidden) campoEmpresa.value = '';
+      });
+    });
+  }
+  ligarProducaoPorSubcontratoCiclos('cc-producaoPor', 'cc-producaoPorEmpresa');
 
   // ---------------------------------------------------------------------
   // Checklist de Ciclos: itens OK/NA/NOK das páginas 3, 5 e 8 (chaves +
@@ -4687,6 +4719,11 @@
       }
     }
 
+    if (PAGINA_ATUAL_CICLOS === 1 && valorRadioCiclos('cc-producaoPor') === 'Subcontrato' && !document.getElementById('cc-producaoPorEmpresa').value.trim()) {
+      mostrarEstadoChecklistCiclos('Escreva o nome da empresa subcontratada.', 'erro');
+      return false;
+    }
+
     if ([3, 5, 6, 7, 8].indexOf(PAGINA_ATUAL_CICLOS) !== -1 && !obterAssinaturaCiclosDataUrl('cc-assinatura' + PAGINA_ATUAL_CICLOS)) {
       mostrarEstadoChecklistCiclos('Assine antes de continuar.', 'erro');
       return false;
@@ -4749,6 +4786,7 @@
       var outro = document.getElementById(idSelect + '-outro');
       if (outro) outro.hidden = true;
     });
+    document.getElementById('cc-producaoPorEmpresa').hidden = true;
     Object.keys(ccFotos).forEach(function (chave) { ccFotos[chave] = []; });
     renderizarPreviewsChecklistCiclos('fotosIdentificacao', 'cc-fotosIdentificacaoPreviews');
     renderizarPreviewsChecklistCiclos('fotosTesteEletrico', 'cc-fotosTesteEletricoPreviews');
@@ -4815,6 +4853,8 @@
         equipamento: valorSelectComOutroCiclos('cc-equipamento'),
         numeroSerie: valorTextoCiclos('cc-numeroSerie'),
         email: valorTextoCiclos('cc-email'),
+        producaoPor: valorRadioCiclos('cc-producaoPor'),
+        producaoPorEmpresa: valorRadioCiclos('cc-producaoPor') === 'Subcontrato' ? valorTextoCiclos('cc-producaoPorEmpresa') : '',
         conformidade: 'Nao',
         campos: campos
       };
