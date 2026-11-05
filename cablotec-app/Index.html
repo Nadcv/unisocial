@@ -651,6 +651,7 @@
   <button type="button" class="botaoApp" id="botaoAppProducao">🏭 Controlo de Produção</button>
   <button type="button" class="botaoApp" id="botaoAppChecklist">✅ Checklist</button>
 </div>
+<div id="indicadorFilaEnvio" hidden style="background:#fdebd0;color:#7a4b00;padding:8px 14px;font-size:0.9rem;text-align:center;cursor:pointer;"></div>
 
 <div id="secaoRelatorios">
 
@@ -883,6 +884,10 @@
 
     <div style="height:12px"></div>
 
+    <label class="campo-label" for="registoResponsavel">Responsável por esta atualização (opcional)</label>
+    <input type="text" id="registoResponsavel" placeholder="O seu nome..." autocomplete="off" />
+    <div class="ajuda" style="margin-bottom:12px;">Fica registado no histórico de auditoria, para se saber quem fez cada alteração.</div>
+
     <label class="campo-label" for="materiaisEmFalta">Materiais em falta</label>
     <textarea id="materiaisEmFalta" placeholder="Ex.: ligador X, 2x sensor Y..."></textarea>
 
@@ -1095,6 +1100,11 @@
 </header>
 
 <main>
+  <div class="card" id="bannerRascunhosChecklist" hidden style="background:#fff8e6;border:1px solid #e9c46a;">
+    <div class="card-titulo" style="margin-bottom:6px;">Checklist(s) em curso</div>
+    <div id="listaRascunhosChecklist"></div>
+  </div>
+
   <div class="card" id="checklistGrupos">
     <form id="formChecklistGrupos">
 
@@ -1743,6 +1753,98 @@
   }
 
   // ---------------------------------------------------------------------
+  // Fila de envio offline: se um envio final (Relatorios/Checklist) falhar
+  // por falta de ligacao (fetch rejeitado, nao resposta de erro do
+  // servidor), o payload fica guardado no localStorage deste dispositivo e
+  // e automaticamente reenviado quando a ligacao voltar (evento "online")
+  // ou, em alternativa, verificado periodicamente. Nunca perde o que o
+  // utilizador escreveu so porque o WiFi da fabrica oscilou.
+  // ---------------------------------------------------------------------
+  var FILA_ENVIO_CHAVE_GLOBAL = 'cablotecFilaEnvio';
+
+  function lerFilaEnvioGlobal() {
+    try {
+      var lista = JSON.parse(localStorage.getItem(FILA_ENVIO_CHAVE_GLOBAL) || '[]');
+      return Array.isArray(lista) ? lista : [];
+    } catch (erroLeitura) {
+      return [];
+    }
+  }
+
+  function atualizarIndicadorFilaEnvioGlobal() {
+    var el = document.getElementById('indicadorFilaEnvio');
+    if (!el) return;
+    var lista = lerFilaEnvioGlobal();
+    if (!lista.length) {
+      el.hidden = true;
+      return;
+    }
+    el.hidden = false;
+    el.textContent = '⏳ ' + lista.length + ' envio(s) pendente(s) sem ligação. Serão enviados automaticamente — toque aqui para tentar agora.';
+  }
+
+  function adicionarAFilaEnvioGlobal(url, descricao, payload) {
+    try {
+      var lista = lerFilaEnvioGlobal();
+      lista.push({
+        id: 'env-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        url: url,
+        descricao: descricao || '',
+        payload: payload,
+        criadoEm: new Date().toISOString()
+      });
+      localStorage.setItem(FILA_ENVIO_CHAVE_GLOBAL, JSON.stringify(lista));
+      atualizarIndicadorFilaEnvioGlobal();
+      return true;
+    } catch (erroGuardar) {
+      // localStorage indisponivel ou sem espaco (ex.: fotos muito grandes) -
+      // o chamador mostra o erro normal em vez de fingir que ficou em fila.
+      return false;
+    }
+  }
+
+  function removerDaFilaEnvioGlobal(id) {
+    try {
+      var lista = lerFilaEnvioGlobal().filter(function (item) { return item.id !== id; });
+      localStorage.setItem(FILA_ENVIO_CHAVE_GLOBAL, JSON.stringify(lista));
+    } catch (erroRemover) { /* melhor esforco */ }
+    atualizarIndicadorFilaEnvioGlobal();
+  }
+
+  var _filaEnvioAProcessar = false;
+  function processarFilaEnvioGlobal() {
+    if (_filaEnvioAProcessar) return;
+    var lista = lerFilaEnvioGlobal();
+    if (!lista.length || !navigator.onLine) return;
+    _filaEnvioAProcessar = true;
+    var pendentes = lista.length;
+    lista.forEach(function (item) {
+      fetch(item.url, { method: 'POST', body: JSON.stringify(item.payload) })
+        .then(respostaParaJsonGlobal)
+        .then(function (dados) {
+          if (dados && dados.status === 'ok') removerDaFilaEnvioGlobal(item.id);
+        })
+        .catch(function () { /* continua na fila, tenta novamente mais tarde */ })
+        .finally(function () {
+          pendentes -= 1;
+          if (pendentes <= 0) _filaEnvioAProcessar = false;
+        });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    atualizarIndicadorFilaEnvioGlobal();
+    processarFilaEnvioGlobal();
+  });
+  if (document.readyState !== 'loading') {
+    atualizarIndicadorFilaEnvioGlobal();
+    processarFilaEnvioGlobal();
+  }
+  window.addEventListener('online', processarFilaEnvioGlobal);
+  setInterval(processarFilaEnvioGlobal, 60000);
+  document.getElementById('indicadorFilaEnvio').addEventListener('click', processarFilaEnvioGlobal);
+
+  // ---------------------------------------------------------------------
   // Leitura de codigo QR pela camara (ALTERNATIVA a escrever o numero de
   // serie a mao - nao o substitui) e geracao de etiquetas QR para colar
   // nas maquinas. Partilhado pelos dois separadores.
@@ -1850,7 +1952,44 @@
   // lado maior, reconverte para JPEG qualidade 0.8). Usada pelo Checklist
   // de Producao; os Relatorios tem a sua propria copia local identica.
   // ---------------------------------------------------------------------
-  function comprimirImagemGlobal(ficheiro, tamanhoMaximo, qualidade) {
+  // ---------------------------------------------------------------------
+  // Marca de agua (serial + categoria + data/hora) nas fotos, desenhada
+  // diretamente no canvas antes de comprimir - para nao haver duvidas
+  // depois sobre "esta foto e de que maquina/categoria". Partilhada por
+  // Relatorios e Checklist.
+  // ---------------------------------------------------------------------
+  function rotuloLegivelGlobal(chave) {
+    if (!chave) return '';
+    var comEspacos = chave.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+    return comEspacos.charAt(0).toUpperCase() + comEspacos.slice(1);
+  }
+
+  function construirTextoMarcaAguaGlobal(serial, chave) {
+    var agora = new Date();
+    var dataHora = ('0' + agora.getDate()).slice(-2) + '/' + ('0' + (agora.getMonth() + 1)).slice(-2) + '/' + agora.getFullYear() +
+      ' ' + ('0' + agora.getHours()).slice(-2) + ':' + ('0' + agora.getMinutes()).slice(-2);
+    var partes = [];
+    if (serial) partes.push(serial);
+    if (chave) partes.push(rotuloLegivelGlobal(chave));
+    partes.push(dataHora);
+    return partes.join(' · ');
+  }
+
+  function desenharMarcaAguaGlobal(ctx, largura, altura, texto) {
+    if (!texto) return;
+    var tamanhoFonte = Math.max(12, Math.round(largura * 0.03));
+    ctx.font = tamanhoFonte + 'px sans-serif';
+    var larguraTexto = ctx.measureText(texto).width;
+    var paddingX = 8;
+    var alturaFaixa = tamanhoFonte + 12;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, altura - alturaFaixa, Math.min(largura, larguraTexto + paddingX * 2), alturaFaixa);
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(texto, paddingX, altura - alturaFaixa / 2);
+  }
+
+  function comprimirImagemGlobal(ficheiro, tamanhoMaximo, qualidade, textoMarcaAgua) {
     tamanhoMaximo = tamanhoMaximo || 1600;
     qualidade = qualidade || 0.8;
 
@@ -1876,6 +2015,7 @@
           canvas.height = altura;
           var ctx = canvas.getContext('2d');
           ctx.drawImage(imagem, 0, 0, largura, altura);
+          desenharMarcaAguaGlobal(ctx, largura, altura, textoMarcaAgua);
 
           try {
             resolve(canvas.toDataURL('image/jpeg', qualidade));
@@ -2252,8 +2392,9 @@
 
     mostrarEstado('A processar fotografias...', 'info');
 
+    var textoMarcaAgua = construirTextoMarcaAguaGlobal(campoSerial.value.trim(), chave);
     var promessas = ficheiros.map(function (ficheiro) {
-      return comprimirImagem(ficheiro).then(function (base64) {
+      return comprimirImagem(ficheiro, undefined, undefined, textoMarcaAgua).then(function (base64) {
         fotosPorCategoria[chave].push(base64);
         renderizarPreviews(chave);
       });
@@ -2511,7 +2652,7 @@
    * reconverte para JPEG com qualidade 0.8, devolvendo uma string
    * "data:image/jpeg;base64,....".
    */
-  function comprimirImagem(ficheiro, tamanhoMaximo, qualidade) {
+  function comprimirImagem(ficheiro, tamanhoMaximo, qualidade, textoMarcaAgua) {
     tamanhoMaximo = tamanhoMaximo || 1600;
     qualidade = qualidade || 0.8;
 
@@ -2537,6 +2678,7 @@
           canvas.height = altura;
           var ctx = canvas.getContext('2d');
           ctx.drawImage(imagem, 0, 0, largura, altura);
+          desenharMarcaAguaGlobal(ctx, largura, altura, textoMarcaAgua);
 
           try {
             resolve(canvas.toDataURL('image/jpeg', qualidade));
@@ -2645,6 +2787,11 @@
     }
 
     function aoFalhar(erro) {
+      if (adicionarAFilaEnvioGlobal(APPS_SCRIPT_URL, 'Relatório ' + serial, payload)) {
+        mostrarEstado('Sem ligação à internet. O relatório foi guardado neste dispositivo e será enviado automaticamente quando a ligação voltar — não limpe os dados do browser antes disso.', 'erro');
+        limparFormulario();
+        return;
+      }
       mostrarEstado('Erro de rede/ligacao: ' + erro.message, 'erro');
     }
 
@@ -2961,8 +3108,9 @@
 
     mostrarEstado('A processar fotografias...', 'info');
 
+    var textoMarcaAgua = construirTextoMarcaAguaGlobal(campoSerial.value.trim(), categoria);
     var promessas = ficheiros.map(function (ficheiro) {
-      return comprimirImagem(ficheiro).then(function (base64) {
+      return comprimirImagem(ficheiro, undefined, undefined, textoMarcaAgua).then(function (base64) {
         fotosCorrecao.push({ categoria: categoria, base64: base64 });
       });
     });
@@ -3586,6 +3734,7 @@
       dataEntrega: campoDataEntrega.value,
       materiaisEmFalta: campoMateriaisFalta.value.trim(),
       materiaisEntregues: campoMateriaisEntregues.value.trim(),
+      responsavel: document.getElementById('registoResponsavel').value.trim(),
       etapas: obterEtapasDoFormulario()
     };
 
@@ -3630,7 +3779,7 @@
       return;
     }
 
-    var payload = { acao: 'mudarNumeroSerie', tipo: TIPO_ATUAL, serialAtual: serialAtual, serialNovo: serialNovo };
+    var payload = { acao: 'mudarNumeroSerie', tipo: TIPO_ATUAL, serialAtual: serialAtual, serialNovo: serialNovo, responsavel: document.getElementById('registoResponsavel').value.trim() };
     mostrarEstado('A atualizar número de série...', 'info');
 
     fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
@@ -3655,42 +3804,70 @@
   var FILTRO_ATUAL = 'emCurso';
   var listaRegistos = document.getElementById('listaRegistos');
 
+  var LIMITE_LISTA_REGISTOS = 50;
+  var OFFSET_LISTA_REGISTOS = 0;
+
   filtros.forEach(function (botao) {
     botao.addEventListener('click', function () {
       FILTRO_ATUAL = botao.dataset.filtro;
       filtros.forEach(function (b) { b.className = 'filtro'; });
       botao.className = 'filtro filtro-ativo';
-      carregarLista();
+      carregarLista(false);
     });
   });
 
-  function carregarLista() {
+  function montarItemLista_(item) {
+    var estadoTexto = item.estado + (item.emAtraso === 'Sim' ? ' · Em atraso' : '');
+    var dias = calcularDiasEmProducao(item.criadoEm);
+    if (dias !== null) estadoTexto = estadoTexto + ' · ' + dias + (dias === 1 ? ' dia' : ' dias');
+    return '<button type="button" class="item-lista" data-serial="' + item.serial.replace(/"/g, '&quot;') + '">' +
+      '<div class="linha1">' + item.serial + (item.grupo ? ' — ' + item.grupo : '') + '</div>' +
+      '<div class="linha2">' + estadoTexto + (item.previsaoSaida ? ' · Previsão: ' + item.previsaoSaida : '') + '</div>' +
+    '</button>';
+  }
+
+  // "continuar" = true quando vem do botao "Carregar mais" (acrescenta
+  // a lista); false reinicia do zero (mudanca de filtro/tipo).
+  function carregarLista(continuar) {
     if (!APPS_SCRIPT_URL) return;
-    listaRegistos.innerHTML = '<div class="ajuda">A carregar...</div>';
-    var url = APPS_SCRIPT_URL + '?action=listar&tipo=' + TIPO_ATUAL + '&filtro=' + FILTRO_ATUAL;
+    if (!continuar) {
+      OFFSET_LISTA_REGISTOS = 0;
+      listaRegistos.innerHTML = '<div class="ajuda">A carregar...</div>';
+    }
+    var url = APPS_SCRIPT_URL + '?action=listar&tipo=' + TIPO_ATUAL + '&filtro=' + FILTRO_ATUAL +
+      '&limite=' + LIMITE_LISTA_REGISTOS + '&offset=' + OFFSET_LISTA_REGISTOS;
 
     fetch(url).then(respostaParaJsonGlobal).then(function (dados) {
-      if (dados.status !== 'ok' || !dados.itens || !dados.itens.length) {
+      if (dados.status !== 'ok') {
+        listaRegistos.innerHTML = '<div class="ajuda">Erro: ' + (dados.msg || 'falha desconhecida.') + '</div>';
+        return;
+      }
+      if (!continuar && (!dados.itens || !dados.itens.length)) {
         listaRegistos.innerHTML = '<div class="ajuda">Nenhum registo encontrado.</div>';
         return;
       }
-      var html = '';
-      dados.itens.forEach(function (item) {
-        var estadoTexto = item.estado + (item.emAtraso === 'Sim' ? ' · Em atraso' : '');
-        var dias = calcularDiasEmProducao(item.criadoEm);
-        if (dias !== null) estadoTexto = estadoTexto + ' · ' + dias + (dias === 1 ? ' dia' : ' dias');
-        html = html + '<button type="button" class="item-lista" data-serial="' + item.serial.replace(/"/g, '&quot;') + '">' +
-          '<div class="linha1">' + item.serial + (item.grupo ? ' — ' + item.grupo : '') + '</div>' +
-          '<div class="linha2">' + estadoTexto + (item.previsaoSaida ? ' · Previsão: ' + item.previsaoSaida : '') + '</div>' +
-        '</button>';
-      });
-      listaRegistos.innerHTML = html;
+      var html = (dados.itens || []).map(montarItemLista_).join('');
+      var botaoAntigo = listaRegistos.querySelector('.botao-carregar-mais');
+      if (botaoAntigo) botaoAntigo.remove();
+      if (continuar) {
+        listaRegistos.insertAdjacentHTML('beforeend', html);
+      } else {
+        listaRegistos.innerHTML = html;
+      }
+      OFFSET_LISTA_REGISTOS = OFFSET_LISTA_REGISTOS + (dados.itens || []).length;
+      if (dados.temMais) {
+        listaRegistos.insertAdjacentHTML('beforeend', '<button type="button" class="botao-secundario botao-carregar-mais" style="width:100%; margin-top:6px;">Carregar mais</button>');
+      }
     }).catch(function (erro) {
       listaRegistos.innerHTML = '<div class="ajuda">Erro ao carregar: ' + erro.message + '</div>';
     });
   }
 
   listaRegistos.addEventListener('click', function (ev) {
+    if (ev.target.closest('.botao-carregar-mais')) {
+      carregarLista(true);
+      return;
+    }
     var botao = ev.target.closest('.item-lista');
     if (!botao) return;
     campoSerial.value = botao.dataset.serial;
@@ -4281,6 +4458,39 @@
     { chave: 'cantosEsponja', rotulo: 'Colocação de cantos em esponja almofadada anti-choque' }
   ];
 
+  // Os textos (rotulo/nota) destes itens podem ser corrigidos na aba
+  // "ChecklistTemplates" da Sheet, sem mexer em código - a estrutura
+  // (quais itens existem e em que página) continua a ser esta lista.
+  function aplicarTextosChecklist_(itens, textos) {
+    if (!textos) return itens;
+    itens.forEach(function (item) {
+      var t = textos[item.chave];
+      if (!t) return;
+      if (t.rotulo) item.rotulo = t.rotulo;
+      if (t.nota) item.nota = t.nota;
+    });
+    return itens;
+  }
+  var TEXTOS_CHECKLIST_GRUPOS = (LISTAS_CG.checklistTextos || {}).grupos || {};
+  [CG_PAGINA3_ITENS, CG_PAGINA3_ITENS2, CG_PAGINA4_ITENS, CG_PAGINA7_ITENS].forEach(function (lista) {
+    aplicarTextosChecklist_(lista, TEXTOS_CHECKLIST_GRUPOS);
+  });
+
+  // Primeira vez que a app corre (aba "ChecklistTemplates" ainda vazia):
+  // envia os textos atuais (desta lista) para a Sheet, para ficarem lá
+  // disponíveis para um supervisor editar depois. So semeia - nunca
+  // sobrescreve o que ja la estiver (ver semearTemplatesChecklist no
+  // Code.gs).
+  if (APPS_SCRIPT_URL && !Object.keys(TEXTOS_CHECKLIST_GRUPOS).length) {
+    var itensSeedGrupos = [].concat(
+      CG_PAGINA3_ITENS.map(function (i) { return { tipo: 'grupos', chave: i.chave, rotulo: i.rotulo, nota: i.nota || '' }; }),
+      CG_PAGINA3_ITENS2.map(function (i) { return { tipo: 'grupos', chave: i.chave, rotulo: i.rotulo, nota: i.nota || '' }; }),
+      CG_PAGINA4_ITENS.map(function (i) { return { tipo: 'grupos', chave: i.chave, rotulo: i.rotulo, nota: i.nota || '' }; }),
+      CG_PAGINA7_ITENS.map(function (i) { return { tipo: 'grupos', chave: i.chave, rotulo: i.rotulo, nota: i.nota || '' }; })
+    );
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ acao: 'semearTemplatesChecklist', itens: itensSeedGrupos }) }).catch(function () { /* nao critico */ });
+  }
+
   function montarItensOkNaNok(containerId, itens) {
     var container = document.getElementById(containerId);
     container.innerHTML = itens.map(function (item) {
@@ -4406,7 +4616,8 @@
       var ficheiros = Array.prototype.slice.call(ev.target.files || []);
       if (!ficheiros.length) return;
       mostrarEstadoChecklistGrupos('A processar fotografias...', 'info');
-      Promise.all(ficheiros.map(function (f) { return comprimirImagemGlobal(f); })).then(function (base64s) {
+      var textoMarcaAgua = construirTextoMarcaAguaGlobal(document.getElementById('cg-numeroSerie').value.trim(), chave);
+      Promise.all(ficheiros.map(function (f) { return comprimirImagemGlobal(f, undefined, undefined, textoMarcaAgua); })).then(function (base64s) {
         base64s.forEach(function (b64) { cgFotos[chave].push(b64); });
         renderizarPreviewsChecklist(chave, idPreviews);
         esconderEstadoChecklistGrupos();
@@ -4536,16 +4747,6 @@
       mostrarPagina(Math.max(1, PAGINA_ATUAL - 1));
     });
   });
-  document.querySelectorAll('#formChecklistGrupos .cl-guardar').forEach(function (botao) {
-    botao.addEventListener('click', function () {
-      // "Guardar" fica so no navegador (nao envia nada ao servidor) - serve
-      // para poder ir para tras/para a frente sem perder o que escreveu
-      // nesta sessao. So o "Enviar" na ultima pagina grava tudo no Drive/
-      // na Sheet. Se fechar o browser antes de enviar, perde o progresso.
-      mostrarEstadoChecklistGrupos('Progresso desta página guardado nesta sessão. Continue a preencher sem fechar o browser; só o "Enviar" final grava tudo.', 'sucesso');
-    });
-  });
-
   // ---------------------------------------------------------------------
   // Envio final (página 8): junta todos os campos + fotos + assinaturas
   // num unico payload e envia por POST.
@@ -4595,6 +4796,90 @@
     mostrarPagina(1);
   }
 
+  function coletarCamposChecklistGrupos() {
+    return {
+      esquemaEletrico: valorSelectComOutro('cg-esquemaEletrico'),
+      esquemaRefrigeracao: valorSelectComOutro('cg-esquemaRefrigeracao'),
+      verificacaoEstruturas: valoresItens(CG_PAGINA3_ITENS.concat(CG_PAGINA3_ITENS2)),
+      assinaturaPagina3: obterAssinaturaDataUrl('cg-assinatura3'),
+      grupoCondensador: valoresItens(CG_PAGINA4_ITENS),
+      assinaturaPagina4: obterAssinaturaDataUrl('cg-assinatura4'),
+      testeEletricoOk: valorRadio('cg-testeEletricoOk'),
+      testeEletrico: valorSelectComOutro('cg-testeEletrico'),
+      testePressao: valorRadio('cg-testePressao'),
+      testeVacuo: valorRadio('cg-testeVacuo'),
+      assinaturaPagina5: obterAssinaturaDataUrl('cg-assinatura5'),
+      componentes: {
+        grupoCondensador: { modelo: valorTexto('cg-compGrupoCondensadorModelo'), serie: valorTexto('cg-compGrupoCondensadorSerie') },
+        compressor: { modelo: valorTexto('cg-compCompressorModelo'), serie: valorTexto('cg-compCompressorSerie') },
+        ventilador: { modelo: valorTexto('cg-compVentiladorModelo'), serie: valorTexto('cg-compVentiladorSerie') }
+      },
+      fotosEtiquetas: cgFotos.fotosEtiquetas,
+      controlador: {
+        modelo: valorTexto('cg-controladorModelo'),
+        serie: valorTexto('cg-controladorSerie'),
+        versaoFirmware: valorTexto('cg-controladorVersaoFirmware')
+      },
+      temModulosExpansao: valorRadio('cg-temModulosExpansao'),
+      fotosControlador: cgFotos.fotosControlador,
+      fotosTesteEletrico: cgFotos.fotosTesteEletrico,
+      fotosTestePressao: cgFotos.fotosTestePressao,
+      fotosTesteVacuo: cgFotos.fotosTesteVacuo,
+      assinaturaPagina6: obterAssinaturaDataUrl('cg-assinatura6'),
+      embalagem: valoresItens(CG_PAGINA7_ITENS),
+      assinaturaPagina7: obterAssinaturaDataUrl('cg-assinatura7'),
+      observacoes: valorTexto('cg-observacoes')
+    };
+  }
+
+  document.querySelectorAll('#formChecklistGrupos .cl-guardar').forEach(function (botao) {
+    botao.addEventListener('click', function () {
+      var numeroSerie = valorTexto('cg-numeroSerie');
+      if (!numeroSerie) {
+        mostrarEstadoChecklistGrupos('Preencha o Nº de série antes de guardar o progresso.', 'erro');
+        return;
+      }
+      if (!APPS_SCRIPT_URL) {
+        mostrarEstadoChecklistGrupos('Progresso desta página guardado nesta sessão. Continue a preencher sem fechar o browser; só o "Enviar" final grava tudo.', 'sucesso');
+        return;
+      }
+      var payloadRascunho = {
+        acao: 'guardarRascunhoChecklist',
+        tipo: 'grupos',
+        equipamento: valorTexto('cg-equipamento'),
+        numeroSerie: numeroSerie,
+        email: valorTexto('cg-email'),
+        producaoPor: valorRadio('cg-producaoPor'),
+        producaoPorEmpresa: valorRadio('cg-producaoPor') === 'Subcontrato' ? valorTexto('cg-producaoPorEmpresa') : '',
+        conformidade: valorRadio('cg-naoConformidade'),
+        campos: coletarCamposChecklistGrupos()
+      };
+      botao.disabled = true;
+      mostrarEstadoChecklistGrupos('A guardar progresso...', 'info');
+      fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payloadRascunho) })
+        .then(respostaParaJsonGlobal)
+        .then(function (dados) {
+          if (dados.status !== 'ok') {
+            mostrarEstadoChecklistGrupos('Erro ao guardar progresso: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+            return;
+          }
+          cgFotos.fotosEtiquetas = [];
+          cgFotos.fotosControlador = [];
+          cgFotos.fotosTesteEletrico = [];
+          cgFotos.fotosTestePressao = [];
+          cgFotos.fotosTesteVacuo = [];
+          if (window.carregarBannerRascunhosChecklistGlobal) window.carregarBannerRascunhosChecklistGlobal();
+          mostrarEstadoChecklistGrupos('Progresso guardado no servidor (fotos já enviadas). Pode continuar ou fechar o browser e retomar mais tarde.', 'sucesso');
+        })
+        .catch(function (erro) {
+          mostrarEstadoChecklistGrupos('Erro de rede ao guardar progresso: ' + erro.message, 'erro');
+        })
+        .finally(function () {
+          botao.disabled = false;
+        });
+    });
+  });
+
   document.querySelectorAll('#formChecklistGrupos .cl-enviar').forEach(function (botao) {
     botao.addEventListener('click', function () {
       if (!validarChecklistCompleto()) return;
@@ -4603,39 +4888,7 @@
         return;
       }
 
-      var campos = {
-        esquemaEletrico: valorSelectComOutro('cg-esquemaEletrico'),
-        esquemaRefrigeracao: valorSelectComOutro('cg-esquemaRefrigeracao'),
-        verificacaoEstruturas: valoresItens(CG_PAGINA3_ITENS.concat(CG_PAGINA3_ITENS2)),
-        assinaturaPagina3: obterAssinaturaDataUrl('cg-assinatura3'),
-        grupoCondensador: valoresItens(CG_PAGINA4_ITENS),
-        assinaturaPagina4: obterAssinaturaDataUrl('cg-assinatura4'),
-        testeEletricoOk: valorRadio('cg-testeEletricoOk'),
-        testeEletrico: valorSelectComOutro('cg-testeEletrico'),
-        testePressao: valorRadio('cg-testePressao'),
-        testeVacuo: valorRadio('cg-testeVacuo'),
-        assinaturaPagina5: obterAssinaturaDataUrl('cg-assinatura5'),
-        componentes: {
-          grupoCondensador: { modelo: valorTexto('cg-compGrupoCondensadorModelo'), serie: valorTexto('cg-compGrupoCondensadorSerie') },
-          compressor: { modelo: valorTexto('cg-compCompressorModelo'), serie: valorTexto('cg-compCompressorSerie') },
-          ventilador: { modelo: valorTexto('cg-compVentiladorModelo'), serie: valorTexto('cg-compVentiladorSerie') }
-        },
-        fotosEtiquetas: cgFotos.fotosEtiquetas,
-        controlador: {
-          modelo: valorTexto('cg-controladorModelo'),
-          serie: valorTexto('cg-controladorSerie'),
-          versaoFirmware: valorTexto('cg-controladorVersaoFirmware')
-        },
-        temModulosExpansao: valorRadio('cg-temModulosExpansao'),
-        fotosControlador: cgFotos.fotosControlador,
-        fotosTesteEletrico: cgFotos.fotosTesteEletrico,
-        fotosTestePressao: cgFotos.fotosTestePressao,
-        fotosTesteVacuo: cgFotos.fotosTesteVacuo,
-        assinaturaPagina6: obterAssinaturaDataUrl('cg-assinatura6'),
-        embalagem: valoresItens(CG_PAGINA7_ITENS),
-        assinaturaPagina7: obterAssinaturaDataUrl('cg-assinatura7'),
-        observacoes: valorTexto('cg-observacoes')
-      };
+      var campos = coletarCamposChecklistGrupos();
 
       var payload = {
         acao: 'guardarChecklist',
@@ -4663,9 +4916,15 @@
           }
           mostrarEstadoChecklistGrupos('Checklist ' + (dados.numeroChecklist || '') + ' enviado e guardado com sucesso! O PDF (A4) e o link de edição foram enviados por e-mail.', 'sucesso');
           limparFormularioChecklistGrupos();
+          if (window.carregarBannerRascunhosChecklistGlobal) window.carregarBannerRascunhosChecklistGlobal();
         })
         .catch(function (erro) {
-          mostrarEstadoChecklistGrupos('Erro de rede/ligação: ' + erro.message, 'erro');
+          if (adicionarAFilaEnvioGlobal(APPS_SCRIPT_URL, 'Checklist Grupos ' + payload.numeroSerie, payload)) {
+            mostrarEstadoChecklistGrupos('Sem ligação à internet. O checklist foi guardado neste dispositivo e será enviado automaticamente quando a ligação voltar — não limpe os dados do browser antes disso.', 'erro');
+            limparFormularioChecklistGrupos();
+          } else {
+            mostrarEstadoChecklistGrupos('Erro de rede/ligação: ' + erro.message, 'erro');
+          }
         })
         .finally(function () {
           botao.disabled = false;
@@ -4722,8 +4981,8 @@
     }
   }
 
-  window.preencherChecklistGruposEdicaoGlobal = function (resultado) {
-    EDICAO_ID = resultado.id || '';
+  window.preencherChecklistGruposEdicaoGlobal = function (resultado, ehRascunho) {
+    EDICAO_ID = ehRascunho ? '' : (resultado.id || '');
     var c = resultado.campos || {};
 
     document.getElementById('cg-equipamento').value = resultado.equipamento || '';
@@ -4775,7 +5034,12 @@
     document.getElementById('cg-observacoes').value = c.observacoes || '';
 
     mostrarPagina(1);
-    mostrarEstadoChecklistGrupos('A editar o checklist ' + (resultado.numeroChecklist || '') + ' (Nº série ' + (resultado.numeroSerie || '') + '). As fotos e assinaturas anteriores mantêm-se; precisa de assinar de novo em cada página antes de enviar.', 'info');
+    mostrarEstadoChecklistGrupos(
+      ehRascunho
+        ? 'Rascunho retomado (Nº série ' + (resultado.numeroSerie || '') + '). As fotos já guardadas mantêm-se; precisa de assinar de novo em cada página antes de enviar.'
+        : 'A editar o checklist ' + (resultado.numeroChecklist || '') + ' (Nº série ' + (resultado.numeroSerie || '') + '). As fotos e assinaturas anteriores mantêm-se; precisa de assinar de novo em cada página antes de enviar.',
+      'info'
+    );
   };
 
   mostrarPagina(1);
@@ -4902,6 +5166,34 @@
     { chave: 'inclusaoKitFixacao', rotulo: 'Inclusão do kit de fixação do Clico' }
   ];
 
+  // Os textos (rotulo/nota) destes itens podem ser corrigidos na aba
+  // "ChecklistTemplates" da Sheet, sem mexer em código (ver a mesma
+  // explicação no bloco de Grupos).
+  function aplicarTextosChecklistCiclos_(itens, textos) {
+    if (!textos) return itens;
+    itens.forEach(function (item) {
+      var t = textos[item.chave];
+      if (!t) return;
+      if (t.rotulo) item.rotulo = t.rotulo;
+      if (t.nota) item.nota = t.nota;
+    });
+    return itens;
+  }
+  var TEXTOS_CHECKLIST_CICLOS = (LISTAS_CC.checklistTextos || {}).ciclos || {};
+  [CC_PAGINA3_ITENS, CC_PAGINA3_ITENS2, CC_PAGINA5_ITENS, CC_PAGINA8_ITENS].forEach(function (lista) {
+    aplicarTextosChecklistCiclos_(lista, TEXTOS_CHECKLIST_CICLOS);
+  });
+
+  if (APPS_SCRIPT_URL && !Object.keys(TEXTOS_CHECKLIST_CICLOS).length) {
+    var itensSeedCiclos = [].concat(
+      CC_PAGINA3_ITENS.map(function (i) { return { tipo: 'ciclos', chave: i.chave, rotulo: i.rotulo, nota: i.nota || '' }; }),
+      CC_PAGINA3_ITENS2.map(function (i) { return { tipo: 'ciclos', chave: i.chave, rotulo: i.rotulo, nota: i.nota || '' }; }),
+      CC_PAGINA5_ITENS.map(function (i) { return { tipo: 'ciclos', chave: i.chave, rotulo: i.rotulo, nota: i.nota || '' }; }),
+      CC_PAGINA8_ITENS.map(function (i) { return { tipo: 'ciclos', chave: i.chave, rotulo: i.rotulo, nota: i.nota || '' }; })
+    );
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ acao: 'semearTemplatesChecklist', itens: itensSeedCiclos }) }).catch(function () { /* nao critico */ });
+  }
+
   function montarItensOkNaNokCiclos(containerId, itens) {
     var container = document.getElementById(containerId);
     container.innerHTML = itens.map(function (item) {
@@ -5025,7 +5317,8 @@
       var ficheiros = Array.prototype.slice.call(ev.target.files || []);
       if (!ficheiros.length) return;
       mostrarEstadoChecklistCiclos('A processar fotografias...', 'info');
-      Promise.all(ficheiros.map(function (f) { return comprimirImagemGlobal(f); })).then(function (base64s) {
+      var textoMarcaAgua = construirTextoMarcaAguaGlobal(document.getElementById('cc-numeroSerie').value.trim(), chave);
+      Promise.all(ficheiros.map(function (f) { return comprimirImagemGlobal(f, undefined, undefined, textoMarcaAgua); })).then(function (base64s) {
         base64s.forEach(function (b64) { ccFotos[chave].push(b64); });
         renderizarPreviewsChecklistCiclos(chave, idPreviews);
         esconderEstadoChecklistCiclos();
@@ -5151,12 +5444,6 @@
       mostrarPaginaCiclos(Math.max(1, PAGINA_ATUAL_CICLOS - 1));
     });
   });
-  document.querySelectorAll('#formChecklistCiclos .cc-guardar').forEach(function (botao) {
-    botao.addEventListener('click', function () {
-      mostrarEstadoChecklistCiclos('Progresso desta página guardado nesta sessão. Continue a preencher sem fechar o browser; só o "Enviar" final grava tudo.', 'sucesso');
-    });
-  });
-
   // ---------------------------------------------------------------------
   // Envio final (página 9).
   // ---------------------------------------------------------------------
@@ -5201,6 +5488,88 @@
     mostrarPaginaCiclos(1);
   }
 
+  function coletarCamposChecklistCiclos() {
+    return {
+      esquemaEletrico: valorSelectComOutroCiclos('cc-esquemaEletrico'),
+      esquemaRefrigeracao: valorSelectComOutroCiclos('cc-esquemaRefrigeracao'),
+      verificacaoEstruturas: valoresItensCiclos(CC_PAGINA3_ITENS.concat(CC_PAGINA3_ITENS2)),
+      refa: valorTextoCiclos('cc-refa'),
+      assinaturaPagina3: obterAssinaturaCiclosDataUrl('cc-assinatura3'),
+      ventiladoresAdicionais: valorRadioCiclos('cc-ventiladoresAdicionais'),
+      fotosIdentificacao: ccFotos.fotosIdentificacao,
+      clico: valoresItensCiclos(CC_PAGINA5_ITENS),
+      assinaturaPagina5: obterAssinaturaCiclosDataUrl('cc-assinatura5'),
+      fotosTesteEletrico: ccFotos.fotosTesteEletrico,
+      fotosTestePressao: ccFotos.fotosTestePressao,
+      fotosTesteVacuo: ccFotos.fotosTesteVacuo,
+      fotosTesteEletricoHumidificador: ccFotos.fotosTesteEletricoHumidificador,
+      assinaturaPagina6: obterAssinaturaCiclosDataUrl('cc-assinatura6'),
+      sondaTemperaturaHumidade: {
+        fabricante: valorSelectComOutroCiclos('cc-fabricanteSonda'),
+        modelo: valorSelectComOutroCiclos('cc-modeloSonda'),
+        serie: valorTextoCiclos('cc-serieSonda')
+      },
+      evaporador: {
+        fabricante: valorTextoCiclos('cc-fabricanteEvaporador'),
+        modelo: valorTextoCiclos('cc-modeloEvaporador'),
+        serie: valorTextoCiclos('cc-serieEvaporador')
+      },
+      clicoIdentificacao: {
+        fabricante: valorSelectComOutroCiclos('cc-fabricanteClico'),
+        modelo: valorTextoCiclos('cc-modeloClico'),
+        serie: valorTextoCiclos('cc-serieClico')
+      },
+      assinaturaPagina7: obterAssinaturaCiclosDataUrl('cc-assinatura7'),
+      embalagem: valoresItensCiclos(CC_PAGINA8_ITENS),
+      assinaturaPagina8: obterAssinaturaCiclosDataUrl('cc-assinatura8'),
+      observacoes: valorTextoCiclos('cc-observacoes')
+    };
+  }
+
+  document.querySelectorAll('#formChecklistCiclos .cc-guardar').forEach(function (botao) {
+    botao.addEventListener('click', function () {
+      var numeroSerie = valorTextoCiclos('cc-numeroSerie');
+      if (!numeroSerie) {
+        mostrarEstadoChecklistCiclos('Preencha o Nº de série antes de guardar o progresso.', 'erro');
+        return;
+      }
+      if (!APPS_SCRIPT_URL) {
+        mostrarEstadoChecklistCiclos('Progresso desta página guardado nesta sessão. Continue a preencher sem fechar o browser; só o "Enviar" final grava tudo.', 'sucesso');
+        return;
+      }
+      var payloadRascunho = {
+        acao: 'guardarRascunhoChecklist',
+        tipo: 'ciclos',
+        equipamento: valorSelectComOutroCiclos('cc-equipamento'),
+        numeroSerie: numeroSerie,
+        email: valorTextoCiclos('cc-email'),
+        producaoPor: valorRadioCiclos('cc-producaoPor'),
+        producaoPorEmpresa: valorRadioCiclos('cc-producaoPor') === 'Subcontrato' ? valorTextoCiclos('cc-producaoPorEmpresa') : '',
+        conformidade: 'Nao',
+        campos: coletarCamposChecklistCiclos()
+      };
+      botao.disabled = true;
+      mostrarEstadoChecklistCiclos('A guardar progresso...', 'info');
+      fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payloadRascunho) })
+        .then(respostaParaJsonGlobal)
+        .then(function (dados) {
+          if (dados.status !== 'ok') {
+            mostrarEstadoChecklistCiclos('Erro ao guardar progresso: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+            return;
+          }
+          Object.keys(ccFotos).forEach(function (chave) { ccFotos[chave] = []; });
+          if (window.carregarBannerRascunhosChecklistGlobal) window.carregarBannerRascunhosChecklistGlobal();
+          mostrarEstadoChecklistCiclos('Progresso guardado no servidor (fotos já enviadas). Pode continuar ou fechar o browser e retomar mais tarde.', 'sucesso');
+        })
+        .catch(function (erro) {
+          mostrarEstadoChecklistCiclos('Erro de rede ao guardar progresso: ' + erro.message, 'erro');
+        })
+        .finally(function () {
+          botao.disabled = false;
+        });
+    });
+  });
+
   document.querySelectorAll('#formChecklistCiclos .cc-enviar').forEach(function (botao) {
     botao.addEventListener('click', function () {
       if (!validarChecklistCiclosCompleto()) return;
@@ -5209,41 +5578,7 @@
         return;
       }
 
-      var campos = {
-        esquemaEletrico: valorSelectComOutroCiclos('cc-esquemaEletrico'),
-        esquemaRefrigeracao: valorSelectComOutroCiclos('cc-esquemaRefrigeracao'),
-        verificacaoEstruturas: valoresItensCiclos(CC_PAGINA3_ITENS.concat(CC_PAGINA3_ITENS2)),
-        refa: valorTextoCiclos('cc-refa'),
-        assinaturaPagina3: obterAssinaturaCiclosDataUrl('cc-assinatura3'),
-        ventiladoresAdicionais: valorRadioCiclos('cc-ventiladoresAdicionais'),
-        fotosIdentificacao: ccFotos.fotosIdentificacao,
-        clico: valoresItensCiclos(CC_PAGINA5_ITENS),
-        assinaturaPagina5: obterAssinaturaCiclosDataUrl('cc-assinatura5'),
-        fotosTesteEletrico: ccFotos.fotosTesteEletrico,
-        fotosTestePressao: ccFotos.fotosTestePressao,
-        fotosTesteVacuo: ccFotos.fotosTesteVacuo,
-        fotosTesteEletricoHumidificador: ccFotos.fotosTesteEletricoHumidificador,
-        assinaturaPagina6: obterAssinaturaCiclosDataUrl('cc-assinatura6'),
-        sondaTemperaturaHumidade: {
-          fabricante: valorSelectComOutroCiclos('cc-fabricanteSonda'),
-          modelo: valorSelectComOutroCiclos('cc-modeloSonda'),
-          serie: valorTextoCiclos('cc-serieSonda')
-        },
-        evaporador: {
-          fabricante: valorTextoCiclos('cc-fabricanteEvaporador'),
-          modelo: valorTextoCiclos('cc-modeloEvaporador'),
-          serie: valorTextoCiclos('cc-serieEvaporador')
-        },
-        clicoIdentificacao: {
-          fabricante: valorSelectComOutroCiclos('cc-fabricanteClico'),
-          modelo: valorTextoCiclos('cc-modeloClico'),
-          serie: valorTextoCiclos('cc-serieClico')
-        },
-        assinaturaPagina7: obterAssinaturaCiclosDataUrl('cc-assinatura7'),
-        embalagem: valoresItensCiclos(CC_PAGINA8_ITENS),
-        assinaturaPagina8: obterAssinaturaCiclosDataUrl('cc-assinatura8'),
-        observacoes: valorTextoCiclos('cc-observacoes')
-      };
+      var campos = coletarCamposChecklistCiclos();
 
       var payload = {
         acao: 'guardarChecklist',
@@ -5271,8 +5606,14 @@
           }
           mostrarEstadoChecklistCiclos('Checklist ' + (dados.numeroChecklist || '') + ' enviado e guardado com sucesso! O PDF (A4) e o link de edição foram enviados por e-mail.', 'sucesso');
           limparFormularioChecklistCiclos();
+          if (window.carregarBannerRascunhosChecklistGlobal) window.carregarBannerRascunhosChecklistGlobal();
         })
         .catch(function (erro) {
+          if (adicionarAFilaEnvioGlobal(APPS_SCRIPT_URL, 'Checklist Ciclos ' + payload.numeroSerie, payload)) {
+            mostrarEstadoChecklistCiclos('Sem ligação à internet. O checklist foi guardado neste dispositivo e será enviado automaticamente quando a ligação voltar — não limpe os dados do browser antes disso.', 'erro');
+            limparFormularioChecklistCiclos();
+            return;
+          }
           mostrarEstadoChecklistCiclos('Erro de rede/ligação: ' + erro.message, 'erro');
         })
         .finally(function () {
@@ -5330,8 +5671,8 @@
     }
   }
 
-  window.preencherChecklistCiclosEdicaoGlobal = function (resultado) {
-    EDICAO_ID = resultado.id || '';
+  window.preencherChecklistCiclosEdicaoGlobal = function (resultado, ehRascunho) {
+    EDICAO_ID = ehRascunho ? '' : (resultado.id || '');
     var c = resultado.campos || {};
 
     definirSelectComOutroCc('cc-equipamento', resultado.equipamento);
@@ -5375,7 +5716,12 @@
     document.getElementById('cc-observacoes').value = c.observacoes || '';
 
     mostrarPaginaCiclos(1);
-    mostrarEstadoChecklistCiclos('A editar o checklist ' + (resultado.numeroChecklist || '') + ' (Nº série ' + (resultado.numeroSerie || '') + '). As fotos e assinaturas anteriores mantêm-se; precisa de assinar de novo em cada página antes de enviar.', 'info');
+    mostrarEstadoChecklistCiclos(
+      ehRascunho
+        ? 'Rascunho retomado (Nº série ' + (resultado.numeroSerie || '') + '). As fotos já guardadas mantêm-se; precisa de assinar de novo em cada página antes de enviar.'
+        : 'A editar o checklist ' + (resultado.numeroChecklist || '') + ' (Nº série ' + (resultado.numeroSerie || '') + '). As fotos e assinaturas anteriores mantêm-se; precisa de assinar de novo em cada página antes de enviar.',
+      'info'
+    );
   };
 
   mostrarPaginaCiclos(1);
@@ -5434,6 +5780,90 @@
       .catch(function (erro) {
         alert('Erro ao carregar o checklist para edição: ' + erro.message);
       });
+  }
+
+  // -------------------------------------------------------------------
+  // Banner "Checklist(s) em curso": rascunhos guardados no servidor
+  // (via o botão "Guardar" em qualquer página), que podem ser retomados
+  // ou descartados sem perder as fotos já enviadas.
+  // -------------------------------------------------------------------
+  function escaparHtmlRascunho(texto) {
+    return (texto || '').toString()
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function carregarBannerRascunhosChecklist() {
+    if (!APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=listarRascunhosChecklist')
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        var banner = document.getElementById('bannerRascunhosChecklist');
+        var lista = document.getElementById('listaRascunhosChecklist');
+        var itens = (dados.status === 'ok' && dados.itens) || [];
+        if (!itens.length) {
+          banner.hidden = true;
+          lista.innerHTML = '';
+          return;
+        }
+        lista.innerHTML = itens.map(function (item) {
+          var rotuloTipo = item.tipo === 'ciclos' ? 'Ciclos' : 'Grupos';
+          return '<div class="linha-botoes" style="align-items:center;justify-content:space-between;flex-wrap:wrap;">' +
+            '<span>' + rotuloTipo + ' · Nº série ' + escaparHtmlRascunho(item.numeroSerie) + (item.equipamento ? ' (' + escaparHtmlRascunho(item.equipamento) + ')' : '') + '</span>' +
+            '<span>' +
+            '<button type="button" class="botao rascunho-retomar" data-tipo="' + item.tipo + '" data-serie="' + escaparHtmlRascunho(item.numeroSerie) + '">Retomar</button> ' +
+            '<button type="button" class="botao rascunho-descartar" data-tipo="' + item.tipo + '" data-serie="' + escaparHtmlRascunho(item.numeroSerie) + '">Descartar</button>' +
+            '</span></div>';
+        }).join('');
+        banner.hidden = false;
+      })
+      .catch(function () { /* melhor esforco - nao bloqueia a app */ });
+  }
+  window.carregarBannerRascunhosChecklistGlobal = carregarBannerRascunhosChecklist;
+
+  document.getElementById('listaRascunhosChecklist').addEventListener('click', function (ev) {
+    var botaoRetomar = ev.target.closest('.rascunho-retomar');
+    var botaoDescartar = ev.target.closest('.rascunho-descartar');
+    if (!botaoRetomar && !botaoDescartar) return;
+    var tipo = (botaoRetomar || botaoDescartar).getAttribute('data-tipo');
+    var numeroSerie = (botaoRetomar || botaoDescartar).getAttribute('data-serie');
+
+    if (botaoDescartar) {
+      if (!confirm('Descartar o rascunho deste checklist (Nº série ' + numeroSerie + ')? As fotos já guardadas serão perdidas.')) return;
+      fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ acao: 'apagarRascunhoChecklist', tipo: tipo, numeroSerie: numeroSerie }) })
+        .then(respostaParaJsonGlobal)
+        .then(function () { carregarBannerRascunhosChecklist(); })
+        .catch(function () {});
+      return;
+    }
+
+    fetch(APPS_SCRIPT_URL + '?action=carregarRascunhoChecklist&tipo=' + encodeURIComponent(tipo) + '&numeroSerie=' + encodeURIComponent(numeroSerie))
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok' || !dados.existe) {
+          alert('Não foi possível retomar este rascunho: pode já ter sido apagado.');
+          carregarBannerRascunhosChecklist();
+          return;
+        }
+        var resultadoRascunho = dados.dados;
+        resultadoRascunho.campos = resultadoRascunho.campos || {};
+        resultadoRascunho.campos.producaoPor = resultadoRascunho.producaoPor;
+        resultadoRascunho.campos.producaoPorEmpresa = resultadoRascunho.producaoPorEmpresa;
+        mostrarApp('checklist');
+        if (tipo === 'ciclos') {
+          document.getElementById('abaChecklistCiclos').click();
+          if (window.preencherChecklistCiclosEdicaoGlobal) window.preencherChecklistCiclosEdicaoGlobal(resultadoRascunho, true);
+        } else {
+          document.getElementById('abaChecklistGrupos').click();
+          if (window.preencherChecklistGruposEdicaoGlobal) window.preencherChecklistGruposEdicaoGlobal(resultadoRascunho, true);
+        }
+      })
+      .catch(function (erro) {
+        alert('Erro de rede ao retomar o rascunho: ' + erro.message);
+      });
+  });
+
+  if (!checklistId) {
+    carregarBannerRascunhosChecklist();
   }
 })();
 </script>

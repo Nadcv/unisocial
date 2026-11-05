@@ -169,6 +169,46 @@ de Produção guarda os seus registos) — não é um script standalone.
   experimental e best-effort: dependendo do browser, pode não
   registar-se.
 
+## Robustez, qualidade e configuração (novidades)
+
+- **Lock contra edições em simultâneo** — as gravações mais sensíveis
+  (guardar registo de produção, mudar número de série, guardar
+  checklist, stock) usam `LockService` do Apps Script: se duas pessoas
+  gravarem a mesma coisa ao mesmo tempo, a segunda espera a primeira
+  terminar em vez de sobrepor/duplicar dados.
+- **Registo de auditoria** — nova aba **"Auditoria"** na Google Sheet,
+  com uma linha por cada gravação importante (criar/editar registo de
+  produção, mudar número de série, criar/editar checklist, stock):
+  data, responsável (quando preenchido), ação, entidade e detalhes.
+  Serve para responder "quem fez o quê e quando" sem depender de login
+  Google (que esta aplicação não usa — ver secção sobre acesso fora da
+  rede da empresa). No Controlo de Produção, há um novo campo opcional
+  **"Responsável"** que fica registado nesta aba quando preenchido.
+- **Templates de checklist configuráveis** — os textos dos itens
+  OK/NA/NOK do Checklist (rótulos e notas) passam a poder ser editados
+  diretamente numa aba nova **"ChecklistTemplates"** da Sheet (colunas
+  `tipo`, `chave`, `rotulo`, `nota`), sem tocar em código. Esta aba
+  semeia-se a si própria com os textos atuais da aplicação na primeira
+  vez que o Checklist é aberto (só se ainda estiver vazia — nunca
+  sobrescreve uma edição já feita).
+- **Paginação nas listas** — a lista de registos do Controlo de
+  Produção e a lista de checklists no Histórico carregam agora em
+  blocos de 50, com um botão **"Carregar mais"**, em vez de tudo de
+  uma vez — mantém a aplicação rápida com centenas de registos.
+- **Marca de água nas fotos** — todas as fotos (Relatórios e
+  Checklist) ficam com uma faixa semi-transparente no canto inferior
+  esquerdo com o número de série, o tipo de foto e a data/hora, para
+  não haver dúvidas sobre a que máquina/momento uma foto pertence.
+- **Fila de envio offline** — se o envio final de um Relatório ou
+  Checklist falhar por falta de ligação (em vez de um erro do
+  servidor), o que foi preenchido fica guardado neste dispositivo
+  (`localStorage`) e é reenviado automaticamente quando a ligação
+  voltar (ou ao reabrir a página) — aparece um aviso **"N envio(s)
+  pendente(s)"** no topo da aplicação enquanto isso não acontecer.
+  Não substitui o rascunho do Checklist (que é guardado assim que se
+  clica "Guardar", mesmo com rede): é só para o momento em que o
+  "Enviar" final em si falha por falta de rede.
+
 ## Checklist de Produção
 
 Dentro de **✅ Checklist → Grupos**, está o checklist "CHECK-LIST DE
@@ -186,13 +226,17 @@ assinaturas do formulário original, pela mesma ordem.
   última página: se faltar alguma coisa em qualquer página, a app volta
   a mostrar a primeira página com um campo em falta, com a mensagem a
   indicar qual.
-- **"Guardar"**, em cada página, só guarda o progresso nesta sessão do
-  browser (para poder ir para trás e para a frente sem perder o que já
-  escreveu) — **não** envia nada para o servidor. Se fechar o separador/
-  app antes de chegar ao fim, perde o que preencheu. Só o **"Enviar"**
-  da última página grava tudo definitivamente (Sheet + Drive). Para
-  corrigir algo DEPOIS de já ter enviado, use o link de edição que
-  chega por e-mail (ver abaixo) — não é preciso recomeçar do zero.
+- **"Guardar"**, em cada página, envia o que já foi preenchido (campos e
+  fotos, incluindo os de páginas anteriores) para um **rascunho no
+  servidor** — não precisa de chegar ao fim nem de manter o browser
+  aberto. Ao voltar a abrir o separador Checklist (mesmo noutro
+  dispositivo), aparece um aviso **"Checklist(s) em curso"** com botões
+  **Retomar** (preenche tudo de novo, incluindo as fotos já guardadas) e
+  **Descartar** (apaga o rascunho). Só o **"Enviar"** da última página
+  grava o checklist definitivamente (Sheet + Drive, com número de
+  checklist e PDF) e apaga o rascunho correspondente. Para corrigir algo
+  DEPOIS de já ter enviado, use o link de edição que chega por e-mail
+  (ver abaixo) — não é preciso recomeçar do zero.
 - As assinaturas são feitas com o dedo/rato diretamente no ecrã.
 - As fotos (etiquetas, controlador) são comprimidas antes de enviar,
   tal como nos Relatórios.

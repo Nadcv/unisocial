@@ -150,7 +150,7 @@ function doGet(e) {
 
   // --- Controlo de Producao ---
   if (acao === 'listar') {
-    return respostaJson(listarRegistos(e.parameter.tipo, e.parameter.filtro));
+    return respostaJson(listarRegistos(e.parameter.tipo, e.parameter.filtro, e.parameter.limite, e.parameter.offset));
   }
   if (acao === 'obter') {
     return respostaJson(obterRegisto(e.parameter.tipo, e.parameter.serial));
@@ -197,6 +197,12 @@ function doGet(e) {
   if (acao === 'pdfChecklist') {
     return gerarPdfChecklistSobDemanda_(e.parameter);
   }
+  if (acao === 'carregarRascunhoChecklist') {
+    return respostaJson(carregarRascunhoChecklist(e.parameter));
+  }
+  if (acao === 'listarRascunhosChecklist') {
+    return respostaJson(listarRascunhosChecklistAbertos(e.parameter));
+  }
 
   // --- Pagina principal: um unico HTML com tres separadores (Relatorios,
   // Controlo de Producao e Checklist), alternados por um botao no topo. ---
@@ -215,7 +221,8 @@ function doGet(e) {
     checklistEquipamentosCiclos: obterLista('checklistEquipamentosCiclos'),
     checklistFabricantesSonda: obterLista('checklistFabricantesSonda'),
     checklistModelosSonda: obterLista('checklistModelosSonda'),
-    checklistFabricantesClico: obterLista('checklistFabricantesClico')
+    checklistFabricantesClico: obterLista('checklistFabricantesClico'),
+    checklistTextos: obterTextosChecklistTemplates_()
   };
 
   var template = HtmlService.createTemplateFromFile('Index');
@@ -250,17 +257,73 @@ function obterLista(nomePropriedade) {
   return padrao;
 }
 
+// ===========================================================================
+// Registo de auditoria: uma aba "Auditoria" com uma linha por escrita
+// importante (data, responsavel, acao, entidade, detalhes em JSON).
+// Nao ha autenticacao nesta aplicacao (a implementacao esta de proposito
+// com "Qualquer pessoa", para funcionar fora da rede da empresa - ver
+// README), por isso "responsavel" vem de um campo de texto preenchido
+// pela propria pessoa (ex.: "Responsavel" no Controlo de Producao,
+// "E-Mail de quem preenche" no Checklist), nao de um login.
+// ===========================================================================
+var ABA_AUDITORIA = 'Auditoria';
+var CABECALHOS_AUDITORIA = ['data', 'responsavel', 'acao', 'entidade', 'detalhes'];
+
+function obterAbaAuditoria_() {
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.getSheetByName(ABA_AUDITORIA);
+  if (aba) return aba;
+  aba = folha.insertSheet(ABA_AUDITORIA);
+  aba.getRange(1, 1, 1, CABECALHOS_AUDITORIA.length).setValues([CABECALHOS_AUDITORIA]);
+  aba.setFrozenRows(1);
+  aba.getRange(1, 1, 1, CABECALHOS_AUDITORIA.length).setFontWeight('bold');
+  return aba;
+}
+
+/**
+ * Regista uma linha no historico de auditoria. Nunca lanca erro para
+ * fora - uma falha aqui (ex.: aba bloqueada) nunca deve impedir a
+ * operacao principal de ficar guardada.
+ */
+function registarAuditoria_(acao, entidade, responsavel, detalhes) {
+  try {
+    var aba = obterAbaAuditoria_();
+    var agora = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm:ss');
+    aba.appendRow([agora, (responsavel || '').toString().trim(), acao, entidade, JSON.stringify(detalhes || {})]);
+  } catch (erroAuditoria) {
+    // Best effort.
+  }
+}
+
+/**
+ * Executa "funcao" protegida por um lock do script (LockService), para
+ * duas pessoas a gravar ao mesmo tempo nao duplicarem linhas nem
+ * perderem a escrita uma da outra. Espera ate 10s pelo lock; se nao
+ * conseguir, deixa o erro do LockService subir normalmente.
+ */
+function comLock_(funcao) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    return funcao();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 /**
  * Acrescenta um valor novo a uma lista guardada (se ainda nao existir),
  * para ficar disponivel como sugestao nos proximos envios.
  */
 function adicionarValorNaLista(nomePropriedade, valor) {
   if (!valor) return;
-  var lista = obterLista(nomePropriedade);
-  if (lista.indexOf(valor) !== -1) return;
-  lista.push(valor);
-  var propriedades = PropertiesService.getScriptProperties();
-  propriedades.setProperty(nomePropriedade, JSON.stringify(lista));
+  comLock_(function () {
+    var lista = obterLista(nomePropriedade);
+    if (lista.indexOf(valor) !== -1) return;
+    lista.push(valor);
+    var propriedades = PropertiesService.getScriptProperties();
+    propriedades.setProperty(nomePropriedade, JSON.stringify(lista));
+  });
 }
 
 function doPost(e) {
@@ -294,6 +357,12 @@ function doPost(e) {
         resposta = registarMovimentoStock(dados);
       } else if (dados.acao === 'guardarChecklist') {
         resposta = guardarChecklist(dados);
+      } else if (dados.acao === 'semearTemplatesChecklist') {
+        resposta = semearTemplatesChecklist(dados);
+      } else if (dados.acao === 'guardarRascunhoChecklist') {
+        resposta = guardarRascunhoChecklist(dados);
+      } else if (dados.acao === 'apagarRascunhoChecklist') {
+        resposta = apagarRascunhoChecklist(dados);
       } else {
         throw new Error('Acao desconhecida.');
       }
@@ -1622,12 +1691,15 @@ function linhaParaObjeto(valores) {
 
 /**
  * Responde com a lista de registos de um tipo, filtrada por estado
- * ("todos", "emCurso", "terminados" ou "atraso").
+ * ("todos", "emCurso", "terminados" ou "atraso"). "limite"/"offset" sao
+ * opcionais - sem eles, devolve tudo (como antes); com eles, devolve so
+ * essa pagina mais "total"/"temMais", para listas grandes nao ficarem
+ * lentas a carregar tudo de uma vez.
  */
-function listarRegistos(tipo, filtro) {
+function listarRegistos(tipo, filtro, limite, offset) {
   var aba = obterAba(tipo);
   var ultimaLinha = aba.getLastRow();
-  if (ultimaLinha < 2) return { status: 'ok', itens: [] };
+  if (ultimaLinha < 2) return { status: 'ok', itens: [], total: 0, offset: 0, temMais: false };
 
   var todasAsLinhas = aba.getRange(2, 1, ultimaLinha - 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues();
   var itens = [];
@@ -1645,7 +1717,13 @@ function listarRegistos(tipo, filtro) {
   }
 
   itens.sort(function (a, b) { return b.atualizadoEm.localeCompare(a.atualizadoEm); });
-  return { status: 'ok', itens: itens };
+
+  var total = itens.length;
+  var limiteNum = parseInt(limite, 10);
+  var offsetNum = parseInt(offset, 10) || 0;
+  var pagina = (limiteNum > 0) ? itens.slice(offsetNum, offsetNum + limiteNum) : itens;
+
+  return { status: 'ok', itens: pagina, total: total, offset: offsetNum, temMais: (offsetNum + pagina.length) < total };
 }
 
 /**
@@ -1750,61 +1828,67 @@ function guardarRegisto(dados) {
     throw new Error('Numero de serie em falta.');
   }
 
-  var aba = obterAba(tipo);
-  var linha = encontrarLinha(aba, serial);
-  var agora = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm');
-
   var previsaoSaida = (dados.previsaoSaida || '').toString().trim();
   var estado = (dados.estado || 'Em curso').toString().trim();
   var emAtraso = calcularEmAtraso(estado, previsaoSaida);
 
-  if (linha === -1) {
-    var novaLinha = [
-      serial,
-      (dados.grupo || '').toString().trim(),
-      estado,
-      emAtraso,
-      previsaoSaida,
-      (dados.dataEntrega || '').toString().trim(),
-      (dados.materiaisEmFalta || '').toString().trim(),
-      (dados.materiaisEntregues || '').toString().trim(),
-      '',
-      agora,
-      agora
-    ].concat(aplicarEtapasNovoRegisto(dados.etapas, agora));
+  // Lock: duas pessoas a gravar o mesmo serial ao mesmo tempo nao podem
+  // duplicar a linha nem sobrepor-se uma a outra - so a leitura+escrita
+  // da linha fica protegida (o resto, mais lento, fica fora do lock).
+  comLock_(function () {
+    var aba = obterAba(tipo);
+    var linha = encontrarLinha(aba, serial);
+    var agora = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm');
 
-    aba.getRange(aba.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
-  } else {
-    var valoresAtuais = aba.getRange(linha, 1, 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues()[0];
+    if (linha === -1) {
+      var novaLinha = [
+        serial,
+        (dados.grupo || '').toString().trim(),
+        estado,
+        emAtraso,
+        previsaoSaida,
+        (dados.dataEntrega || '').toString().trim(),
+        (dados.materiaisEmFalta || '').toString().trim(),
+        (dados.materiaisEntregues || '').toString().trim(),
+        '',
+        agora,
+        agora
+      ].concat(aplicarEtapasNovoRegisto(dados.etapas, agora));
 
-    aba.getRange(linha, COL.GRUPO).setValue((dados.grupo || '').toString().trim());
-    aba.getRange(linha, COL.ESTADO).setValue(estado);
-    aba.getRange(linha, COL.ATRASO).setValue(emAtraso);
-    aba.getRange(linha, COL.PREVISAO).setValue(previsaoSaida);
-    aba.getRange(linha, COL.ENTREGA).setValue((dados.dataEntrega || '').toString().trim());
-    aba.getRange(linha, COL.MAT_FALTA).setValue((dados.materiaisEmFalta || '').toString().trim());
-    aba.getRange(linha, COL.MAT_ENTREGUE).setValue((dados.materiaisEntregues || '').toString().trim());
-    aba.getRange(linha, COL.ATUALIZADO).setValue(agora);
+      aba.getRange(aba.getLastRow() + 1, 1, 1, novaLinha.length).setValues([novaLinha]);
+    } else {
+      var valoresAtuais = aba.getRange(linha, 1, 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues()[0];
 
-    ETAPAS.forEach(function (et, indice) {
-      var coluna = COL_PRIMEIRA_ETAPA + indice;
-      var brutoAtual = (valoresAtuais[coluna - 1] || '').toString().trim();
-      var dataAtual = brutoAtual.split(SEPARADOR_NOTA)[0];
-      var etapaPedida = (dados.etapas && dados.etapas[et.chave]) || {};
-      var marcadoAgora = etapaPedida.marcado === true;
-      var notaAgora = (etapaPedida.nota || '').toString().trim();
+      aba.getRange(linha, COL.GRUPO).setValue((dados.grupo || '').toString().trim());
+      aba.getRange(linha, COL.ESTADO).setValue(estado);
+      aba.getRange(linha, COL.ATRASO).setValue(emAtraso);
+      aba.getRange(linha, COL.PREVISAO).setValue(previsaoSaida);
+      aba.getRange(linha, COL.ENTREGA).setValue((dados.dataEntrega || '').toString().trim());
+      aba.getRange(linha, COL.MAT_FALTA).setValue((dados.materiaisEmFalta || '').toString().trim());
+      aba.getRange(linha, COL.MAT_ENTREGUE).setValue((dados.materiaisEntregues || '').toString().trim());
+      aba.getRange(linha, COL.ATUALIZADO).setValue(agora);
 
-      if (marcadoAgora) {
-        var dataFinal = dataAtual || agora;
-        var valorFinal = notaAgora ? dataFinal + SEPARADOR_NOTA + notaAgora : dataFinal;
-        aba.getRange(linha, coluna).setValue(valorFinal);
-      } else {
-        aba.getRange(linha, coluna).setValue('');
-      }
-    });
-  }
+      ETAPAS.forEach(function (et, indice) {
+        var coluna = COL_PRIMEIRA_ETAPA + indice;
+        var brutoAtual = (valoresAtuais[coluna - 1] || '').toString().trim();
+        var dataAtual = brutoAtual.split(SEPARADOR_NOTA)[0];
+        var etapaPedida = (dados.etapas && dados.etapas[et.chave]) || {};
+        var marcadoAgora = etapaPedida.marcado === true;
+        var notaAgora = (etapaPedida.nota || '').toString().trim();
+
+        if (marcadoAgora) {
+          var dataFinal = dataAtual || agora;
+          var valorFinal = notaAgora ? dataFinal + SEPARADOR_NOTA + notaAgora : dataFinal;
+          aba.getRange(linha, coluna).setValue(valorFinal);
+        } else {
+          aba.getRange(linha, coluna).setValue('');
+        }
+      });
+    }
+  });
 
   adicionarValorNaLista(tipo === 'ciclos' ? 'ciclosProducao' : 'gruposProducao', (dados.grupo || '').toString().trim());
+  registarAuditoria_('guardarRegisto', tipo + '/' + serial, dados.responsavel || '', { estado: estado, previsaoSaida: previsaoSaida });
 
   return { status: 'ok', mensagem: 'Registo guardado.' };
 }
@@ -1880,23 +1964,27 @@ function mudarNumeroSerie(dados) {
     throw new Error('O novo numero de serie tem de ser diferente do atual.');
   }
 
-  var aba = obterAba(tipo);
-  var linha = encontrarLinha(aba, serialAtual);
-  if (linha === -1) {
-    throw new Error('Nao foi encontrado nenhum registo com o numero de serie ' + serialAtual + '.');
-  }
-  if (encontrarLinha(aba, serialNovo) !== -1) {
-    throw new Error('Ja existe um registo com o numero de serie ' + serialNovo + '.');
-  }
+  comLock_(function () {
+    var aba = obterAba(tipo);
+    var linha = encontrarLinha(aba, serialAtual);
+    if (linha === -1) {
+      throw new Error('Nao foi encontrado nenhum registo com o numero de serie ' + serialAtual + '.');
+    }
+    if (encontrarLinha(aba, serialNovo) !== -1) {
+      throw new Error('Ja existe um registo com o numero de serie ' + serialNovo + '.');
+    }
 
-  var historicoAtual = aba.getRange(linha, COL.HISTORICO).getValue().toString().trim();
-  var novoHistorico = historicoAtual ? historicoAtual + ', ' + serialAtual : serialAtual;
+    var historicoAtual = aba.getRange(linha, COL.HISTORICO).getValue().toString().trim();
+    var novoHistorico = historicoAtual ? historicoAtual + ', ' + serialAtual : serialAtual;
 
-  aba.getRange(linha, COL.SERIAL).setValue(serialNovo);
-  aba.getRange(linha, COL.HISTORICO).setValue(novoHistorico);
-  aba.getRange(linha, COL.ATUALIZADO).setValue(
-    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm')
-  );
+    aba.getRange(linha, COL.SERIAL).setValue(serialNovo);
+    aba.getRange(linha, COL.HISTORICO).setValue(novoHistorico);
+    aba.getRange(linha, COL.ATUALIZADO).setValue(
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm')
+    );
+  });
+
+  registarAuditoria_('mudarNumeroSerie', tipo + '/' + serialNovo, dados.responsavel || '', { antes: serialAtual, depois: serialNovo });
 
   return { status: 'ok', mensagem: 'Numero de serie atualizado.' };
 }
@@ -2235,6 +2323,71 @@ function lerLinhasComoObjetos_(aba, cabecalhos) {
     .filter(function (obj) { return obj.id; });
 }
 
+// ===========================================================================
+// Templates do Checklist (textos editaveis sem mexer em codigo): a
+// ESTRUTURA dos itens OK/NA/NOK (quais existem, em que pagina, por que
+// ordem) continua fixa no Index.html - isso nao muda sem reeditar o
+// codigo, para nao arriscar desalinhar a validacao por pagina. O que
+// fica editavel na aba "ChecklistTemplates" e so o TEXTO (rotulo/nota)
+// de cada item, pela sua "chave". Os mesmos "chave" repetem-se por
+// vezes entre Grupos e Ciclos (ex.: "limpezaGeral") - por isso os
+// textos ficam sempre agrupados por tipo, nunca partilhados entre os
+// dois.
+// ===========================================================================
+var ABA_CHECKLIST_TEMPLATES = 'ChecklistTemplates';
+var CABECALHOS_CHECKLIST_TEMPLATES = ['tipo', 'chave', 'rotulo', 'nota'];
+
+function obterAbaChecklistTemplates_() {
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.getSheetByName(ABA_CHECKLIST_TEMPLATES);
+  if (aba) return aba;
+  aba = folha.insertSheet(ABA_CHECKLIST_TEMPLATES);
+  aba.getRange(1, 1, 1, CABECALHOS_CHECKLIST_TEMPLATES.length).setValues([CABECALHOS_CHECKLIST_TEMPLATES]);
+  aba.setFrozenRows(1);
+  aba.getRange(1, 1, 1, CABECALHOS_CHECKLIST_TEMPLATES.length).setFontWeight('bold');
+  return aba;
+}
+
+function obterTextosChecklistTemplates_() {
+  var aba = obterAbaChecklistTemplates_();
+  var ultimaLinha = aba.getLastRow();
+  var resultado = { grupos: {}, ciclos: {} };
+  if (ultimaLinha < 2) return resultado;
+
+  var valores = aba.getRange(2, 1, ultimaLinha - 1, CABECALHOS_CHECKLIST_TEMPLATES.length).getValues();
+  valores.forEach(function (linha) {
+    var tipo = (linha[0] || '').toString().trim();
+    var chave = (linha[1] || '').toString().trim();
+    if (!chave || !resultado[tipo]) return;
+    resultado[tipo][chave] = { rotulo: (linha[2] || '').toString(), nota: (linha[3] || '').toString() };
+  });
+  return resultado;
+}
+
+/**
+ * Semeia a aba "ChecklistTemplates" com os textos atuais (enviados pelo
+ * proprio frontend, que e a fonte autoritativa destes textos ate aqui),
+ * mas so na primeira vez - nunca sobrescreve o que ja la estiver, para
+ * nao apagar edicoes feitas por um supervisor.
+ */
+function semearTemplatesChecklist(dados) {
+  var itens = dados.itens || [];
+  if (!itens.length) return { status: 'ok', mensagem: 'Nada para semear.' };
+
+  var semeado = false;
+  comLock_(function () {
+    var aba = obterAbaChecklistTemplates_();
+    if (aba.getLastRow() >= 2) return; // ja ha templates - nao sobrescreve
+    var linhas = itens.map(function (item) {
+      return [item.tipo, item.chave, item.rotulo || '', item.nota || ''];
+    });
+    aba.getRange(2, 1, linhas.length, CABECALHOS_CHECKLIST_TEMPLATES.length).setValues(linhas);
+    semeado = true;
+  });
+
+  return { status: 'ok', mensagem: semeado ? 'Templates semeados.' : 'Ja existiam templates - nada alterado.' };
+}
+
 /**
  * Lista todos os materiais em stock, com uma previsao simples de dias at
  * atingir o stock minimo, calculada a partir do consumo medio diario
@@ -2298,17 +2451,20 @@ function adicionarMaterialStock(dados) {
   if (isNaN(stockAtual) || stockAtual < 0) stockAtual = 0;
   if (isNaN(stockMinimo) || stockMinimo < 0) stockMinimo = 0;
 
-  var aba = obterAbaMateriaisStock_();
-  aba.appendRow([
-    gerarIdStock_(),
-    nome,
-    categoria,
-    unidade,
-    stockAtual,
-    stockMinimo,
-    (dados.notas || '').toString().trim(),
-    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm')
-  ]);
+  comLock_(function () {
+    var aba = obterAbaMateriaisStock_();
+    aba.appendRow([
+      gerarIdStock_(),
+      nome,
+      categoria,
+      unidade,
+      stockAtual,
+      stockMinimo,
+      (dados.notas || '').toString().trim(),
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm')
+    ]);
+  });
+  registarAuditoria_('adicionarMaterialStock', nome, dados.responsavel || '', { categoria: categoria, stockAtual: stockAtual, stockMinimo: stockMinimo });
 
   return listarMateriaisStock();
 }
@@ -2317,17 +2473,21 @@ function removerMaterialStock(dados) {
   var id = (dados.id || '').toString().trim();
   if (!id) throw new Error('ID do material em falta.');
 
-  var aba = obterAbaMateriaisStock_();
-  var ultimaLinha = aba.getLastRow();
-  if (ultimaLinha >= 2) {
-    var ids = aba.getRange(2, 1, ultimaLinha - 1, 1).getValues();
-    for (var i = 0; i < ids.length; i++) {
-      if (ids[i][0] === id) {
-        aba.deleteRow(i + 2);
-        break;
+  comLock_(function () {
+    var aba = obterAbaMateriaisStock_();
+    var ultimaLinha = aba.getLastRow();
+    if (ultimaLinha >= 2) {
+      var ids = aba.getRange(2, 1, ultimaLinha - 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) {
+        if (ids[i][0] === id) {
+          aba.deleteRow(i + 2);
+          break;
+        }
       }
     }
-  }
+  });
+  registarAuditoria_('removerMaterialStock', id, dados.responsavel || '', {});
+
   return listarMateriaisStock();
 }
 
@@ -2347,42 +2507,52 @@ function registarMovimentoStock(dados) {
   if (isNaN(quantidade) || quantidade <= 0) throw new Error('Indique uma quantidade valida (maior que zero).');
   if (!responsavel) throw new Error('Indique o responsavel.');
 
-  var abaMateriais = obterAbaMateriaisStock_();
-  var ultimaLinha = abaMateriais.getLastRow();
-  var linhaMaterial = -1;
   var materialNome = '';
   var novoStock = 0;
+  var stockMinimo = 0;
 
-  if (ultimaLinha >= 2) {
-    var valores = abaMateriais.getRange(2, 1, ultimaLinha - 1, CABECALHOS_MATERIAIS_STOCK.length).getValues();
-    for (var i = 0; i < valores.length; i++) {
-      if (valores[i][0] === materialId) {
-        linhaMaterial = i + 2;
-        materialNome = valores[i][1];
-        var stockAtual = Number(valores[i][4]) || 0;
-        novoStock = tipo === 'Entrada' ? stockAtual + quantidade : stockAtual - quantidade;
-        break;
+  // Lock: ler o stock atual, calcular o novo valor e escrever tem de ser
+  // uma unica operacao - senao duas pessoas a registar movimentos do
+  // mesmo material ao mesmo tempo podiam ler o mesmo valor de partida e
+  // uma das atualizacoes "desaparecia".
+  comLock_(function () {
+    var abaMateriais = obterAbaMateriaisStock_();
+    var ultimaLinha = abaMateriais.getLastRow();
+    var linhaMaterial = -1;
+
+    if (ultimaLinha >= 2) {
+      var valores = abaMateriais.getRange(2, 1, ultimaLinha - 1, CABECALHOS_MATERIAIS_STOCK.length).getValues();
+      for (var i = 0; i < valores.length; i++) {
+        if (valores[i][0] === materialId) {
+          linhaMaterial = i + 2;
+          materialNome = valores[i][1];
+          var stockAtual = Number(valores[i][4]) || 0;
+          novoStock = tipo === 'Entrada' ? stockAtual + quantidade : stockAtual - quantidade;
+          break;
+        }
       }
     }
-  }
 
-  if (linhaMaterial === -1) throw new Error('Material nao encontrado.');
+    if (linhaMaterial === -1) throw new Error('Material nao encontrado.');
 
-  abaMateriais.getRange(linhaMaterial, 5).setValue(novoStock);
+    abaMateriais.getRange(linhaMaterial, 5).setValue(novoStock);
+    stockMinimo = Number(abaMateriais.getRange(linhaMaterial, 6).getValue()) || 0;
 
-  var abaMovimentos = obterAbaMovimentosStock_();
-  abaMovimentos.appendRow([
-    gerarIdStock_(),
-    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm'),
-    materialId,
-    materialNome,
-    tipo,
-    quantidade,
-    responsavel,
-    (dados.notas || '').toString().trim()
-  ]);
+    var abaMovimentos = obterAbaMovimentosStock_();
+    abaMovimentos.appendRow([
+      gerarIdStock_(),
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm'),
+      materialId,
+      materialNome,
+      tipo,
+      quantidade,
+      responsavel,
+      (dados.notas || '').toString().trim()
+    ]);
+  });
 
-  var stockMinimo = Number(abaMateriais.getRange(linhaMaterial, 6).getValue()) || 0;
+  registarAuditoria_('registarMovimentoStock', materialNome, responsavel, { tipo: tipo, quantidade: quantidade, novoStock: novoStock });
+
   if (novoStock <= stockMinimo) {
     enviarAlertaWhatsapp_(EMPRESA + ': stock de "' + materialNome + '" esta no minimo (' + novoStock + ', minimo ' + stockMinimo + ').');
   }
@@ -3034,11 +3204,13 @@ function guardarChecklist(dados) {
   var dadosJson = JSON.stringify({ campos: camposProcessados, pastaId: pastaChecklist.getId(), numeroChecklist: numeroChecklist });
 
   var novaLinha = [id, tipo, equipamento, numeroSerie, email, conformidade, criadoEm, dadosJson];
-  if (registoAnterior) {
-    aba.getRange(linhaExistente, 1, 1, novaLinha.length).setValues([novaLinha]);
-  } else {
-    aba.appendRow(novaLinha);
-  }
+  comLock_(function () {
+    if (registoAnterior) {
+      aba.getRange(linhaExistente, 1, 1, novaLinha.length).setValues([novaLinha]);
+    } else {
+      aba.appendRow(novaLinha);
+    }
+  });
 
   // Faz crescer as listas de sugestoes dos campos "Outro (escrever)..." -
   // os esquemas sao PARTILHADOS com o Relatorio de Testes (mesma lista),
@@ -3063,6 +3235,14 @@ function guardarChecklist(dados) {
   }
 
   enviarChecklistPorEmail_(tipo, id, numeroChecklist, equipamento, numeroSerie, email, conformidade, camposProcessados);
+  registarAuditoria_(registoAnterior ? 'editarChecklist' : 'criarChecklist', tipo + '/' + numeroChecklist, email, { numeroSerie: numeroSerie, conformidade: conformidade });
+
+  // Envio final feito com sucesso - o rascunho (se existia) ja nao e
+  // preciso. Best effort: nunca deve impedir a resposta de sucesso.
+  try {
+    var pastaRascunhoAntigo = obterPastaRascunhoChecklist_(tipo, numeroSerie, false);
+    if (pastaRascunhoAntigo) pastaRascunhoAntigo.setTrashed(true);
+  } catch (erroLimpezaRascunho) { /* ignora */ }
 
   return {
     status: 'ok',
@@ -3072,6 +3252,11 @@ function guardarChecklist(dados) {
   };
 }
 
+/**
+ * "limite"/"offset" sao opcionais - sem eles devolve tudo (como antes,
+ * usado pelo Historico do Checklist, que filtra/pesquisa do lado do
+ * browser); com eles, devolve so essa pagina mais "total"/"temMais".
+ */
 function listarChecklists(parametros) {
   var tipo = (parametros.tipo || '').toString().trim();
   var aba = obterAbaChecklists_();
@@ -3097,7 +3282,12 @@ function listarChecklists(parametros) {
     };
   });
 
-  return { status: 'ok', itens: resumo };
+  var total = resumo.length;
+  var limiteNum = parseInt(parametros.limite, 10);
+  var offsetNum = parseInt(parametros.offset, 10) || 0;
+  var pagina = (limiteNum > 0) ? resumo.slice(offsetNum, offsetNum + limiteNum) : resumo;
+
+  return { status: 'ok', itens: pagina, total: total, offset: offsetNum, temMais: (offsetNum + pagina.length) < total };
 }
 
 function obterChecklist(parametros) {
@@ -3127,6 +3317,129 @@ function obterChecklist(parametros) {
     criadoEm: encontrado.criadoEm,
     campos: dados.campos || {}
   };
+}
+
+// ===========================================================================
+// Rascunho do Checklist: guarda o progresso no SERVIDOR (nao so na
+// sessao do browser), para nao se perder se fechar o telemovel a meio
+// de preencher. Reaproveita os mesmos helpers de pasta/ficheiro de
+// rascunho ja usados pelos Relatorios (obterOuCriarSubpasta,
+// guardarDadosRascunho, lerDadosRascunho), numa subpasta propria
+// "RascunhosChecklist" - nao se mistura com os rascunhos dos Relatorios.
+// ===========================================================================
+function obterPastaRascunhoChecklist_(tipo, numeroSerie, criarSeNaoExistir) {
+  if (!tipo || !numeroSerie) return null;
+  var raiz = DriveApp.getFolderById(FOLDER_ID);
+  var pastaRascunhos = obterOuCriarSubpasta(raiz, 'RascunhosChecklist', criarSeNaoExistir);
+  if (!pastaRascunhos) return null;
+  var nomePasta = 'RASCUNHO_' + sanitizeNome(tipo) + '_' + sanitizeNome(numeroSerie);
+  return obterOuCriarSubpasta(pastaRascunhos, nomePasta, criarSeNaoExistir);
+}
+
+/**
+ * Guarda o progresso atual de um checklist (Grupos ou Ciclos) ainda nao
+ * enviado. As fotos novas ficam logo no Drive (como no envio final, mas
+ * nesta pasta de rascunho); os campos simples ficam num "dados.json" na
+ * mesma pasta. As fotos de uma gravacao anterior deste rascunho nunca
+ * se perdem (uniao, nao substituicao).
+ */
+function guardarRascunhoChecklist(dados) {
+  var tipo = (dados.tipo || '').toString().trim();
+  var numeroSerie = (dados.numeroSerie || '').toString().trim();
+  if (['grupos', 'ciclos'].indexOf(tipo) === -1) {
+    throw new Error('Tipo de checklist invalido.');
+  }
+  if (!numeroSerie) {
+    throw new Error('Numero de serie em falta para guardar o rascunho.');
+  }
+
+  var pastaRascunho = obterPastaRascunhoChecklist_(tipo, numeroSerie, true);
+  var contador = { n: 0 };
+  var camposNovos = processarImagensChecklist_(dados.campos || {}, pastaRascunho, 'rascunho', contador);
+
+  var dadosAnteriores = lerDadosRascunho(pastaRascunho);
+  var camposAnteriores = dadosAnteriores.campos || {};
+  Object.keys(camposAnteriores).forEach(function (chave) {
+    if (Array.isArray(camposAnteriores[chave]) && Array.isArray(camposNovos[chave])) {
+      camposNovos[chave] = camposAnteriores[chave].concat(camposNovos[chave]);
+    }
+  });
+
+  guardarDadosRascunho(pastaRascunho, {
+    tipo: tipo,
+    equipamento: (dados.equipamento || '').toString().trim(),
+    numeroSerie: numeroSerie,
+    email: (dados.email || '').toString().trim(),
+    producaoPor: (dados.producaoPor || '').toString().trim(),
+    producaoPorEmpresa: (dados.producaoPorEmpresa || '').toString().trim(),
+    conformidade: dados.conformidade === 'Sim' ? 'Sim' : 'Nao',
+    campos: camposNovos,
+    atualizadoEm: Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm')
+  });
+
+  return { status: 'ok', mensagem: 'Rascunho guardado no servidor.' };
+}
+
+/**
+ * Devolve o rascunho guardado para um tipo+numero de serie, ou
+ * existe:false se nao houver nenhum.
+ */
+function carregarRascunhoChecklist(parametros) {
+  var tipo = (parametros.tipo || '').toString().trim();
+  var numeroSerie = (parametros.numeroSerie || '').toString().trim();
+  if (!tipo || !numeroSerie) {
+    throw new Error('Tipo e numero de serie em falta.');
+  }
+
+  var pastaRascunho = obterPastaRascunhoChecklist_(tipo, numeroSerie, false);
+  if (!pastaRascunho) return { status: 'ok', existe: false };
+
+  var dados = lerDadosRascunho(pastaRascunho);
+  if (!dados || !dados.numeroSerie) return { status: 'ok', existe: false };
+  return { status: 'ok', existe: true, dados: dados };
+}
+
+/**
+ * Lista os rascunhos de checklist ainda em aberto (de um tipo), para
+ * mostrar "Tem um checklist em curso - retomar?" ao abrir essa aba.
+ */
+function listarRascunhosChecklistAbertos(parametros) {
+  var tipo = (parametros.tipo || '').toString().trim();
+  var raiz = DriveApp.getFolderById(FOLDER_ID);
+  var pastaRascunhos = obterOuCriarSubpasta(raiz, 'RascunhosChecklist', false);
+  var itens = [];
+
+  if (pastaRascunhos) {
+    var pastas = pastaRascunhos.getFolders();
+    while (pastas.hasNext()) {
+      var pasta = pastas.next();
+      var dados = lerDadosRascunho(pasta);
+      if (!dados || !dados.numeroSerie) continue;
+      if (tipo && dados.tipo !== tipo) continue;
+      itens.push({
+        tipo: dados.tipo,
+        numeroSerie: dados.numeroSerie,
+        equipamento: dados.equipamento || '',
+        atualizadoEm: dados.atualizadoEm || ''
+      });
+    }
+  }
+
+  itens.sort(function (a, b) { return (b.atualizadoEm || '').localeCompare(a.atualizadoEm || ''); });
+  return { status: 'ok', itens: itens };
+}
+
+/**
+ * Apaga o rascunho de um checklist - usado automaticamente depois de um
+ * envio final com sucesso, e tambem quando o operador escolhe
+ * "Descartar rascunho".
+ */
+function apagarRascunhoChecklist(dados) {
+  var tipo = (dados.tipo || '').toString().trim();
+  var numeroSerie = (dados.numeroSerie || '').toString().trim();
+  var pastaRascunho = obterPastaRascunhoChecklist_(tipo, numeroSerie, false);
+  if (pastaRascunho) pastaRascunho.setTrashed(true);
+  return { status: 'ok', mensagem: 'Rascunho apagado.' };
 }
 
 /**
