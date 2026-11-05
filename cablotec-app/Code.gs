@@ -203,6 +203,14 @@ function doGet(e) {
   if (acao === 'listarRascunhosChecklist') {
     return respostaJson(listarRascunhosChecklistAbertos(e.parameter));
   }
+  if (acao === 'reservarNumeroChecklist') {
+    return respostaJson(reservarNumeroChecklist_(e.parameter));
+  }
+  if (acao === 'quotaEmail') {
+    return respostaJson({ status: 'ok', restantes: MailApp.getRemainingDailyQuota() });
+  }
+
+  garantirTriggerTarefasDiarias_();
 
   // --- Pagina principal: um unico HTML com tres separadores (Relatorios,
   // Controlo de Producao e Checklist), alternados por um botao no topo. ---
@@ -383,7 +391,7 @@ function doPost(e) {
     }
 
     // --- Relatorios: envio principal (sem "acao" nem flags) ---
-    var serial = (dados.serial || '').toString().trim();
+    var serial = normalizarSerial_(dados.serial);
     var emailsInput = (dados.emails || '').toString().trim();
     var grupo = (dados.grupo || '').toString().trim();
     var tipoValvula = (dados.tipoValvula || '').toString().trim();
@@ -558,7 +566,7 @@ function montarTextoDescricoesEsquema(descricoesEsquema) {
 function guardarProgresso(dados) {
   var resposta;
   try {
-    var serial = (dados.serial || '').toString().trim();
+    var serial = normalizarSerial_(dados.serial);
     if (!serial) {
       throw new Error('Numero de serie em falta para guardar o progresso.');
     }
@@ -688,7 +696,7 @@ function listarRascunhosAbertos() {
 function listarEnviosAnteriores(parametros) {
   var resposta;
   try {
-    var serial = (parametros.serial || '').toString().trim();
+    var serial = normalizarSerial_(parametros.serial);
     if (!serial) {
       throw new Error('Numero de serie em falta.');
     }
@@ -736,7 +744,7 @@ function listarEnviosAnteriores(parametros) {
 function contarFotos(parametros) {
   var resposta;
   try {
-    var serial = (parametros.serial || '').toString().trim();
+    var serial = normalizarSerial_(parametros.serial);
     if (!serial) {
       throw new Error('Numero de serie em falta.');
     }
@@ -782,7 +790,7 @@ function contarFotos(parametros) {
 function corrigirEnvio(dados) {
   var resposta;
   try {
-    var serial = (dados.serial || '').toString().trim();
+    var serial = normalizarSerial_(dados.serial);
     var pastaOriginalId = (dados.pastaOriginalId || '').toString().trim();
     var emailsInput = (dados.emails || '').toString().trim();
     var notaCorrecao = (dados.notaCorrecao || '').toString().trim();
@@ -890,7 +898,7 @@ function corrigirEnvio(dados) {
 function carregarRascunho(parametros) {
   var resposta;
   try {
-    var serial = (parametros.serial || '').toString().trim();
+    var serial = normalizarSerial_(parametros.serial);
     if (!serial) {
       throw new Error('Numero de serie em falta.');
     }
@@ -1127,6 +1135,20 @@ function base64ParaBlob(dataUrl, nomeBase) {
 
 function sanitizeNome(texto) {
   return texto.toString().replace(/[^a-zA-Z0-9_-]+/g, '_');
+}
+
+/**
+ * Normaliza um numero de serie (trim + maiusculas) antes de o usar como
+ * identificador - em qualquer sitio onde e lido de um formulario. Sem
+ * isto, "SN-123" e "sn-123" davam origem a pastas/registos diferentes no
+ * Drive (sanitizeNome preserva maiusculas/minusculas), fragmentando o
+ * historico da mesma maquina. Nao remove espacos/hifens: dois seriais
+ * que so difiram nesses caracteres continuam a ser tratados como
+ * diferentes (decisao deliberada - nao ha garantia de que sejam a mesma
+ * maquina so por isso).
+ */
+function normalizarSerial_(valor) {
+  return (valor || '').toString().trim().toUpperCase();
 }
 
 // ===========================================================================
@@ -1464,7 +1486,7 @@ function sanitizeNomeFicheiro(texto) {
  */
 function gerarRelatorioEntrega(parametros) {
   var tipo = (parametros.tipo || '').toString().trim();
-  var serial = (parametros.serial || '').toString().trim();
+  var serial = normalizarSerial_(parametros.serial);
   var formato = ['docx', 'pdf', 'xlsx'].indexOf(parametros.formato) !== -1 ? parametros.formato : 'pdf';
 
   if (!serial) {
@@ -1823,7 +1845,7 @@ function paginaVerRegisto_(tipo, serial) {
  */
 function guardarRegisto(dados) {
   var tipo = dados.tipo;
-  var serial = (dados.serial || '').toString().trim();
+  var serial = normalizarSerial_(dados.serial);
   if (!serial) {
     throw new Error('Numero de serie em falta.');
   }
@@ -1954,8 +1976,8 @@ function calcularEmAtraso(estado, previsaoSaida) {
  */
 function mudarNumeroSerie(dados) {
   var tipo = dados.tipo;
-  var serialAtual = (dados.serialAtual || '').toString().trim();
-  var serialNovo = (dados.serialNovo || '').toString().trim();
+  var serialAtual = normalizarSerial_(dados.serialAtual);
+  var serialNovo = normalizarSerial_(dados.serialNovo);
 
   if (!serialAtual || !serialNovo) {
     throw new Error('Indique o numero de serie atual e o novo.');
@@ -2156,6 +2178,15 @@ function enviarResumosAutomaticos() {
     } catch (erroPendentes) {
       // Mesma logica "best effort" - nunca bloqueia o resto do envio.
     }
+
+    try {
+      var atrasados = obterEmCursoAtrasados_(tipo);
+      if (atrasados.length) {
+        enviarAlertaAtraso_(tipo, atrasados, config.emails);
+      }
+    } catch (erroAtraso) {
+      // Mesma logica "best effort" - nunca bloqueia o resto do envio.
+    }
   });
 
   if (config.frequencia === 'unico') {
@@ -2225,6 +2256,130 @@ function enviarAlertaChecklistsPendentes_(tipo, pendentes, emailsConfig) {
   });
 
   enviarAlertaWhatsapp_(EMPRESA + ': ' + pendentes.length + ' máquina(s) "Terminado" (' + nomeTipo + ') ainda sem checklist enviado.');
+}
+
+/**
+ * Lista os registos de producao (de um tipo) que ainda nao estao
+ * "Terminado" e cuja previsao de saida ja passou - recalculado ao vivo
+ * (calcularEmAtraso) em vez de confiar na coluna "emAtraso" guardada,
+ * que so e atualizada quando o registo e gravado de novo e por isso pode
+ * ficar desatualizada enquanto ninguem toca no registo.
+ */
+function obterEmCursoAtrasados_(tipo) {
+  var aba = obterAba(tipo);
+  if (aba.getLastRow() < 2) return [];
+
+  var todasAsLinhas = aba.getRange(2, 1, aba.getLastRow() - 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues();
+  var atrasados = [];
+  todasAsLinhas.forEach(function (linha) {
+    if (!linha[COL.SERIAL - 1]) return;
+    var item = linhaParaObjeto(linha);
+    if (calcularEmAtraso(item.estado, item.previsaoSaida) === 'Sim') atrasados.push(item);
+  });
+  return atrasados;
+}
+
+/**
+ * Envia um e-mail e um alerta WhatsApp (se configurado) a listar as
+ * maquinas em curso cuja previsao de saida ja passou.
+ */
+function enviarAlertaAtraso_(tipo, atrasados, emailsConfig) {
+  var nomeTipo = tipo === 'ciclos' ? 'Ciclos' : 'Grupos';
+  var corpo = EMPRESA + ' - ' + atrasados.length + ' máquina(s) (' + nomeTipo +
+    ') em curso com a previsão de saída já ultrapassada:\n\n';
+  atrasados.forEach(function (item) {
+    corpo = corpo + '- ' + item.serial + (item.grupo ? ' (' + item.grupo + ')' : '') +
+      ' - previsão de saída: ' + item.previsaoSaida + '\n';
+  });
+  corpo = corpo + '\nVerifique o Controlo de Produção para atualizar o estado ou a previsão.\n\n' +
+    'Este e-mail foi gerado automaticamente pela aplicação de Controlo de Produção.';
+
+  MailApp.sendEmail({
+    to: emailsConfig,
+    subject: EMPRESA + ' - Máquinas em atraso (' + nomeTipo + ') - ' + atrasados.length,
+    body: corpo
+  });
+
+  enviarAlertaWhatsapp_(EMPRESA + ': ' + atrasados.length + ' máquina(s) (' + nomeTipo + ') com a previsão de saída já ultrapassada.');
+}
+
+// ===========================================================================
+// Tarefas diarias automaticas: backup da Sheet e limpeza de ficheiros/abas
+// temporarios orfaos (criados durante a geracao de PDF/Word/Excel, e so
+// nao apagados no fim se a execucao for interrompida a meio - ex.: por
+// atingir o limite de 6 minutos do Apps Script). Corre uma vez por dia,
+// num gatilho que se instala a si proprio (ver garantirTriggerTarefasDiarias_).
+// ===========================================================================
+var BACKUP_RETENCAO_DIAS_ = 30;
+var LIMPEZA_TEMPORARIOS_LIMITE_MS_ = 2 * 60 * 60 * 1000; // 2 horas
+
+/**
+ * Copia a Google Sheet inteira para uma subpasta "Backups" (dentro de
+ * FOLDER_ID), e apaga copias com mais de BACKUP_RETENCAO_DIAS_ dias.
+ */
+function backupDiarioSheet_() {
+  var raiz = DriveApp.getFolderById(FOLDER_ID);
+  var pastaBackups = obterOuCriarSubpasta(raiz, 'Backups', true);
+  var id = SpreadsheetApp.getActiveSpreadsheet().getId();
+  var nomeBackup = 'Backup_' + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyyMMdd_HHmm');
+  DriveApp.getFileById(id).makeCopy(nomeBackup, pastaBackups);
+
+  var limite = new Date().getTime() - BACKUP_RETENCAO_DIAS_ * 24 * 60 * 60 * 1000;
+  var ficheiros = pastaBackups.getFiles();
+  while (ficheiros.hasNext()) {
+    var ficheiro = ficheiros.next();
+    if (ficheiro.getDateCreated().getTime() < limite) {
+      try { ficheiro.setTrashed(true); } catch (erroApagar) { /* ignora */ }
+    }
+  }
+}
+
+/**
+ * Apaga ficheiros do Drive (Docs/Sheets temporarios criados durante a
+ * geracao de PDFs/relatorios) e abas temporarias dentro da propria Sheet
+ * cujo nome comeca por "_tmp_", com mais de LIMPEZA_TEMPORARIOS_LIMITE_MS_
+ * - ou seja, orfaos de uma execucao anterior que nunca chegou ao "finally"
+ * que normalmente os apagaria.
+ */
+function limparTemporariosAntigos_() {
+  var agora = new Date().getTime();
+
+  var ficheiros = DriveApp.getFiles();
+  while (ficheiros.hasNext()) {
+    var ficheiro = ficheiros.next();
+    var nome = ficheiro.getName();
+    if (nome.indexOf('_tmp_') !== 0) continue;
+    if (agora - ficheiro.getDateCreated().getTime() < LIMPEZA_TEMPORARIOS_LIMITE_MS_) continue;
+    try { ficheiro.setTrashed(true); } catch (erroApagar) { /* ignora */ }
+  }
+
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  folha.getSheets().forEach(function (aba) {
+    var nome = aba.getName();
+    if (nome.indexOf('_tmp_') !== 0) return;
+    var partes = nome.split('_');
+    var timestamp = parseInt(partes[partes.length - 1], 10);
+    if (!timestamp || agora - timestamp < LIMPEZA_TEMPORARIOS_LIMITE_MS_) return;
+    try { folha.deleteSheet(aba); } catch (erroApagar) { /* ignora */ }
+  });
+}
+
+function executarTarefasDiarias_() {
+  try { backupDiarioSheet_(); } catch (erroBackup) { console.error('Falha no backup diario: ' + erroBackup); }
+  try { limparTemporariosAntigos_(); } catch (erroLimpeza) { console.error('Falha na limpeza de temporarios: ' + erroLimpeza); }
+}
+
+/**
+ * Instala o gatilho diario de executarTarefasDiarias_ se ainda nao
+ * existir (idempotente - seguro chamar em todos os doGet). Corre as 3h,
+ * fora do horario normal de trabalho.
+ */
+function garantirTriggerTarefasDiarias_() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'executarTarefasDiarias_') return;
+  }
+  ScriptApp.newTrigger('executarTarefasDiarias_').timeBased().atHour(3).everyDays(1).create();
 }
 
 function exportarAbaComoBlob(aba, formato) {
@@ -2636,7 +2791,7 @@ function isoDeDataHora_(texto) {
 function obterHistoricoCompleto(parametros) {
   var resposta;
   try {
-    var serial = (parametros.serial || '').toString().trim();
+    var serial = normalizarSerial_(parametros.serial);
     if (!serial) {
       throw new Error('Numero de serie em falta.');
     }
@@ -3132,10 +3287,34 @@ function proximoNumeroChecklist_(tipo) {
   return prefixo + '-' + ('0000' + atual).slice(-4);
 }
 
+/**
+ * Reserva (gera e consome) um numero de checklist ANTES de o checklist
+ * ser enviado, para poder ser mostrado logo na pagina 1 do formulario.
+ * Se o utilizador acabar por nao enviar, o numero fica "gasto" - a
+ * numeracao sequencial nao precisa de ser continua, so de nunca repetir.
+ */
+function reservarNumeroChecklist_(parametros) {
+  var tipo = (parametros.tipo || '').toString().trim();
+  if (['grupos', 'ciclos'].indexOf(tipo) === -1) {
+    throw new Error('Tipo de checklist invalido.');
+  }
+  return { status: 'ok', numeroChecklist: proximoNumeroChecklist_(tipo) };
+}
+
+/**
+ * Valida que uma string tem o formato exato de um numero de checklist
+ * gerado por proximoNumeroChecklist_ (ex.: "CG-0042"), para o backend
+ * nunca aceitar um numero inventado/adulterado vindo do cliente.
+ */
+function numeroChecklistValido_(tipo, numero) {
+  var prefixo = tipo === 'ciclos' ? 'CC' : 'CG';
+  return new RegExp('^' + prefixo + '-\\d{4,}$').test((numero || '').toString().trim());
+}
+
 function guardarChecklist(dados) {
   var tipo = (dados.tipo || '').toString().trim();
   var equipamento = (dados.equipamento || '').toString().trim();
-  var numeroSerie = (dados.numeroSerie || '').toString().trim();
+  var numeroSerie = normalizarSerial_(dados.numeroSerie);
   var email = (dados.email || '').toString().trim();
   var conformidade = dados.conformidade === 'Sim' ? 'Sim' : 'Nao';
   var producaoPor = (dados.producaoPor || '').toString().trim();
@@ -3193,10 +3372,15 @@ function guardarChecklist(dados) {
   var agora = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm');
   var criadoEm = registoAnterior ? registoAnterior.criadoEm : agora;
 
+  var numeroChecklistReservado = (dados.numeroChecklistReservado || '').toString().trim();
   var numeroChecklist;
   if (registoAnterior) {
     var dadosAnterioresParaNumero = JSON.parse(registoAnterior.dadosJson || '{}');
     numeroChecklist = dadosAnterioresParaNumero.numeroChecklist || proximoNumeroChecklist_(tipo);
+  } else if (numeroChecklistValido_(tipo, numeroChecklistReservado)) {
+    // Numero ja reservado (e consumido) antes do envio via
+    // reservarNumeroChecklist_ - nao gerar outro, so reutilizar este.
+    numeroChecklist = numeroChecklistReservado;
   } else {
     numeroChecklist = proximoNumeroChecklist_(tipo);
   }
@@ -3345,7 +3529,7 @@ function obterPastaRascunhoChecklist_(tipo, numeroSerie, criarSeNaoExistir) {
  */
 function guardarRascunhoChecklist(dados) {
   var tipo = (dados.tipo || '').toString().trim();
-  var numeroSerie = (dados.numeroSerie || '').toString().trim();
+  var numeroSerie = normalizarSerial_(dados.numeroSerie);
   if (['grupos', 'ciclos'].indexOf(tipo) === -1) {
     throw new Error('Tipo de checklist invalido.');
   }
@@ -3386,7 +3570,7 @@ function guardarRascunhoChecklist(dados) {
  */
 function carregarRascunhoChecklist(parametros) {
   var tipo = (parametros.tipo || '').toString().trim();
-  var numeroSerie = (parametros.numeroSerie || '').toString().trim();
+  var numeroSerie = normalizarSerial_(parametros.numeroSerie);
   if (!tipo || !numeroSerie) {
     throw new Error('Tipo e numero de serie em falta.');
   }
@@ -3436,7 +3620,7 @@ function listarRascunhosChecklistAbertos(parametros) {
  */
 function apagarRascunhoChecklist(dados) {
   var tipo = (dados.tipo || '').toString().trim();
-  var numeroSerie = (dados.numeroSerie || '').toString().trim();
+  var numeroSerie = normalizarSerial_(dados.numeroSerie);
   var pastaRascunho = obterPastaRascunhoChecklist_(tipo, numeroSerie, false);
   if (pastaRascunho) pastaRascunho.setTrashed(true);
   return { status: 'ok', mensagem: 'Rascunho apagado.' };

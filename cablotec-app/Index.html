@@ -823,6 +823,7 @@
     <div class="dashboard-grid" id="dashboardGrid">
       <div class="ajuda">A carregar...</div>
     </div>
+    <div class="ajuda" id="quotaEmailAviso" hidden></div>
   </div>
 
   <div class="card" id="cardEstatisticasEtapas">
@@ -1111,7 +1112,8 @@
       <!-- Página 1/8 -->
       <div class="checklist-pagina" data-pagina="1">
         <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Grupo Cond. Walkin</div>
-        <div class="ajuda" style="margin-bottom:14px;">DP156/R05</div>
+        <div class="ajuda">DP156/R05</div>
+        <div class="ajuda" id="cg-numeroReservado" style="margin-bottom:14px;" hidden></div>
 
         <label class="campo-label" for="cg-equipamento">Equipamento</label>
         <input type="text" id="cg-equipamento" required />
@@ -1416,7 +1418,8 @@
       <!-- Página 1/9 -->
       <div class="checklist-pagina" data-pagina="1">
         <div class="card-titulo">CHECK-LIST DE PRODUÇÃO Clico/VA</div>
-        <div class="ajuda" style="margin-bottom:14px;">DP155/R06</div>
+        <div class="ajuda">DP155/R06</div>
+        <div class="ajuda" id="cc-numeroReservado" style="margin-bottom:14px;" hidden></div>
 
         <label class="campo-label" for="cc-equipamento">Equipamento</label>
         <select id="cc-equipamento" required><option value="">Selecione...</option></select>
@@ -3913,6 +3916,24 @@
   }
 
   // ---------------------------------------------------------------------
+  // Quota diaria de e-mail da conta (MailApp.getRemainingDailyQuota) -
+  // so mostra um aviso quando comeca a ficar escassa, para nao poluir o
+  // dashboard em dias normais.
+  // ---------------------------------------------------------------------
+  function carregarQuotaEmail() {
+    if (!APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=quotaEmail').then(respostaParaJsonGlobal).then(function (dados) {
+      var aviso = document.getElementById('quotaEmailAviso');
+      if (dados.status !== 'ok' || typeof dados.restantes !== 'number' || dados.restantes > 20) {
+        aviso.hidden = true;
+        return;
+      }
+      aviso.hidden = false;
+      aviso.textContent = '⚠️ Apenas ' + dados.restantes + ' e-mail(s) restante(s) na quota diária desta conta Google - checklists/resumos podem deixar de ser enviados por e-mail até ao reset de amanhã.';
+    }).catch(function () { /* melhor esforco - nao bloqueia o resto do dashboard */ });
+  }
+
+  // ---------------------------------------------------------------------
   // Etapas mais lentas (gargalos) e tendencia de atrasos por mes.
   // ---------------------------------------------------------------------
   var listaEstatisticasEtapas = document.getElementById('listaEstatisticasEtapas');
@@ -4222,6 +4243,7 @@
   preencherSelectGrupo();
   carregarLista();
   carregarDashboard();
+  carregarQuotaEmail();
   carregarEstatisticasEtapas();
   carregarMateriaisStock();
   carregarConfigEnvioAutomatico();
@@ -4239,7 +4261,22 @@
   // (?checklistId=...), EDICAO_ID fica com esse id e o envio seguinte
   // atualiza o mesmo checklist em vez de criar um novo.
   var EDICAO_ID = '';
+  var NUMERO_CHECKLIST_RESERVADO = '';
   var cgFotosExistentes = {};
+
+  function reservarNumeroChecklistSeNecessario() {
+    if (EDICAO_ID || NUMERO_CHECKLIST_RESERVADO || !APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=reservarNumeroChecklist&tipo=grupos')
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok' || !dados.numeroChecklist) return;
+        NUMERO_CHECKLIST_RESERVADO = dados.numeroChecklist;
+        var el = document.getElementById('cg-numeroReservado');
+        el.textContent = 'Nº de checklist: ' + dados.numeroChecklist + ' (reservado)';
+        el.hidden = false;
+      })
+      .catch(function () { /* melhor esforco - o envio final gera um numero de qualquer forma */ });
+  }
 
   // ---------------------------------------------------------------------
   // Listas de sugestoes (esquemas, gases, etc.), partilhadas com o
@@ -4739,6 +4776,7 @@
   document.querySelectorAll('#formChecklistGrupos .cl-seguinte').forEach(function (botao) {
     botao.addEventListener('click', function () {
       esconderEstadoChecklistGrupos();
+      if (PAGINA_ATUAL === 1) reservarNumeroChecklistSeNecessario();
       mostrarPagina(Math.min(TOTAL_PAGINAS, PAGINA_ATUAL + 1));
     });
   });
@@ -4770,6 +4808,8 @@
   function limparFormularioChecklistGrupos() {
     document.getElementById('formChecklistGrupos').reset();
     EDICAO_ID = '';
+    NUMERO_CHECKLIST_RESERVADO = '';
+    document.getElementById('cg-numeroReservado').hidden = true;
     cgFotosExistentes = {};
     ['cg-esquemaEletrico', 'cg-esquemaRefrigeracao', 'cg-testeEletrico'].forEach(function (idSelect) {
       var outro = document.getElementById(idSelect + '-outro');
@@ -4839,6 +4879,7 @@
         mostrarEstadoChecklistGrupos('Preencha o Nº de série antes de guardar o progresso.', 'erro');
         return;
       }
+      reservarNumeroChecklistSeNecessario();
       if (!APPS_SCRIPT_URL) {
         mostrarEstadoChecklistGrupos('Progresso desta página guardado nesta sessão. Continue a preencher sem fechar o browser; só o "Enviar" final grava tudo.', 'sucesso');
         return;
@@ -4894,6 +4935,7 @@
         acao: 'guardarChecklist',
         tipo: 'grupos',
         id: EDICAO_ID,
+        numeroChecklistReservado: NUMERO_CHECKLIST_RESERVADO,
         equipamento: valorTexto('cg-equipamento'),
         numeroSerie: valorTexto('cg-numeroSerie'),
         email: valorTexto('cg-email'),
@@ -4983,6 +5025,8 @@
 
   window.preencherChecklistGruposEdicaoGlobal = function (resultado, ehRascunho) {
     EDICAO_ID = ehRascunho ? '' : (resultado.id || '');
+    NUMERO_CHECKLIST_RESERVADO = '';
+    document.getElementById('cg-numeroReservado').hidden = true;
     var c = resultado.campos || {};
 
     document.getElementById('cg-equipamento').value = resultado.equipamento || '';
@@ -5056,7 +5100,22 @@
   // (?checklistId=...), EDICAO_ID fica com esse id e o envio seguinte
   // atualiza o mesmo checklist em vez de criar um novo.
   var EDICAO_ID = '';
+  var NUMERO_CHECKLIST_RESERVADO = '';
   var ccFotosExistentes = {};
+
+  function reservarNumeroChecklistSeNecessario() {
+    if (EDICAO_ID || NUMERO_CHECKLIST_RESERVADO || !APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=reservarNumeroChecklist&tipo=ciclos')
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok' || !dados.numeroChecklist) return;
+        NUMERO_CHECKLIST_RESERVADO = dados.numeroChecklist;
+        var el = document.getElementById('cc-numeroReservado');
+        el.textContent = 'Nº de checklist: ' + dados.numeroChecklist + ' (reservado)';
+        el.hidden = false;
+      })
+      .catch(function () { /* melhor esforco - o envio final gera um numero de qualquer forma */ });
+  }
 
   // ---------------------------------------------------------------------
   // Listas de sugestoes (esquemas partilhados com o Relatorio de Testes;
@@ -5436,6 +5495,7 @@
   document.querySelectorAll('#formChecklistCiclos .cc-seguinte').forEach(function (botao) {
     botao.addEventListener('click', function () {
       esconderEstadoChecklistCiclos();
+      if (PAGINA_ATUAL_CICLOS === 1) reservarNumeroChecklistSeNecessario();
       mostrarPaginaCiclos(Math.min(TOTAL_PAGINAS_CICLOS, PAGINA_ATUAL_CICLOS + 1));
     });
   });
@@ -5466,6 +5526,8 @@
   function limparFormularioChecklistCiclos() {
     document.getElementById('formChecklistCiclos').reset();
     EDICAO_ID = '';
+    NUMERO_CHECKLIST_RESERVADO = '';
+    document.getElementById('cc-numeroReservado').hidden = true;
     ccFotosExistentes = {};
     ['cc-equipamento', 'cc-esquemaEletrico', 'cc-esquemaRefrigeracao', 'cc-fabricanteSonda', 'cc-modeloSonda', 'cc-fabricanteClico'].forEach(function (idSelect) {
       var outro = document.getElementById(idSelect + '-outro');
@@ -5533,6 +5595,7 @@
         mostrarEstadoChecklistCiclos('Preencha o Nº de série antes de guardar o progresso.', 'erro');
         return;
       }
+      reservarNumeroChecklistSeNecessario();
       if (!APPS_SCRIPT_URL) {
         mostrarEstadoChecklistCiclos('Progresso desta página guardado nesta sessão. Continue a preencher sem fechar o browser; só o "Enviar" final grava tudo.', 'sucesso');
         return;
@@ -5584,6 +5647,7 @@
         acao: 'guardarChecklist',
         tipo: 'ciclos',
         id: EDICAO_ID,
+        numeroChecklistReservado: NUMERO_CHECKLIST_RESERVADO,
         equipamento: valorSelectComOutroCiclos('cc-equipamento'),
         numeroSerie: valorTextoCiclos('cc-numeroSerie'),
         email: valorTextoCiclos('cc-email'),
@@ -5673,6 +5737,8 @@
 
   window.preencherChecklistCiclosEdicaoGlobal = function (resultado, ehRascunho) {
     EDICAO_ID = ehRascunho ? '' : (resultado.id || '');
+    NUMERO_CHECKLIST_RESERVADO = '';
+    document.getElementById('cc-numeroReservado').hidden = true;
     var c = resultado.campos || {};
 
     definirSelectComOutroCc('cc-equipamento', resultado.equipamento);

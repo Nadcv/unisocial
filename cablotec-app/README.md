@@ -208,6 +208,45 @@ de Produção guarda os seus registos) — não é um script standalone.
   Não substitui o rascunho do Checklist (que é guardado assim que se
   clica "Guardar", mesmo com rede): é só para o momento em que o
   "Enviar" final em si falha por falta de rede.
+- **Backup diário da Sheet** — todos os dias às 3h, a aplicação copia a
+  Google Sheet inteira para uma subpasta **"Backups"** (dentro da pasta
+  do Drive configurada em `FOLDER_ID`), e apaga cópias com mais de 30
+  dias. Protege contra uma linha apagada por engano ou um dia mau do
+  Google — não precisa de nenhuma configuração; o gatilho instala-se a
+  si próprio na primeira vez que a aplicação é aberta depois desta
+  atualização.
+- **Limpeza de ficheiros temporários órfãos** — o mesmo gatilho diário
+  apaga ficheiros do Drive e abas da Sheet com nome a começar por
+  `_tmp_` (criados durante a geração de PDFs/Word/Excel) que tenham
+  mais de 2 horas — só acontece se uma geração for interrompida a meio
+  (ex.: limite de 6 minutos de execução do Apps Script); em condições
+  normais são sempre apagados no próprio momento.
+- **Aviso de quota de e-mail** — no Painel do Controlo de Produção,
+  aparece um aviso quando restam 20 e-mails ou menos na quota diária
+  da conta Google (100/dia numa conta pessoal, 1500/dia numa conta
+  Workspace), para saber com antecedência que os checklists/resumos
+  podem deixar de chegar por e-mail até ao reset do dia seguinte.
+- **Alerta de máquinas em atraso** — além do alerta já existente de
+  "checklist em falta", quando o **"Envio automático de resumos"**
+  estiver ativado, a aplicação avisa também (e-mail + WhatsApp, se
+  configurado) sobre máquinas "Em curso" cuja previsão de saída já
+  passou.
+- **Número de checklist reservado antes de enviar** — ao avançar da
+  primeira página de um checklist novo (Grupos ou Ciclos), o número
+  (ex.: `CG-0042`) já aparece no topo da página, em vez de só depois de
+  enviar — útil para o escrever na etiqueta da máquina durante o
+  preenchimento. Se o checklist for abandonado sem enviar, esse número
+  fica por usar (a numeração não precisa de ser contínua, só de nunca
+  repetir).
+- **Número de série normalizado** — o número de série é automaticamente
+  convertido para maiúsculas (e sem espaços a mais) em todos os sítios
+  onde é escrito (Relatórios, Controlo de Produção, Checklist),
+  independentemente de como foi digitado (ex.: "sn-123" e "SN-123"
+  passam a contar como o mesmo). Isto evita que o histórico de fotos da
+  mesma máquina fique dividido em pastas diferentes por pequenas
+  diferenças de maiúsculas/minúsculas. **Nota:** só afeta registos
+  gravados a partir desta atualização — pastas/registos já existentes
+  mantêm a capitalização com que foram criados.
 
 ## Checklist de Produção
 
