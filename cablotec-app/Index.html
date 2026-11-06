@@ -20,7 +20,7 @@
     --fundo-input: #fafbfc;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme]) {
       --azul: #4d9bf5;
       --azul-escuro: #1a73e8;
       --verde: #35c069;
@@ -33,7 +33,36 @@
       --fundo-card: #1e2227;
       --fundo-input: #2a2f36;
     }
-    img, .thumb img { opacity: 0.92; }
+    :root:not([data-theme]) img, :root:not([data-theme]) .thumb img { opacity: 0.92; }
+  }
+  /* Escolha manual (botão 🌙/☀️ no topo), guardada em localStorage - tem
+     sempre prioridade sobre a preferência do sistema acima. */
+  :root[data-theme="dark"] {
+    --azul: #4d9bf5;
+    --azul-escuro: #1a73e8;
+    --verde: #35c069;
+    --vermelho: #ff6b68;
+    --cinza-fundo: #14171c;
+    --cinza-borda: #3a3f47;
+    --texto: #e8eaed;
+    --texto-suave: #9aa3af;
+    --laranja: #e0a030;
+    --fundo-card: #1e2227;
+    --fundo-input: #2a2f36;
+  }
+  :root[data-theme="dark"] img, :root[data-theme="dark"] .thumb img { opacity: 0.92; }
+  :root[data-theme="light"] {
+    --azul: #1a73e8;
+    --azul-escuro: #0d47a1;
+    --verde: #188038;
+    --vermelho: #c5221f;
+    --cinza-fundo: #f4f6f8;
+    --cinza-borda: #d7dce1;
+    --texto: #1f2937;
+    --texto-suave: #5f6b7a;
+    --laranja: #b06000;
+    --fundo-card: #fff;
+    --fundo-input: #fafbfc;
   }
   * { box-sizing: border-box; }
   body {
@@ -662,13 +691,57 @@
     margin-bottom: 6px;
   }
 </style>
+<script>
+  // Aplica o tema guardado (se o utilizador ja escolheu um manualmente)
+  // o mais cedo possivel, antes da pagina desenhar - evita um "flash" do
+  // tema errado. Enquanto nao houver escolha manual, segue a preferencia
+  // do sistema (o CSS @media (prefers-color-scheme) acima trata disso).
+  (function () {
+    try {
+      var guardado = localStorage.getItem('cablotecTema');
+      if (guardado === 'light' || guardado === 'dark') {
+        document.documentElement.setAttribute('data-theme', guardado);
+      }
+    } catch (erroTema) { /* localStorage indisponivel - fica no tema do sistema */ }
+  })();
+</script>
 </head>
 <body>
 <div id="trocaApp">
   <button type="button" class="botaoApp ativo" id="botaoAppRelatorios">📷 Relatórios</button>
   <button type="button" class="botaoApp" id="botaoAppProducao">🏭 Controlo de Produção</button>
   <button type="button" class="botaoApp" id="botaoAppChecklist">✅ Checklist</button>
+  <button type="button" class="botaoApp" id="botaoAlternarTema" style="flex:0 0 auto;" aria-label="Alternar tema claro/escuro">🌙</button>
 </div>
+<script>
+(function () {
+  var raiz = document.documentElement;
+  var botao = document.getElementById('botaoAlternarTema');
+
+  function temaEfetivo() {
+    var atual = raiz.getAttribute('data-theme');
+    if (atual === 'light' || atual === 'dark') return atual;
+    try {
+      return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    } catch (erro) {
+      return 'light';
+    }
+  }
+
+  function atualizarIconeTema() {
+    botao.textContent = temaEfetivo() === 'dark' ? '☀️' : '🌙';
+  }
+
+  atualizarIconeTema();
+
+  botao.addEventListener('click', function () {
+    var novoTema = temaEfetivo() === 'dark' ? 'light' : 'dark';
+    raiz.setAttribute('data-theme', novoTema);
+    try { localStorage.setItem('cablotecTema', novoTema); } catch (erro) { /* so nao fica guardado entre sessoes */ }
+    atualizarIconeTema();
+  });
+})();
+</script>
 <div id="indicadorFilaEnvio" hidden style="background:#fdebd0;color:#7a4b00;padding:8px 14px;font-size:0.9rem;text-align:center;cursor:pointer;"></div>
 
 <div id="pesquisaGlobalBarra" style="background:var(--fundo-card);border-bottom:1px solid var(--cinza-borda);padding:8px 12px;display:flex;gap:6px;max-width:640px;margin:0 auto;">
