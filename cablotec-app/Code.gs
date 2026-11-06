@@ -131,6 +131,10 @@ var LISTAS_PADRAO = {
 function doGet(e) {
   var acao = e && e.parameter ? e.parameter.action : '';
 
+  if (e && e.parameter && e.parameter.modo === 'kiosk') {
+    return paginaModoKiosk_();
+  }
+
   // --- Relatorios (fotos de Testes/Ciclos) ---
   if (acao === 'listarEsquemas') {
     return listarEsquemasSalvos(e.parameter);
@@ -182,6 +186,9 @@ function doGet(e) {
   if (acao === 'historicoCompleto') {
     return obterHistoricoCompleto(e.parameter);
   }
+  if (acao === 'previsaoConclusao') {
+    return respostaJson(obterPrevisaoConclusao(e.parameter));
+  }
   if (acao === 'manifest') {
     return respostaManifest_();
   }
@@ -230,7 +237,8 @@ function doGet(e) {
     checklistFabricantesSonda: obterLista('checklistFabricantesSonda'),
     checklistModelosSonda: obterLista('checklistModelosSonda'),
     checklistFabricantesClico: obterLista('checklistFabricantesClico'),
-    checklistTextos: obterTextosChecklistTemplates_()
+    checklistTextos: obterTextosChecklistTemplates_(),
+    regrasFotosChecklist: obterRegrasFotosChecklist_()
   };
 
   var template = HtmlService.createTemplateFromFile('Index');
@@ -347,10 +355,14 @@ function doPost(e) {
     if (dados.acao) {
       if (dados.acao === 'guardarRegisto') {
         resposta = guardarRegisto(dados);
+      } else if (dados.acao === 'enviarLinkCliente') {
+        resposta = enviarLinkCliente(dados);
       } else if (dados.acao === 'mudarNumeroSerie') {
         resposta = mudarNumeroSerie(dados);
       } else if (dados.acao === 'enviarResumo') {
         resposta = enviarResumoProducao(dados);
+      } else if (dados.acao === 'enviarSnapshotDashboard') {
+        resposta = enviarSnapshotDashboard(dados);
       } else if (dados.acao === 'configurarEnvioAutomatico') {
         resposta = configurarEnvioAutomatico(dados);
       } else if (dados.acao === 'adicionarMaterialPadrao') {
@@ -363,6 +375,8 @@ function doPost(e) {
         resposta = removerMaterialStock(dados);
       } else if (dados.acao === 'registarMovimentoStock') {
         resposta = registarMovimentoStock(dados);
+      } else if (dados.acao === 'resolverEncomendaSugerida') {
+        resposta = resolverEncomendaSugerida(dados);
       } else if (dados.acao === 'guardarChecklist') {
         resposta = guardarChecklist(dados);
       } else if (dados.acao === 'semearTemplatesChecklist') {
@@ -1446,7 +1460,7 @@ function baixarMateriais(parametros) {
     return HtmlService.createHtmlOutput(html);
   } catch (erro) {
     var mensagem = erro && erro.message ? erro.message : String(erro);
-    return HtmlService.createHtmlOutput('<p>Erro ao gerar o ficheiro: ' + mensagem + '</p>');
+    return HtmlService.createHtmlOutput('<p>Erro ao gerar o ficheiro: ' + escaparHtml_(mensagem) + '</p>');
   } finally {
     if (abaTemp) {
       SpreadsheetApp.getActiveSpreadsheet().deleteSheet(abaTemp);
@@ -1528,7 +1542,7 @@ function gerarRelatorioEntrega(parametros) {
     return HtmlService.createHtmlOutput(html);
   } catch (erro) {
     var mensagem = erro && erro.message ? erro.message : String(erro);
-    return HtmlService.createHtmlOutput('<p>Erro ao gerar o ficheiro: ' + mensagem + '</p>');
+    return HtmlService.createHtmlOutput('<p>Erro ao gerar o ficheiro: ' + escaparHtml_(mensagem) + '</p>');
   } finally {
     if (temporario) {
       if (formato === 'xlsx') {
@@ -1841,6 +1855,110 @@ function paginaVerRegisto_(tipo, serial) {
 }
 
 /**
+ * Envia por e-mail ao cliente o link publico (sem login) de consulta do
+ * estado de um registo - a mesma pagina que paginaVerRegisto_ ja gera
+ * para o QR code, so que agora enviada diretamente por e-mail.
+ */
+function enviarLinkCliente(dados) {
+  var tipo = dados.tipo;
+  var serial = normalizarSerial_(dados.serial);
+  var email = (dados.email || '').toString().trim();
+  if (!serial) throw new Error('Numero de serie em falta.');
+  if (['grupos', 'ciclos'].indexOf(tipo) === -1) throw new Error('Tipo invalido.');
+  if (!email) throw new Error('Indique o e-mail do cliente.');
+
+  var link = ScriptApp.getService().getUrl() + '?action=verRegisto&tipo=' + tipo + '&serial=' + encodeURIComponent(serial);
+  MailApp.sendEmail({
+    to: email,
+    subject: EMPRESA + ' - Estado da maquina ' + serial,
+    body: 'Pode acompanhar o estado da sua maquina (Nº ' + serial + ') atraves deste link:\n\n' + link +
+      '\n\nEste link e publico (nao exige login) e mostra apenas o estado da producao - sem fotos nem observacoes internas.'
+  });
+
+  return { status: 'ok', mensagem: 'Link enviado ao cliente.' };
+}
+
+// ===========================================================================
+// Modo kiosk (?modo=kiosk): pagina publica autonoma, pensada para um
+// tablet/ecra fixo na linha de fabrica - letras grandes, fundo escuro,
+// so as maquinas "Em curso", a etapa atual de cada uma, e vermelho
+// quando ha atraso. Nao e a aplicacao normal (nao tem botoes de editar)
+// e atualiza-se a si propria a cada 2 minutos com um <meta refresh>, em
+// vez de JavaScript - mais simples e mais robusto para ficar sempre
+// aberta num ecra sem supervisao.
+// ===========================================================================
+function obterListaKiosk_() {
+  var itens = [];
+  ['grupos', 'ciclos'].forEach(function (tipo) {
+    var aba = obterAba(tipo);
+    var ultimaLinha = aba.getLastRow();
+    if (ultimaLinha < 2) return;
+
+    var valores = aba.getRange(2, 1, ultimaLinha - 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues();
+    valores.forEach(function (linha) {
+      if (!linha[COL.SERIAL - 1]) return;
+      var item = linhaParaObjeto(linha);
+      if (item.estado === 'Terminado') return;
+
+      var etapaAtual = 'Todas as etapas concluídas';
+      for (var i = 0; i < ETAPAS.length; i++) {
+        var info = item.etapas[ETAPAS[i].chave];
+        if (!info || !info.data) {
+          etapaAtual = ETAPAS[i].rotulo;
+          break;
+        }
+      }
+
+      itens.push({
+        serial: item.serial,
+        grupo: item.grupo,
+        emAtraso: item.emAtraso === 'Sim',
+        etapaAtual: etapaAtual
+      });
+    });
+  });
+
+  itens.sort(function (a, b) {
+    if (a.emAtraso !== b.emAtraso) return a.emAtraso ? -1 : 1;
+    return a.serial.localeCompare(b.serial);
+  });
+  return itens;
+}
+
+function paginaModoKiosk_() {
+  var itens = obterListaKiosk_();
+  var linhasHtml = itens.length
+    ? itens.map(function (item) {
+        return '<div class="linha' + (item.emAtraso ? ' atraso' : '') + '">' +
+          '<span class="serial">' + escaparHtml_(item.serial) + (item.grupo ? ' - ' + escaparHtml_(item.grupo) : '') + '</span>' +
+          '<span class="etapa">' + escaparHtml_(item.etapaAtual) + '</span>' +
+        '</div>';
+      }).join('')
+    : '<div class="vazio">Sem máquinas em curso.</div>';
+
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<meta http-equiv="refresh" content="120">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>' + EMPRESA + ' - Modo fábrica</title>' +
+    '<style>' +
+      'body{background:#0b0d10;color:#e8eaed;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;padding:24px;}' +
+      'h1{font-size:2rem;margin:0 0 20px;text-align:center;}' +
+      '.linha{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-radius:12px;background:#1a1d22;margin-bottom:12px;font-size:1.4rem;}' +
+      '.linha.atraso{background:#3a1414;border:2px solid #ff6b68;}' +
+      '.serial{font-weight:700;}' +
+      '.etapa{color:#9aa3af;font-size:1.1rem;}' +
+      '.vazio{text-align:center;color:#9aa3af;font-size:1.3rem;margin-top:40px;}' +
+    '</style></head><body>' +
+    '<h1>' + EMPRESA + ' - Máquinas em curso</h1>' +
+    '<div>' + linhasHtml + '</div>' +
+    '</body></html>';
+
+  return HtmlService.createHtmlOutput(html)
+    .setTitle(EMPRESA + ' - Modo fábrica')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1');
+}
+
+/**
  * Cria ou atualiza (upsert, pelo numero de serie) um registo de producao.
  */
 function guardarRegisto(dados) {
@@ -1853,6 +1971,7 @@ function guardarRegisto(dados) {
   var previsaoSaida = (dados.previsaoSaida || '').toString().trim();
   var estado = (dados.estado || 'Em curso').toString().trim();
   var emAtraso = calcularEmAtraso(estado, previsaoSaida);
+  var diffCampos = null; // preenchido so quando o registo ja existia (edicao, nao criacao)
 
   // Lock: duas pessoas a gravar o mesmo serial ao mesmo tempo nao podem
   // duplicar a linha nem sobrepor-se uma a outra - so a leitura+escrita
@@ -1861,17 +1980,21 @@ function guardarRegisto(dados) {
     var aba = obterAba(tipo);
     var linha = encontrarLinha(aba, serial);
     var agora = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm');
+    var novoGrupo = (dados.grupo || '').toString().trim();
+    var novaEntrega = (dados.dataEntrega || '').toString().trim();
+    var novoMatFalta = (dados.materiaisEmFalta || '').toString().trim();
+    var novoMatEntregue = (dados.materiaisEntregues || '').toString().trim();
 
     if (linha === -1) {
       var novaLinha = [
         serial,
-        (dados.grupo || '').toString().trim(),
+        novoGrupo,
         estado,
         emAtraso,
         previsaoSaida,
-        (dados.dataEntrega || '').toString().trim(),
-        (dados.materiaisEmFalta || '').toString().trim(),
-        (dados.materiaisEntregues || '').toString().trim(),
+        novaEntrega,
+        novoMatFalta,
+        novoMatEntregue,
         '',
         agora,
         agora
@@ -1881,13 +2004,30 @@ function guardarRegisto(dados) {
     } else {
       var valoresAtuais = aba.getRange(linha, 1, 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues()[0];
 
-      aba.getRange(linha, COL.GRUPO).setValue((dados.grupo || '').toString().trim());
+      // Historico de alteracoes: so regista os campos que realmente
+      // mudaram (antes -> depois), para a Auditoria ficar legivel em vez
+      // de repetir os mesmos valores em todas as gravacoes.
+      diffCampos = {};
+      var antesGrupo = (valoresAtuais[COL.GRUPO - 1] || '').toString().trim();
+      var antesEstado = (valoresAtuais[COL.ESTADO - 1] || '').toString().trim();
+      var antesPrevisao = (valoresAtuais[COL.PREVISAO - 1] || '').toString().trim();
+      var antesEntrega = (valoresAtuais[COL.ENTREGA - 1] || '').toString().trim();
+      var antesMatFalta = (valoresAtuais[COL.MAT_FALTA - 1] || '').toString().trim();
+      var antesMatEntregue = (valoresAtuais[COL.MAT_ENTREGUE - 1] || '').toString().trim();
+      if (antesGrupo !== novoGrupo) diffCampos.grupo = { antes: antesGrupo, depois: novoGrupo };
+      if (antesEstado !== estado) diffCampos.estado = { antes: antesEstado, depois: estado };
+      if (antesPrevisao !== previsaoSaida) diffCampos.previsaoSaida = { antes: antesPrevisao, depois: previsaoSaida };
+      if (antesEntrega !== novaEntrega) diffCampos.dataEntrega = { antes: antesEntrega, depois: novaEntrega };
+      if (antesMatFalta !== novoMatFalta) diffCampos.materiaisEmFalta = { antes: antesMatFalta, depois: novoMatFalta };
+      if (antesMatEntregue !== novoMatEntregue) diffCampos.materiaisEntregues = { antes: antesMatEntregue, depois: novoMatEntregue };
+
+      aba.getRange(linha, COL.GRUPO).setValue(novoGrupo);
       aba.getRange(linha, COL.ESTADO).setValue(estado);
       aba.getRange(linha, COL.ATRASO).setValue(emAtraso);
       aba.getRange(linha, COL.PREVISAO).setValue(previsaoSaida);
-      aba.getRange(linha, COL.ENTREGA).setValue((dados.dataEntrega || '').toString().trim());
-      aba.getRange(linha, COL.MAT_FALTA).setValue((dados.materiaisEmFalta || '').toString().trim());
-      aba.getRange(linha, COL.MAT_ENTREGUE).setValue((dados.materiaisEntregues || '').toString().trim());
+      aba.getRange(linha, COL.ENTREGA).setValue(novaEntrega);
+      aba.getRange(linha, COL.MAT_FALTA).setValue(novoMatFalta);
+      aba.getRange(linha, COL.MAT_ENTREGUE).setValue(novoMatEntregue);
       aba.getRange(linha, COL.ATUALIZADO).setValue(agora);
 
       ETAPAS.forEach(function (et, indice) {
@@ -1897,6 +2037,10 @@ function guardarRegisto(dados) {
         var etapaPedida = (dados.etapas && dados.etapas[et.chave]) || {};
         var marcadoAgora = etapaPedida.marcado === true;
         var notaAgora = (etapaPedida.nota || '').toString().trim();
+
+        if (marcadoAgora !== !!dataAtual) {
+          diffCampos['etapa_' + et.chave] = marcadoAgora ? { antes: 'pendente', depois: 'concluida' } : { antes: 'concluida', depois: 'pendente' };
+        }
 
         if (marcadoAgora) {
           var dataFinal = dataAtual || agora;
@@ -1910,9 +2054,84 @@ function guardarRegisto(dados) {
   });
 
   adicionarValorNaLista(tipo === 'ciclos' ? 'ciclosProducao' : 'gruposProducao', (dados.grupo || '').toString().trim());
-  registarAuditoria_('guardarRegisto', tipo + '/' + serial, dados.responsavel || '', { estado: estado, previsaoSaida: previsaoSaida });
+  registarAuditoria_('guardarRegisto', tipo + '/' + serial, dados.responsavel || '', diffCampos || { estado: estado, previsaoSaida: previsaoSaida, criado: true });
+  sincronizarEventoCalendario_(tipo, serial, previsaoSaida, estado, (dados.grupo || '').toString().trim());
 
   return { status: 'ok', mensagem: 'Registo guardado.' };
+}
+
+// ===========================================================================
+// Google Calendar: um evento de dia inteiro no calendario do dono do
+// script por registo com previsao de saida (titulo com o serial), criado/
+// atualizado em guardarRegisto e apagado quando a previsao e removida ou
+// o registo passa a "Terminado". Mapeamento tipo+serial -> ID do evento
+// guardado numa aba propria (nunca no proprio Grupos/Ciclos, para nao
+// mexer no esquema existente). Best effort - uma falha aqui (ex.: sem
+// permissao de Calendar ainda aceite) nunca impede o registo de ficar
+// guardado.
+// ===========================================================================
+var ABA_CALENDARIO_ = 'CalendarioEventos';
+var CABECALHOS_CALENDARIO_ = ['tipo', 'serial', 'eventId'];
+
+function obterAbaCalendario_() {
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.getSheetByName(ABA_CALENDARIO_);
+  if (aba) return aba;
+  aba = folha.insertSheet(ABA_CALENDARIO_);
+  aba.getRange(1, 1, 1, CABECALHOS_CALENDARIO_.length).setValues([CABECALHOS_CALENDARIO_]);
+  aba.setFrozenRows(1);
+  aba.getRange(1, 1, 1, CABECALHOS_CALENDARIO_.length).setFontWeight('bold');
+  return aba;
+}
+
+function encontrarLinhaCalendario_(aba, tipo, serial) {
+  var ultimaLinha = aba.getLastRow();
+  if (ultimaLinha < 2) return -1;
+  var valores = aba.getRange(2, 1, ultimaLinha - 1, 2).getValues();
+  for (var i = 0; i < valores.length; i++) {
+    if (valores[i][0] === tipo && valores[i][1] === serial) return i + 2;
+  }
+  return -1;
+}
+
+function sincronizarEventoCalendario_(tipo, serial, previsaoSaida, estado, grupo) {
+  try {
+    var aba = obterAbaCalendario_();
+    var linha = encontrarLinhaCalendario_(aba, tipo, serial);
+    var eventIdAnterior = linha !== -1 ? (aba.getRange(linha, 3).getValue() || '').toString() : '';
+    var calendario = CalendarApp.getDefaultCalendar();
+
+    if (eventIdAnterior) {
+      try {
+        var eventoAnterior = calendario.getEventById(eventIdAnterior);
+        if (eventoAnterior) eventoAnterior.deleteEvent();
+      } catch (erroApagar) {
+        // Pode ja nao existir (ex.: apagado manualmente) - ignora.
+      }
+    }
+
+    if (!previsaoSaida || estado === 'Terminado') {
+      if (linha !== -1) aba.deleteRow(linha);
+      return;
+    }
+
+    var dataPrevista = new Date(previsaoSaida + 'T00:00:00');
+    if (isNaN(dataPrevista.getTime())) {
+      if (linha !== -1) aba.deleteRow(linha);
+      return;
+    }
+
+    var titulo = EMPRESA + ' - Entrega prevista: ' + serial + (grupo ? ' (' + grupo + ')' : '');
+    var evento = calendario.createAllDayEvent(titulo, dataPrevista);
+
+    if (linha !== -1) {
+      aba.getRange(linha, 3).setValue(evento.getId());
+    } else {
+      aba.appendRow([tipo, serial, evento.getId()]);
+    }
+  } catch (erroCalendario) {
+    console.error('Falha ao sincronizar evento de calendario para ' + tipo + '/' + serial + ': ' + erroCalendario);
+  }
 }
 
 function aplicarEtapasNovoRegisto(etapasPedidas, agora) {
@@ -2008,6 +2227,15 @@ function mudarNumeroSerie(dados) {
 
   registarAuditoria_('mudarNumeroSerie', tipo + '/' + serialNovo, dados.responsavel || '', { antes: serialAtual, depois: serialNovo });
 
+  try {
+    var abaCalendario = obterAbaCalendario_();
+    var linhaCalendario = encontrarLinhaCalendario_(abaCalendario, tipo, serialAtual);
+    if (linhaCalendario !== -1) abaCalendario.getRange(linhaCalendario, 2).setValue(serialNovo);
+  } catch (erroCalendario) {
+    // Best effort - na pior hipotese o proximo guardarRegisto cria um
+    // evento novo e o antigo (com o serial velho no titulo) fica orfao.
+  }
+
   return { status: 'ok', mensagem: 'Numero de serie atualizado.' };
 }
 
@@ -2044,6 +2272,88 @@ function enviarResumoProducao(dados) {
   });
 
   return { status: 'ok', mensagem: 'Resumo enviado por e-mail.' };
+}
+
+/**
+ * Gera um PDF curto com os 3 cartoes do Painel (resumo geral, etapas mais
+ * lentas, tendencia de atrasos por mes) e envia por e-mail - para levar
+ * para reunioes sem ter de aceder a aplicacao. Os numeros vem das mesmas
+ * funcoes que alimentam o Painel no ecra (obterResumoGeral/
+ * obterEstatisticasEtapas), nao de uma captura de ecra.
+ */
+function enviarSnapshotDashboard(dados) {
+  var emailsInput = (dados.emails || '').toString().trim();
+  if (!emailsInput) {
+    throw new Error('Indique pelo menos um e-mail de destinatario.');
+  }
+  var emails = limparListaEmails(emailsInput);
+
+  var resumo = obterResumoGeral().resumo;
+  var estatisticas = obterEstatisticasEtapas();
+
+  var temporario = null;
+  try {
+    var doc = DocumentApp.create('_tmp_dashboard_' + new Date().getTime());
+    var corpo = doc.getBody();
+    corpo.clear();
+    doc.setPageWidth(A4_LARGURA_PT_);
+    doc.setPageHeight(A4_ALTURA_PT_);
+
+    var atributosTexto = {};
+    atributosTexto[DocumentApp.Attribute.FOREGROUND_COLOR] = '#1f2937';
+    corpo.setAttributes(atributosTexto);
+
+    corpo.appendParagraph(EMPRESA + ' - Resumo do Painel').setBold(true).setFontSize(14);
+    corpo.appendParagraph(Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'dd/MM/yyyy HH:mm'))
+      .setFontSize(9).setForegroundColor('#5f6b7a');
+
+    corpo.appendParagraph('Resumo geral').setBold(true).setFontSize(11).setAttributes(criarAtributosParagrafo_(14, 4));
+    ['grupos', 'ciclos'].forEach(function (tipo) {
+      var r = resumo[tipo];
+      var nomeTipo = tipo === 'ciclos' ? 'Ciclos' : 'Grupos';
+      corpo.appendParagraph(nomeTipo + ': ' + r.emCurso + ' em curso, ' + r.terminados + ' terminados, ' + r.atraso + ' em atraso.')
+        .setFontSize(10);
+    });
+
+    corpo.appendParagraph('Etapas mais lentas (gargalos)').setBold(true).setFontSize(11).setAttributes(criarAtributosParagrafo_(14, 4));
+    var etapasComDados = estatisticas.porEtapa.filter(function (p) { return p.mediaDias !== null; })
+      .sort(function (a, b) { return b.mediaDias - a.mediaDias; });
+    if (!etapasComDados.length) {
+      corpo.appendParagraph('Ainda sem dados suficientes.').setFontSize(10);
+    } else {
+      etapasComDados.forEach(function (p) {
+        corpo.appendParagraph(p.rotulo + ': ' + p.mediaDias + ' dia(s) em media (' + p.contagem + ' amostra(s)).').setFontSize(10);
+      });
+    }
+
+    corpo.appendParagraph('Tendência de atrasos por mês').setBold(true).setFontSize(11).setAttributes(criarAtributosParagrafo_(14, 4));
+    if (!estatisticas.tendenciaAtraso.length) {
+      corpo.appendParagraph('Ainda sem dados suficientes.').setFontSize(10);
+    } else {
+      estatisticas.tendenciaAtraso.forEach(function (m) {
+        corpo.appendParagraph(m.mes + ': ' + m.atraso + ' em atraso de ' + m.total + ' registo(s).').setFontSize(10);
+      });
+    }
+
+    doc.saveAndClose();
+    temporario = doc;
+
+    var pdfBlob = exportarDocComoBlob_(doc, 'pdf').setName('Dashboard_' +
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyyMMdd') + '.pdf');
+
+    MailApp.sendEmail({
+      to: emails,
+      subject: EMPRESA + ' - Resumo do Painel - ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'dd/MM/yyyy'),
+      body: EMPRESA + ' - Resumo do Painel de Controlo de Producao em anexo (PDF).\n\nEste e-mail foi gerado automaticamente.',
+      attachments: [pdfBlob]
+    });
+  } finally {
+    if (temporario) {
+      try { DriveApp.getFileById(temporario.getId()).setTrashed(true); } catch (erroLimpeza) { /* ignora */ }
+    }
+  }
+
+  return { status: 'ok', mensagem: 'Snapshot do Painel enviado por e-mail.' };
 }
 
 /**
@@ -2435,18 +2745,28 @@ function enviarAlertaWhatsapp_(mensagem) {
 // ===========================================================================
 var ABA_MATERIAIS_STOCK = 'Materiais';
 var ABA_MOVIMENTOS_STOCK = 'MovimentosStock';
-var CABECALHOS_MATERIAIS_STOCK = ['id', 'nome', 'categoria', 'unidade', 'stockAtual', 'stockMinimo', 'notas', 'criadoEm'];
+var CABECALHOS_MATERIAIS_STOCK = ['id', 'nome', 'categoria', 'unidade', 'stockAtual', 'stockMinimo', 'notas', 'criadoEm', 'stockMaximo', 'fornecedor'];
 var CABECALHOS_MOVIMENTOS_STOCK = ['id', 'dataHora', 'materialId', 'materialNome', 'tipo', 'quantidade', 'responsavel', 'notas'];
 var DIAS_JANELA_PREVISAO = 60; // janela usada para calcular o consumo medio diario
 
 function obterAbaMateriaisStock_() {
   var folha = SpreadsheetApp.getActiveSpreadsheet();
   var aba = folha.getSheetByName(ABA_MATERIAIS_STOCK);
-  if (aba) return aba;
-  aba = folha.insertSheet(ABA_MATERIAIS_STOCK);
-  aba.getRange(1, 1, 1, CABECALHOS_MATERIAIS_STOCK.length).setValues([CABECALHOS_MATERIAIS_STOCK]);
-  aba.setFrozenRows(1);
-  aba.getRange(1, 1, 1, CABECALHOS_MATERIAIS_STOCK.length).setFontWeight('bold');
+  if (!aba) {
+    aba = folha.insertSheet(ABA_MATERIAIS_STOCK);
+    aba.getRange(1, 1, 1, CABECALHOS_MATERIAIS_STOCK.length).setValues([CABECALHOS_MATERIAIS_STOCK]);
+    aba.setFrozenRows(1);
+    aba.getRange(1, 1, 1, CABECALHOS_MATERIAIS_STOCK.length).setFontWeight('bold');
+    return aba;
+  }
+  // Migracao idempotente: abas criadas antes de "stockMaximo"/"fornecedor"
+  // existirem tem menos colunas - completa so o cabecalho que falta,
+  // nunca toca nas colunas/dados ja existentes.
+  var colunaAtual = aba.getLastColumn();
+  if (colunaAtual < CABECALHOS_MATERIAIS_STOCK.length) {
+    var faltam = CABECALHOS_MATERIAIS_STOCK.slice(colunaAtual);
+    aba.getRange(1, colunaAtual + 1, 1, faltam.length).setValues([faltam]).setFontWeight('bold');
+  }
   return aba;
 }
 
@@ -2543,6 +2863,46 @@ function semearTemplatesChecklist(dados) {
   return { status: 'ok', mensagem: semeado ? 'Templates semeados.' : 'Ja existiam templates - nada alterado.' };
 }
 
+// ===========================================================================
+// Numero minimo de fotos por campo do Checklist, configuravel sem mexer
+// em codigo: aba "RegrasFotosChecklist" (tipo | campo | minimo). Quando
+// um campo de fotos nao tem nenhuma linha aqui, o minimo e 1 (o
+// comportamento de sempre). Mesma logica de "agrupado por tipo" dos
+// templates de texto - os nomes de campo (ex. "fotosEtiquetas") nao se
+// repetem entre Grupos e Ciclos, mas agrupar por tipo evita qualquer
+// ambiguidade futura.
+// ===========================================================================
+var ABA_REGRAS_FOTOS_CHECKLIST_ = 'RegrasFotosChecklist';
+var CABECALHOS_REGRAS_FOTOS_CHECKLIST_ = ['tipo', 'campo', 'minimo'];
+
+function obterAbaRegrasFotosChecklist_() {
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.getSheetByName(ABA_REGRAS_FOTOS_CHECKLIST_);
+  if (aba) return aba;
+  aba = folha.insertSheet(ABA_REGRAS_FOTOS_CHECKLIST_);
+  aba.getRange(1, 1, 1, CABECALHOS_REGRAS_FOTOS_CHECKLIST_.length).setValues([CABECALHOS_REGRAS_FOTOS_CHECKLIST_]);
+  aba.setFrozenRows(1);
+  aba.getRange(1, 1, 1, CABECALHOS_REGRAS_FOTOS_CHECKLIST_.length).setFontWeight('bold');
+  return aba;
+}
+
+function obterRegrasFotosChecklist_() {
+  var aba = obterAbaRegrasFotosChecklist_();
+  var ultimaLinha = aba.getLastRow();
+  var resultado = { grupos: {}, ciclos: {} };
+  if (ultimaLinha < 2) return resultado;
+
+  var valores = aba.getRange(2, 1, ultimaLinha - 1, CABECALHOS_REGRAS_FOTOS_CHECKLIST_.length).getValues();
+  valores.forEach(function (linha) {
+    var tipo = (linha[0] || '').toString().trim();
+    var campo = (linha[1] || '').toString().trim();
+    var minimo = parseInt(linha[2], 10);
+    if (!campo || !resultado[tipo] || isNaN(minimo) || minimo < 1) return;
+    resultado[tipo][campo] = minimo;
+  });
+  return resultado;
+}
+
 /**
  * Lista todos os materiais em stock, com uma previsao simples de dias at
  * atingir o stock minimo, calculada a partir do consumo medio diario
@@ -2574,6 +2934,7 @@ function listarMateriaisStock() {
     if (consumoMedioDiario > 0) {
       diasAteMinimo = Math.max(0, Math.round((stockAtual - stockMinimo) / consumoMedioDiario));
     }
+    var stockMaximo = Number(m.stockMaximo) || 0;
     return {
       id: m.id,
       nome: m.nome,
@@ -2581,6 +2942,8 @@ function listarMateriaisStock() {
       unidade: m.unidade,
       stockAtual: stockAtual,
       stockMinimo: stockMinimo,
+      stockMaximo: stockMaximo,
+      fornecedor: m.fornecedor || '',
       notas: m.notas,
       consumoMedioDiario: Math.round(consumoMedioDiario * 100) / 100,
       diasAteMinimo: diasAteMinimo,
@@ -2589,7 +2952,7 @@ function listarMateriaisStock() {
   });
 
   itens.sort(function (a, b) { return a.nome.localeCompare(b.nome); });
-  return { status: 'ok', itens: itens };
+  return { status: 'ok', itens: itens, encomendasSugeridas: listarEncomendasSugeridas_() };
 }
 
 function adicionarMaterialStock(dados) {
@@ -2598,6 +2961,8 @@ function adicionarMaterialStock(dados) {
   var unidade = (dados.unidade || 'un').toString().trim() || 'un';
   var stockAtual = Number(dados.stockAtual);
   var stockMinimo = Number(dados.stockMinimo);
+  var stockMaximo = Number(dados.stockMaximo);
+  var fornecedor = (dados.fornecedor || '').toString().trim();
 
   if (!nome) throw new Error('Indique o nome do material.');
   if (['Eletrica', 'Frio', 'Consumivel'].indexOf(categoria) === -1) {
@@ -2605,6 +2970,7 @@ function adicionarMaterialStock(dados) {
   }
   if (isNaN(stockAtual) || stockAtual < 0) stockAtual = 0;
   if (isNaN(stockMinimo) || stockMinimo < 0) stockMinimo = 0;
+  if (isNaN(stockMaximo) || stockMaximo < 0) stockMaximo = 0;
 
   comLock_(function () {
     var aba = obterAbaMateriaisStock_();
@@ -2616,7 +2982,9 @@ function adicionarMaterialStock(dados) {
       stockAtual,
       stockMinimo,
       (dados.notas || '').toString().trim(),
-      Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm')
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm'),
+      stockMaximo,
+      fornecedor
     ]);
   });
   registarAuditoria_('adicionarMaterialStock', nome, dados.responsavel || '', { categoria: categoria, stockAtual: stockAtual, stockMinimo: stockMinimo });
@@ -2665,6 +3033,8 @@ function registarMovimentoStock(dados) {
   var materialNome = '';
   var novoStock = 0;
   var stockMinimo = 0;
+  var stockMaximo = 0;
+  var fornecedor = '';
 
   // Lock: ler o stock atual, calcular o novo valor e escrever tem de ser
   // uma unica operacao - senao duas pessoas a registar movimentos do
@@ -2683,6 +3053,8 @@ function registarMovimentoStock(dados) {
           materialNome = valores[i][1];
           var stockAtual = Number(valores[i][4]) || 0;
           novoStock = tipo === 'Entrada' ? stockAtual + quantidade : stockAtual - quantidade;
+          stockMaximo = Number(valores[i][8]) || 0;
+          fornecedor = (valores[i][9] || '').toString();
           break;
         }
       }
@@ -2710,7 +3082,99 @@ function registarMovimentoStock(dados) {
 
   if (novoStock <= stockMinimo) {
     enviarAlertaWhatsapp_(EMPRESA + ': stock de "' + materialNome + '" esta no minimo (' + novoStock + ', minimo ' + stockMinimo + ').');
+    try {
+      gerarEncomendaSugeridaSeNecessario_(materialId, materialNome, fornecedor, stockMinimo, stockMaximo, novoStock);
+    } catch (erroEncomenda) {
+      console.error('Falha ao gerar encomenda sugerida para ' + materialNome + ': ' + erroEncomenda);
+    }
   }
+
+  return listarMateriaisStock();
+}
+
+// ===========================================================================
+// Encomenda automatica sugerida: quando um movimento deixa um material no
+// stock minimo (ou abaixo), gera uma linha numa aba propria em vez de so
+// mandar o alerta de WhatsApp - para haver um registo do que ja foi
+// sugerido e nao se perder entre conversas. Nao cria uma encomenda nova
+// enquanto a ultima sugestao para o mesmo material continuar "Pendente",
+// para nao multiplicar sugestoes a cada movimento enquanto o stock
+// continuar baixo.
+// ===========================================================================
+var ABA_ENCOMENDAS_SUGERIDAS_ = 'EncomendasSugeridas';
+var CABECALHOS_ENCOMENDAS_SUGERIDAS_ = ['id', 'materialId', 'materialNome', 'fornecedor', 'quantidadeSugerida', 'criadoEm', 'estado'];
+
+function obterAbaEncomendasSugeridas_() {
+  var folha = SpreadsheetApp.getActiveSpreadsheet();
+  var aba = folha.getSheetByName(ABA_ENCOMENDAS_SUGERIDAS_);
+  if (aba) return aba;
+  aba = folha.insertSheet(ABA_ENCOMENDAS_SUGERIDAS_);
+  aba.getRange(1, 1, 1, CABECALHOS_ENCOMENDAS_SUGERIDAS_.length).setValues([CABECALHOS_ENCOMENDAS_SUGERIDAS_]);
+  aba.setFrozenRows(1);
+  aba.getRange(1, 1, 1, CABECALHOS_ENCOMENDAS_SUGERIDAS_.length).setFontWeight('bold');
+  return aba;
+}
+
+function listarEncomendasSugeridas_() {
+  var itens = lerLinhasComoObjetos_(obterAbaEncomendasSugeridas_(), CABECALHOS_ENCOMENDAS_SUGERIDAS_);
+  return itens.filter(function (item) { return item.estado !== 'Resolvida'; });
+}
+
+function gerarEncomendaSugeridaSeNecessario_(materialId, materialNome, fornecedor, stockMinimo, stockMaximo, stockAtual) {
+  var aba = obterAbaEncomendasSugeridas_();
+  var ultimaLinha = aba.getLastRow();
+  if (ultimaLinha >= 2) {
+    var valores = aba.getRange(2, 1, ultimaLinha - 1, CABECALHOS_ENCOMENDAS_SUGERIDAS_.length).getValues();
+    for (var i = 0; i < valores.length; i++) {
+      if (valores[i][1] === materialId && valores[i][6] === 'Pendente') return; // ja ha uma sugestao em aberto
+    }
+  }
+
+  var alvo = Math.max(stockMaximo, stockMinimo * 2);
+  var quantidadeSugerida = Math.max(1, Math.round(alvo - stockAtual));
+
+  aba.appendRow([
+    gerarIdStock_(),
+    materialId,
+    materialNome,
+    fornecedor,
+    quantidadeSugerida,
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd HH:mm'),
+    'Pendente'
+  ]);
+
+  try {
+    var config = obterConfigEnvioAutomatico();
+    if (config.emails) {
+      MailApp.sendEmail({
+        to: config.emails,
+        subject: EMPRESA + ' - Encomenda sugerida: ' + materialNome,
+        body: EMPRESA + ' - o material "' + materialNome + '" atingiu o stock minimo.\n\n' +
+          'Quantidade sugerida a encomendar: ' + quantidadeSugerida + (fornecedor ? '\nFornecedor habitual: ' + fornecedor : '') +
+          '\n\nEste e-mail foi gerado automaticamente pela aplicacao de Controlo de Producao.'
+      });
+    }
+  } catch (erroEmail) {
+    // Best effort - a sugestao ja ficou guardada na aba mesmo que o e-mail falhe.
+  }
+}
+
+function resolverEncomendaSugerida(dados) {
+  var id = (dados.id || '').toString().trim();
+  if (!id) throw new Error('ID da encomenda sugerida em falta.');
+
+  comLock_(function () {
+    var aba = obterAbaEncomendasSugeridas_();
+    var ultimaLinha = aba.getLastRow();
+    if (ultimaLinha < 2) return;
+    var ids = aba.getRange(2, 1, ultimaLinha - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (ids[i][0] === id) {
+        aba.getRange(i + 2, 7).setValue('Resolvida');
+        break;
+      }
+    }
+  });
 
   return listarMateriaisStock();
 }
@@ -2788,6 +3252,231 @@ function isoDeDataHora_(texto) {
   return isNaN(d.getTime()) ? texto.toString() : d.toISOString();
 }
 
+/**
+ * Media de dias gastos em cada etapa, globalmente e por modelo (grupo),
+ * calculada a partir do historico de todos os registos "Grupos"/"Ciclos"
+ * - usada para comparar "previsto vs. real" (ver obterHistoricoCompleto)
+ * e nas estatisticas gerais (obterEstatisticasEtapas). A media por modelo
+ * so e usada quando ha pelo menos 2 amostras para esse modelo+etapa;
+ * caso contrario cai na media global, para nao tirar conclusoes de uma
+ * amostra demasiado pequena.
+ */
+function obterMediasEtapas_() {
+  var somaGlobal = {};
+  var contGlobal = {};
+  var somaModelo = {};
+  var contModelo = {};
+  ETAPAS.forEach(function (et) { somaGlobal[et.chave] = 0; contGlobal[et.chave] = 0; });
+
+  ['grupos', 'ciclos'].forEach(function (tipo) {
+    var aba = obterAba(tipo);
+    var ultimaLinha = aba.getLastRow();
+    if (ultimaLinha < 2) return;
+    var valores = aba.getRange(2, 1, ultimaLinha - 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues();
+    valores.forEach(function (linha) {
+      if (!linha[COL.SERIAL - 1]) return;
+      var modelo = (linha[COL.GRUPO - 1] || '').toString().trim();
+      var criadoEm = (linha[COL.CRIADO - 1] || '').toString();
+      var dataAnterior = criadoEm ? new Date(criadoEm.replace(' ', 'T')) : null;
+
+      ETAPAS.forEach(function (et, indice) {
+        var bruto = (linha[COL_PRIMEIRA_ETAPA - 1 + indice] || '').toString();
+        var dataConcluida = bruto.split(SEPARADOR_NOTA)[0];
+        if (!dataConcluida || !dataAnterior) return;
+        var dataEtapa = new Date(dataConcluida.replace(' ', 'T'));
+        if (!isNaN(dataEtapa.getTime())) {
+          var dias = (dataEtapa.getTime() - dataAnterior.getTime()) / (1000 * 60 * 60 * 24);
+          if (dias >= 0) {
+            somaGlobal[et.chave] = somaGlobal[et.chave] + dias;
+            contGlobal[et.chave] = contGlobal[et.chave] + 1;
+            if (modelo) {
+              var chaveModelo = modelo + '|' + et.chave;
+              somaModelo[chaveModelo] = (somaModelo[chaveModelo] || 0) + dias;
+              contModelo[chaveModelo] = (contModelo[chaveModelo] || 0) + 1;
+            }
+          }
+          dataAnterior = dataEtapa;
+        }
+      });
+    });
+  });
+
+  var global = {};
+  ETAPAS.forEach(function (et) {
+    global[et.chave] = contGlobal[et.chave] ? (somaGlobal[et.chave] / contGlobal[et.chave]) : null;
+  });
+
+  return { global: global, somaModelo: somaModelo, contModelo: contModelo };
+}
+
+function mediaEtapaParaModelo_(medias, modelo, chave) {
+  var chaveModelo = modelo + '|' + chave;
+  if (modelo && medias.contModelo[chaveModelo] >= 2) {
+    return medias.somaModelo[chaveModelo] / medias.contModelo[chaveModelo];
+  }
+  return medias.global[chave];
+}
+
+// ===========================================================================
+// Previsao de conclusao por regressao linear simples: em vez de assumir
+// que a proxima etapa demora sempre a media historica, ajusta uma reta
+// (minimos quadrados) aos tempos das etapas mais recentes dessa
+// etapa+modelo, para captar uma tendencia (produção a ficar mais rapida
+// ou mais lenta) e projetar o PROXIMO valor sobre essa reta. So usa a
+// regressao quando ha pelo menos 3 amostras (menos que isso, uma reta
+// nao significa nada); caso contrario cai na media simples, e na
+// ausencia total de dados devolve null.
+// ===========================================================================
+
+/**
+ * Ajusta y = a + b*x por minimos quadrados a uma serie cronologica
+ * (x = 1..n), e devolve tambem a projecao para a amostra seguinte
+ * (x = n+1). Pontos insuficientes (n < 2) devolvem null.
+ */
+function regressaoLinearSimples_(pontosY) {
+  var n = pontosY.length;
+  if (n < 2) return null;
+  var somaX = 0, somaY = 0, somaXY = 0, somaXX = 0;
+  for (var i = 0; i < n; i++) {
+    var x = i + 1;
+    var y = pontosY[i];
+    somaX += x;
+    somaY += y;
+    somaXY += x * y;
+    somaXX += x * x;
+  }
+  var denominador = (n * somaXX - somaX * somaX);
+  if (denominador === 0) return null; // todos os x iguais - nao deve acontecer aqui
+  var b = (n * somaXY - somaX * somaY) / denominador;
+  var a = (somaY - b * somaX) / n;
+  return { a: a, b: b, n: n, proximo: a + b * (n + 1) };
+}
+
+/**
+ * Series cronologicas (globais e por modelo) de dias gastos em cada
+ * etapa, ordenadas pela data de criacao do registo a que pertencem -
+ * a mesma informacao usada em obterMediasEtapas_, mas guardando cada
+ * amostra individual (nao so a soma/contagem) para poder ajustar a
+ * regressao.
+ */
+function obterSeriesEtapas_() {
+  var seriesGlobais = {};
+  var seriesPorModelo = {};
+  ETAPAS.forEach(function (et) { seriesGlobais[et.chave] = []; });
+
+  ['grupos', 'ciclos'].forEach(function (tipo) {
+    var aba = obterAba(tipo);
+    var ultimaLinha = aba.getLastRow();
+    if (ultimaLinha < 2) return;
+    var valores = aba.getRange(2, 1, ultimaLinha - 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues();
+
+    var linhasComData = valores
+      .filter(function (linha) { return linha[COL.SERIAL - 1] && linha[COL.CRIADO - 1]; })
+      .map(function (linha) { return { linha: linha, criadoEm: linha[COL.CRIADO - 1].toString() }; });
+    linhasComData.sort(function (a, b) { return a.criadoEm.localeCompare(b.criadoEm); });
+
+    linhasComData.forEach(function (entrada) {
+      var linha = entrada.linha;
+      var modelo = (linha[COL.GRUPO - 1] || '').toString().trim();
+      var dataAnterior = new Date(entrada.criadoEm.replace(' ', 'T'));
+
+      ETAPAS.forEach(function (et, indice) {
+        var bruto = (linha[COL_PRIMEIRA_ETAPA - 1 + indice] || '').toString();
+        var dataConcluida = bruto.split(SEPARADOR_NOTA)[0];
+        if (!dataConcluida || isNaN(dataAnterior.getTime())) return;
+        var dataEtapa = new Date(dataConcluida.replace(' ', 'T'));
+        if (isNaN(dataEtapa.getTime())) return;
+        var dias = (dataEtapa.getTime() - dataAnterior.getTime()) / (1000 * 60 * 60 * 24);
+        if (dias >= 0) {
+          seriesGlobais[et.chave].push(dias);
+          if (modelo) {
+            var chaveModelo = modelo + '|' + et.chave;
+            seriesPorModelo[chaveModelo] = seriesPorModelo[chaveModelo] || [];
+            seriesPorModelo[chaveModelo].push(dias);
+          }
+          dataAnterior = dataEtapa;
+        }
+      });
+    });
+  });
+
+  return { global: seriesGlobais, porModelo: seriesPorModelo };
+}
+
+function previsaoProximaDuracaoEtapa_(series, modelo, chave) {
+  var chaveModelo = modelo + '|' + chave;
+  var amostrasModelo = modelo ? series.porModelo[chaveModelo] : null;
+  var amostrasGlobais = series.global[chave];
+
+  if (amostrasModelo && amostrasModelo.length >= 3) {
+    var regModelo = regressaoLinearSimples_(amostrasModelo);
+    if (regModelo) return Math.max(0, regModelo.proximo);
+  }
+  if (amostrasGlobais && amostrasGlobais.length >= 3) {
+    var regGlobal = regressaoLinearSimples_(amostrasGlobais);
+    if (regGlobal) return Math.max(0, regGlobal.proximo);
+  }
+
+  var amostras = (amostrasModelo && amostrasModelo.length ? amostrasModelo : amostrasGlobais) || [];
+  if (!amostras.length) return null;
+  return amostras.reduce(function (soma, valor) { return soma + valor; }, 0) / amostras.length;
+}
+
+/**
+ * Previsao de data de conclusao de um registo em curso: soma, para cada
+ * etapa ainda nao concluida, a duracao PREVISTA (regressao/media, ver
+ * acima) a partir da ultima etapa concluida (ou de agora, se nenhuma
+ * etapa estiver concluida ainda).
+ */
+function obterPrevisaoConclusao(parametros) {
+  var tipo = (parametros.tipo || '').toString().trim();
+  var serial = normalizarSerial_(parametros.serial);
+  if (['grupos', 'ciclos'].indexOf(tipo) === -1 || !serial) {
+    return { status: 'erro', msg: 'Tipo/serial invalido.' };
+  }
+
+  var aba = obterAba(tipo);
+  var linha = encontrarLinha(aba, serial);
+  if (linha === -1) return { status: 'erro', msg: 'Registo nao encontrado.' };
+
+  var valores = aba.getRange(linha, 1, 1, COL_PRIMEIRA_ETAPA - 1 + ETAPAS.length).getValues()[0];
+  var item = linhaParaObjeto(valores);
+  if (item.estado === 'Terminado') {
+    return { status: 'ok', terminado: true };
+  }
+
+  var series = obterSeriesEtapas_();
+  var dataBase = null;
+  var diasRestantesTotal = 0;
+  var etapasConsideradas = 0;
+
+  for (var i = 0; i < ETAPAS.length; i++) {
+    var info = item.etapas[ETAPAS[i].chave];
+    if (info && info.data) {
+      dataBase = new Date(isoDeDataHora_(info.data));
+      continue;
+    }
+    var previsto = previsaoProximaDuracaoEtapa_(series, item.grupo, ETAPAS[i].chave);
+    if (previsto === null) continue;
+    diasRestantesTotal += previsto;
+    etapasConsideradas++;
+  }
+
+  if (!etapasConsideradas) {
+    return { status: 'ok', semDadosSuficientes: true };
+  }
+
+  var dataPartida = dataBase || new Date();
+  var dataPrevista = new Date(dataPartida.getTime() + diasRestantesTotal * 24 * 60 * 60 * 1000);
+
+  return {
+    status: 'ok',
+    dataPrevista: Utilities.formatDate(dataPrevista, Session.getScriptTimeZone() || 'GMT', 'yyyy-MM-dd'),
+    diasRestantesEstimados: Math.round(diasRestantesTotal * 10) / 10,
+    etapasConsideradas: etapasConsideradas
+  };
+}
+
 function obterHistoricoCompleto(parametros) {
   var resposta;
   try {
@@ -2796,6 +3485,7 @@ function obterHistoricoCompleto(parametros) {
       throw new Error('Numero de serie em falta.');
     }
 
+    var medias = obterMediasEtapas_();
     var eventos = [];
     var raiz = DriveApp.getFolderById(FOLDER_ID);
     var prefixoSerial = sanitizeNome(serial);
@@ -2833,12 +3523,28 @@ function obterHistoricoCompleto(parametros) {
         });
       }
 
+      var dataAnteriorEtapa = obj.criadoEm ? new Date(isoDeDataHora_(obj.criadoEm)) : null;
       ETAPAS.forEach(function (et) {
         var info = obj.etapas[et.chave];
         if (info && info.data) {
           var descricaoEtapa = 'Etapa concluida: ' + et.rotulo;
           if (info.nota) descricaoEtapa = descricaoEtapa + ' (' + info.nota + ')';
-          eventos.push({ data: isoDeDataHora_(info.data), tipo: 'producao', descricao: descricaoEtapa });
+
+          var evento = { data: isoDeDataHora_(info.data), tipo: 'producao', descricao: descricaoEtapa };
+          var dataEtapa = new Date(isoDeDataHora_(info.data));
+          if (dataAnteriorEtapa && !isNaN(dataEtapa.getTime())) {
+            var diasReal = (dataEtapa.getTime() - dataAnteriorEtapa.getTime()) / (1000 * 60 * 60 * 24);
+            var diasMedia = mediaEtapaParaModelo_(medias, obj.grupo, et.chave);
+            if (diasReal >= 0 && diasMedia) {
+              var desvioPercent = Math.round(((diasReal - diasMedia) / diasMedia) * 100);
+              evento.desvioPercent = desvioPercent;
+              evento.alerta = desvioPercent > 50;
+              evento.descricao = descricaoEtapa + ' — ' + Math.round(diasReal * 10) / 10 + ' dia(s)' +
+                ' (média: ' + Math.round(diasMedia * 10) / 10 + ', desvio ' + (desvioPercent >= 0 ? '+' : '') + desvioPercent + '%)';
+            }
+          }
+          dataAnteriorEtapa = !isNaN(dataEtapa.getTime()) ? dataEtapa : dataAnteriorEtapa;
+          eventos.push(evento);
         }
       });
     });
@@ -3112,7 +3818,8 @@ var PAGINAS_CHECKLIST_GRUPOS_ = {
   assinaturaPagina6: 6,
   embalagem: 7,
   assinaturaPagina7: 7,
-  observacoes: 8
+  observacoes: 8,
+  assinaturaSupervisor: 8
 };
 var PAGINAS_CHECKLIST_CICLOS_ = {
   esquemaEletrico: 2,
@@ -3135,7 +3842,8 @@ var PAGINAS_CHECKLIST_CICLOS_ = {
   assinaturaPagina7: 7,
   embalagem: 8,
   assinaturaPagina8: 8,
-  observacoes: 9
+  observacoes: 9,
+  assinaturaSupervisor: 9
 };
 
 // Tamanho A4 em pontos (21 x 29,7 cm) - por omissao o DocumentApp.create()
@@ -3662,7 +4370,7 @@ function gerarPdfChecklistSobDemanda_(parametros) {
     return HtmlService.createHtmlOutput(html);
   } catch (erro) {
     var mensagem = erro && erro.message ? erro.message : String(erro);
-    return HtmlService.createHtmlOutput('<p>Erro ao gerar o PDF: ' + mensagem + '</p>');
+    return HtmlService.createHtmlOutput('<p>Erro ao gerar o PDF: ' + escaparHtml_(mensagem) + '</p>');
   } finally {
     if (temporario) {
       try { DriveApp.getFileById(temporario.getId()).setTrashed(true); } catch (erroLimpeza) { /* ignora */ }

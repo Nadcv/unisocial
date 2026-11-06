@@ -248,6 +248,79 @@ de Produção guarda os seus registos) — não é um script standalone.
   gravados a partir desta atualização — pastas/registos já existentes
   mantêm a capitalização com que foram criados.
 
+## Qualidade, portal do cliente e inteligência de dados (novidades)
+
+- **Assinatura do Supervisor** — além da assinatura do Responsável em
+  cada página, a última página do Checklist (Grupos e Ciclos) passa a
+  exigir também uma segunda assinatura, do Supervisor, antes de poder
+  enviar.
+- **Fotos mínimas configuráveis por campo** — o número mínimo de fotos
+  exigido em cada campo do Checklist (hoje sempre 1) pode ser alterado
+  numa aba nova **"RegrasFotosChecklist"** da Sheet (colunas `tipo`,
+  `campo`, `minimo`), sem tocar em código. Um campo sem linha aqui
+  continua a exigir 1 foto, como sempre.
+- **Encomenda automática de stock sugerida** — quando um movimento
+  deixa um material do Armazém no stock mínimo (ou abaixo), além do
+  alerta de WhatsApp já existente, cria-se uma sugestão de encomenda
+  (quantidade = stock máximo − stock atual, ou o dobro do mínimo se não
+  tiver stock máximo definido) numa nova secção **"Encomendas
+  sugeridas"**, com botão para marcar como resolvida quando a compra for
+  feita. Os novos campos opcionais "Stock máximo" e "Fornecedor
+  habitual" aparecem ao adicionar um material.
+- **Histórico de alterações campo a campo** — a Auditoria (Controlo de
+  Produção) passa a guardar, em cada gravação de um registo já
+  existente, exatamente o que mudou (ex.: "previsaoSaida: 2026-10-10 →
+  2026-10-15"), em vez de só "estado + previsão atuais". Ajuda a
+  responder "quem mudou isto e quando" numa reclamação.
+- **Comparação previsto vs. real por etapa** — no histórico combinado
+  de um número de série (botão "Ver histórico completo"), cada etapa
+  concluída mostra agora quantos dias demorou face à média histórica
+  dessa etapa (por modelo, quando há amostras suficientes; senão a
+  média geral), destacado a vermelho quando o desvio é superior a 50%.
+- **Previsão de conclusão por regressão linear** — dentro de um registo
+  em curso, aparece uma "Previsão estimada (histórico)" junto da
+  Previsão de saída manual: soma, para cada etapa ainda não concluída,
+  a duração projetada por uma regressão linear simples sobre os tempos
+  históricos dessa etapa/modelo (capta tendências de melhoria ou
+  atraso, não só uma média fixa) — puramente informativa, nunca
+  substitui o campo preenchido à mão.
+- **Exportar o Painel por e-mail** — novo botão "Enviar snapshot do
+  Painel por e-mail" no topo do Controlo de Produção, que gera um PDF
+  curto com os 3 cartões do Painel (resumo geral, etapas mais lentas,
+  tendência de atrasos) e envia para os e-mails já configurados no
+  cartão de resumo, abaixo.
+- **Google Calendar para prazos** — sempre que a "Previsão de saída" de
+  um registo é preenchida ou alterada, cria/atualiza automaticamente um
+  evento de dia inteiro no calendário Google da conta que publicou a
+  aplicação, com o número de série e o modelo; é apagado automaticamente
+  quando a máquina é marcada "Terminado" ou a previsão é removida.
+- **Pesquisa global** — nova barra de pesquisa no topo da aplicação
+  (visível em qualquer separador), que procura um número de série em
+  simultâneo no Controlo de Produção, nos Checklists e no histórico
+  combinado de Relatórios, com botões para abrir diretamente o que for
+  encontrado.
+- **Portal do cliente** — botão "Enviar link ao cliente" em cada
+  registo do Controlo de Produção, que mostra/copia o link público (sem
+  login) de consulta do estado — o mesmo que já é usado no QR code — e
+  pode enviá-lo diretamente por e-mail ao cliente.
+- **Modo kiosk para a fábrica** — abrir a aplicação com `?modo=kiosk`
+  no final do URL mostra uma página autónoma, de fundo escuro e letra
+  grande, pensada para ficar sempre aberta num tablet/ecrã na linha de
+  produção: lista só as máquinas "Em curso" com a etapa atual de cada
+  uma, destacadas a vermelho quando em atraso, e atualiza-se sozinha de
+  2 em 2 minutos. Não é a aplicação normal (não tem botões de editar).
+- **QR code por material (Armazém)** — cada material do stock passa a
+  ter um botão 🏷️ para gerar uma etiqueta QR (para colar na prateleira),
+  e o registo de movimentos tem um botão "Ler QR do material" para
+  selecionar o material lendo essa etiqueta em vez de o procurar na
+  lista.
+- **Backup/limpeza diários e aviso de quota** (ver secção anterior) e as
+  correções de segurança/robustez abaixo completam este lote: um erro
+  numa página de download que ecoasse texto do próprio pedido sem
+  escapar foi corrigido (podia permitir HTML/script injetado num link
+  malicioso), e o link de edição do Checklist deixa de ficar guardado
+  no histórico do browser depois de usado.
+
 ## Checklist de Produção
 
 Dentro de **✅ Checklist → Grupos**, está o checklist "CHECK-LIST DE

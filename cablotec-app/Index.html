@@ -16,6 +16,24 @@
     --texto: #1f2937;
     --texto-suave: #5f6b7a;
     --laranja: #b06000;
+    --fundo-card: #fff;
+    --fundo-input: #fafbfc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --azul: #4d9bf5;
+      --azul-escuro: #1a73e8;
+      --verde: #35c069;
+      --vermelho: #ff6b68;
+      --cinza-fundo: #14171c;
+      --cinza-borda: #3a3f47;
+      --texto: #e8eaed;
+      --texto-suave: #9aa3af;
+      --laranja: #e0a030;
+      --fundo-card: #1e2227;
+      --fundo-input: #2a2f36;
+    }
+    img, .thumb img { opacity: 0.92; }
   }
   * { box-sizing: border-box; }
   body {
@@ -55,7 +73,7 @@
     padding: 0 12px 40px;
   }
   .card {
-    background: #fff;
+    background: var(--fundo-card);
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
     padding: 16px;
@@ -74,12 +92,12 @@
     font-size: 1rem;
     border: 1px solid var(--cinza-borda);
     border-radius: 8px;
-    background: #fafbfc;
+    background: var(--fundo-input);
   }
   input[type="text"]:focus, input[type="email"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--azul);
-    background: #fff;
+    background: var(--fundo-card);
   }
   .ajuda {
     font-size: 0.78rem;
@@ -124,7 +142,7 @@
     border-radius: 8px;
     border: 1px solid var(--azul);
     color: var(--azul);
-    background: #fff;
+    background: var(--fundo-card);
     font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
@@ -204,7 +222,7 @@
     font-weight: 700;
     border: 1px solid var(--azul);
     border-radius: 10px;
-    background: #fff;
+    background: var(--fundo-card);
     color: var(--azul);
     cursor: pointer;
   }
@@ -236,7 +254,7 @@
     font-size: 1rem;
     border: 1px solid var(--cinza-borda);
     border-radius: 8px;
-    background: #fafbfc;
+    background: var(--fundo-input);
   }
   .duas-colunas {
     display: flex;
@@ -266,7 +284,7 @@
     font-size: 1rem;
     border: 1px solid var(--cinza-borda);
     border-radius: 8px;
-    background: #fafbfc;
+    background: var(--fundo-input);
     font-family: inherit;
     resize: vertical;
     min-height: 90px;
@@ -290,7 +308,7 @@
     font-weight: 600;
     border: 1px solid var(--cinza-borda);
     border-radius: 8px;
-    background: #fafbfc;
+    background: var(--fundo-input);
     color: var(--texto);
     cursor: pointer;
   }
@@ -307,7 +325,7 @@
     padding: 10px 12px;
     border: 1px solid var(--cinza-borda);
     border-radius: 8px;
-    background: #fff;
+    background: var(--fundo-card);
     font-size: 0.85rem;
     color: var(--texto);
     cursor: pointer;
@@ -332,7 +350,7 @@
     opacity: 0.8;
   }
   .aba-ativa {
-    background: #fff;
+    background: var(--fundo-card);
     color: var(--azul-escuro);
     opacity: 1;
   }
@@ -360,7 +378,7 @@
     cursor: pointer;
   }
   #trocaApp .botaoApp.ativo {
-    background: #fff;
+    background: var(--fundo-card);
     color: var(--azul-escuro);
   }
 
@@ -375,7 +393,7 @@
     font-weight: 700;
     border-radius: 8px;
     border: 1px solid var(--azul);
-    background: #fff;
+    background: var(--fundo-card);
     color: var(--azul);
     cursor: pointer;
   }
@@ -417,7 +435,7 @@
     padding: 10px 12px;
     border: 1px solid var(--cinza-borda);
     border-radius: 8px;
-    background: #fff;
+    background: var(--fundo-card);
     font-size: 0.85rem;
     color: var(--texto);
     cursor: pointer;
@@ -434,7 +452,7 @@
     font-weight: 700;
     border-radius: 999px;
     border: 1px solid var(--cinza-borda);
-    background: #fff;
+    background: var(--fundo-card);
     color: var(--texto-suave);
     cursor: pointer;
   }
@@ -465,7 +483,7 @@
     height: 28px;
     border-radius: 50%;
     border: 1px solid var(--cinza-borda);
-    background: #fff;
+    background: var(--fundo-card);
     cursor: pointer;
     font-size: 0.85rem;
   }
@@ -541,7 +559,7 @@
   }
   #qrOverlay[hidden] { display: none; }
   .qr-caixa {
-    background: #fff;
+    background: var(--fundo-card);
     border-radius: 12px;
     padding: 14px;
     max-width: 92vw;
@@ -553,7 +571,7 @@
     padding: 10px 16px;
     border-radius: 8px;
     border: 1px solid var(--cinza-borda);
-    background: #fafbfc;
+    background: var(--fundo-input);
     cursor: pointer;
     font-weight: 600;
   }
@@ -616,7 +634,7 @@
   .checklist-tabela td input[type="text"] { padding: 8px 10px; font-size: 0.88rem; }
   .checklist-tabela td:first-child { font-weight: 600; font-size: 0.85rem; white-space: nowrap; padding-right: 8px; }
   .assinatura-wrap { border: 1px solid var(--cinza-borda); border-radius: 8px; position: relative; margin-bottom: 4px; }
-  .assinatura-wrap canvas { width: 100%; height: 160px; display: block; touch-action: none; }
+  .assinatura-wrap canvas { width: 100%; height: 160px; display: block; touch-action: none; background: #fff; }
   .assinatura-limpar {
     position: absolute;
     top: 6px;
@@ -625,7 +643,7 @@
     height: 26px;
     border-radius: 50%;
     border: 1px solid var(--cinza-borda);
-    background: #fff;
+    background: var(--fundo-card);
     cursor: pointer;
     font-size: 12px;
   }
@@ -637,7 +655,7 @@
     padding: 10px 12px;
     border: 1px solid var(--cinza-borda);
     border-radius: 8px;
-    background: #fff;
+    background: var(--fundo-card);
     font-size: 0.85rem;
     color: var(--texto);
     cursor: pointer;
@@ -652,6 +670,12 @@
   <button type="button" class="botaoApp" id="botaoAppChecklist">✅ Checklist</button>
 </div>
 <div id="indicadorFilaEnvio" hidden style="background:#fdebd0;color:#7a4b00;padding:8px 14px;font-size:0.9rem;text-align:center;cursor:pointer;"></div>
+
+<div id="pesquisaGlobalBarra" style="background:var(--fundo-card);border-bottom:1px solid var(--cinza-borda);padding:8px 12px;display:flex;gap:6px;max-width:640px;margin:0 auto;">
+  <input type="text" id="pesquisaGlobalInput" placeholder="🔍 Pesquisar por número de série (Produção, Checklists, Relatórios)..." style="flex:1;padding:8px 10px;border:1px solid var(--cinza-borda);border-radius:8px;background:var(--fundo-input);color:var(--texto);" />
+  <button type="button" class="botao" id="pesquisaGlobalBotao">Pesquisar</button>
+</div>
+<div id="pesquisaGlobalResultados" hidden style="max-width:640px;margin:0 auto;background:var(--fundo-card);border-bottom:1px solid var(--cinza-borda);padding:10px 12px;"></div>
 
 <div id="secaoRelatorios">
 
@@ -824,6 +848,9 @@
       <div class="ajuda">A carregar...</div>
     </div>
     <div class="ajuda" id="quotaEmailAviso" hidden></div>
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-largo" id="botaoEnviarSnapshotDashboard">📤 Enviar snapshot do Painel por e-mail</button>
+    </div>
   </div>
 
   <div class="card" id="cardEstatisticasEtapas">
@@ -876,6 +903,7 @@
       <div>
         <label class="campo-label" for="previsaoSaida">Previsão de saída</label>
         <input type="date" id="previsaoSaida" />
+        <div class="ajuda" id="previsaoEstimadaHistorico"></div>
       </div>
       <div>
         <label class="campo-label" for="dataEntrega">Data de entrega</label>
@@ -941,6 +969,11 @@
     </div>
     <div id="historicoCompletoContainer" style="margin-top:10px;"></div>
 
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-largo" id="botaoLinkCliente">📤 Enviar link ao cliente</button>
+    </div>
+    <div id="linkClienteContainer" style="margin-top:6px;"></div>
+
     <div id="historicoContainer" style="margin-top:12px;"></div>
 
     <div style="height:16px"></div>
@@ -986,8 +1019,14 @@
       <input type="text" id="novoMatStockUnidade" placeholder="Unidade (un, m, kg...)" value="un" autocomplete="off" />
       <input type="text" id="novoMatStockAtual" placeholder="Stock inicial" autocomplete="off" />
       <input type="text" id="novoMatStockMinimo" placeholder="Stock mínimo" autocomplete="off" />
+      <input type="text" id="novoMatStockMaximo" placeholder="Stock máximo (opcional)" autocomplete="off" />
+      <input type="text" id="novoMatStockFornecedor" placeholder="Fornecedor habitual (opcional)" autocomplete="off" />
       <button type="button" class="botao-add-material" id="botaoAddMatStock">+</button>
     </div>
+
+    <div style="height:14px"></div>
+
+    <div id="listaEncomendasSugeridas"></div>
 
     <div style="height:14px"></div>
 
@@ -1002,6 +1041,9 @@
           <option value="Entrada">Entrada (reposição)</option>
         </select>
       </div>
+    </div>
+    <div class="linha-botoes" style="margin-top:8px;">
+      <button type="button" class="botao botao-largo" id="botaoLerQRMaterial">📷 Ler QR do material</button>
     </div>
     <div class="duas-colunas" style="margin-top:8px;">
       <div>
@@ -1398,6 +1440,13 @@
         <label class="campo-label" for="cg-observacoes">Observações</label>
         <textarea id="cg-observacoes"></textarea>
 
+        <div style="height:12px"></div>
+        <label class="campo-label">Assinatura do Supervisor</label>
+        <div class="assinatura-wrap">
+          <canvas id="cg-assinaturaSupervisor"></canvas>
+          <button type="button" class="assinatura-limpar" data-alvo="cg-assinaturaSupervisor">✕</button>
+        </div>
+
         <div class="linha-botoes">
           <button type="button" class="botao botao-largo cl-anterior">Anterior</button>
         </div>
@@ -1684,6 +1733,13 @@
 
         <label class="campo-label" for="cc-observacoes">Observações</label>
         <textarea id="cc-observacoes"></textarea>
+
+        <div style="height:12px"></div>
+        <label class="campo-label">Assinatura do Supervisor</label>
+        <div class="assinatura-wrap">
+          <canvas id="cc-assinaturaSupervisor"></canvas>
+          <button type="button" class="assinatura-limpar" data-alvo="cc-assinaturaSupervisor">✕</button>
+        </div>
 
         <div class="linha-botoes"><button type="button" class="botao botao-largo cc-anterior">Anterior</button></div>
         <div class="linha-botoes">
@@ -3656,6 +3712,7 @@
     mostrarLinkDrive(serial);
     mostrarHistorico('');
     carregarMateriaisPadrao();
+    document.getElementById('previsaoEstimadaHistorico').textContent = '';
   }
 
   function abrirRegistoExistente(dados) {
@@ -3673,6 +3730,26 @@
     mostrarLinkDrive(dados.serial);
     mostrarHistorico(dados.serialAnteriores);
     carregarMateriaisPadrao();
+    carregarPrevisaoEstimadaHistorico(dados.serial);
+  }
+
+  /**
+   * Previsão de conclusão estimada com base no histórico (regressão
+   * linear simples por etapa/modelo) - informativa, nunca substitui o
+   * campo "Previsão de saída" preenchido manualmente.
+   */
+  function carregarPrevisaoEstimadaHistorico(serial) {
+    var elemento = document.getElementById('previsaoEstimadaHistorico');
+    elemento.textContent = '';
+    if (!APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=previsaoConclusao&tipo=' + TIPO_ATUAL + '&serial=' + encodeURIComponent(serial))
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok' || dados.terminado || dados.semDadosSuficientes || !dados.dataPrevista) return;
+        var dataFormatada = new Date(dados.dataPrevista + 'T00:00:00').toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        elemento.textContent = '📈 Previsão estimada (histórico): ' + dataFormatada;
+      })
+      .catch(function () { /* informativo - falha em silencio */ });
   }
 
   function esconderRegisto() {
@@ -3978,6 +4055,7 @@
   // Armazem - stock real de materiais, movimentos, e previsao simples.
   // ---------------------------------------------------------------------
   var listaMateriaisStock = document.getElementById('listaMateriaisStock');
+  var listaEncomendasSugeridas = document.getElementById('listaEncomendasSugeridas');
   var movStockMaterial = document.getElementById('movStockMaterial');
 
   function carregarMateriaisStock() {
@@ -3990,6 +4068,21 @@
       movStockMaterial.innerHTML = '<option value="">Selecione o material...</option>' + dados.itens.map(function (m) {
         return '<option value="' + m.id + '">' + m.nome + ' (' + m.stockAtual + ' ' + m.unidade + ')</option>';
       }).join('');
+
+      var encomendas = dados.encomendasSugeridas || [];
+      if (!encomendas.length) {
+        listaEncomendasSugeridas.innerHTML = '';
+      } else {
+        listaEncomendasSugeridas.innerHTML = '<label class="campo-label">Encomendas sugeridas</label>' +
+          encomendas.map(function (enc) {
+            return '<div class="item-material" style="align-items:flex-start;background:#fff8e6;">' +
+              '<span class="codigo-material">' + enc.materialNome + '</span>' +
+              '<span class="descricao-material">Sugestão: encomendar ' + enc.quantidadeSugerida +
+                (enc.fornecedor ? ' · Fornecedor: ' + enc.fornecedor : '') + ' · ' + enc.criadoEm + '</span>' +
+              '<button type="button" class="botao-resolver-encomenda" data-id="' + enc.id + '" aria-label="Marcar como resolvida">✓</button>' +
+            '</div>';
+          }).join('');
+      }
 
       if (!dados.itens.length) {
         listaMateriaisStock.innerHTML = '<div class="ajuda">Ainda sem materiais em stock registados.</div>';
@@ -4008,6 +4101,7 @@
             (m.stockBaixo ? ' <span class="badge badge-atraso">BAIXO</span>' : '') +
             previsaoTexto +
           '</span>' +
+          '<button type="button" class="botao-qr-material" data-id="' + m.id + '" data-nome="' + m.nome + '" aria-label="Gerar QR">🏷️</button>' +
           '<button type="button" data-id="' + m.id + '" aria-label="Remover">✕</button>' +
         '</div>';
       }).join('');
@@ -4016,7 +4110,24 @@
     });
   }
 
+  listaEncomendasSugeridas.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('.botao-resolver-encomenda');
+    if (!botao) return;
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ acao: 'resolverEncomendaSugerida', id: botao.dataset.id }) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') { mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro'); return; }
+        carregarMateriaisStock();
+      })
+      .catch(function (erro) { mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro'); });
+  });
+
   listaMateriaisStock.addEventListener('click', function (ev) {
+    var botaoQr = ev.target.closest('.botao-qr-material');
+    if (botaoQr) {
+      gerarEtiquetaQR(botaoQr.dataset.nome, botaoQr.dataset.id);
+      return;
+    }
     var botao = ev.target.closest('button[data-id]');
     if (!botao) return;
     if (!window.confirm('Remover este material do stock?')) return;
@@ -4029,6 +4140,17 @@
       .catch(function (erro) { mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro'); });
   });
 
+  document.getElementById('botaoLerQRMaterial').addEventListener('click', function () {
+    abrirLeitorQR(function (texto) {
+      var existe = Array.prototype.some.call(movStockMaterial.options, function (o) { return o.value === texto; });
+      if (!existe) {
+        mostrarEstado('Este código QR não corresponde a nenhum material em stock.', 'erro');
+        return;
+      }
+      movStockMaterial.value = texto;
+    });
+  });
+
   document.getElementById('botaoAddMatStock').addEventListener('click', function () {
     var payload = {
       acao: 'adicionarMaterialStock',
@@ -4036,7 +4158,9 @@
       categoria: document.getElementById('novoMatStockCategoria').value,
       unidade: document.getElementById('novoMatStockUnidade').value.trim(),
       stockAtual: document.getElementById('novoMatStockAtual').value.trim(),
-      stockMinimo: document.getElementById('novoMatStockMinimo').value.trim()
+      stockMinimo: document.getElementById('novoMatStockMinimo').value.trim(),
+      stockMaximo: document.getElementById('novoMatStockMaximo').value.trim(),
+      fornecedor: document.getElementById('novoMatStockFornecedor').value.trim()
     };
     if (!APPS_SCRIPT_URL) { mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro'); return; }
     fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
@@ -4046,6 +4170,8 @@
         document.getElementById('novoMatStockNome').value = '';
         document.getElementById('novoMatStockAtual').value = '';
         document.getElementById('novoMatStockMinimo').value = '';
+        document.getElementById('novoMatStockMaximo').value = '';
+        document.getElementById('novoMatStockFornecedor').value = '';
         mostrarEstado('Material adicionado ao stock.', 'sucesso');
         carregarMateriaisStock();
       })
@@ -4097,14 +4223,57 @@
       historicoCompletoContainer.innerHTML = dados.eventos.map(function (ev) {
         var icone = ev.tipo === 'relatorio' ? '📷' : '🏭';
         var dataFormatada = new Date(ev.data).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        var estiloDesvio = ev.alerta ? ' style="color:var(--vermelho);font-weight:700;"' : '';
         return '<div class="evento-historico tipo-' + ev.tipo + '">' +
           '<span class="evento-data">' + dataFormatada + '</span>' +
           '<span class="evento-icone">' + icone + '</span>' +
-          '<span>' + ev.descricao + '</span>' +
+          '<span' + estiloDesvio + '>' + ev.descricao + '</span>' +
         '</div>';
       }).join('');
     }).catch(function (erro) {
       historicoCompletoContainer.innerHTML = '<div class="ajuda">' + erro.message + '</div>';
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Portal do cliente: link publico (sem login) de consulta do estado,
+  // reaproveitando a mesma pagina ja usada para gerar o QR (verRegisto).
+  // Mostra o link para copiar e permite enviar diretamente por e-mail.
+  // ---------------------------------------------------------------------
+  var linkClienteContainer = document.getElementById('linkClienteContainer');
+
+  document.getElementById('botaoLinkCliente').addEventListener('click', function () {
+    var serial = campoSerial.value.trim();
+    if (!serial) { mostrarEstado('Indique o número de série.', 'erro'); return; }
+    if (!APPS_SCRIPT_URL) { mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro'); return; }
+
+    var link = APPS_SCRIPT_URL + '?action=verRegisto&tipo=' + TIPO_ATUAL + '&serial=' + encodeURIComponent(serial);
+    linkClienteContainer.innerHTML =
+      '<div class="ajuda" style="word-break:break-all;">Link público: <a href="' + link + '" target="_blank">' + link + '</a></div>' +
+      '<div class="duas-colunas" style="margin-top:6px;">' +
+        '<input type="email" id="linkClienteEmail" placeholder="E-mail do cliente (opcional)" autocomplete="off" />' +
+        '<button type="button" class="botao" id="botaoLinkClienteCopiar">Copiar link</button>' +
+      '</div>' +
+      '<div class="linha-botoes"><button type="button" class="botao botao-primario botao-largo" id="botaoLinkClienteEnviar">Enviar por e-mail</button></div>';
+
+    document.getElementById('botaoLinkClienteCopiar').addEventListener('click', function () {
+      navigator.clipboard.writeText(link).then(function () {
+        mostrarEstado('Link copiado.', 'sucesso');
+      }).catch(function () {
+        mostrarEstado('Não foi possível copiar automaticamente - selecione e copie o link acima.', 'erro');
+      });
+    });
+
+    document.getElementById('botaoLinkClienteEnviar').addEventListener('click', function () {
+      var email = document.getElementById('linkClienteEmail').value.trim();
+      if (!email) { mostrarEstado('Indique o e-mail do cliente.', 'erro'); return; }
+      fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ acao: 'enviarLinkCliente', tipo: TIPO_ATUAL, serial: serial, email: email }) })
+        .then(respostaParaJsonGlobal)
+        .then(function (dados) {
+          if (dados.status !== 'ok') { mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro'); return; }
+          mostrarEstado('Link enviado ao cliente por e-mail.', 'sucesso');
+        })
+        .catch(function (erro) { mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro'); });
     });
   });
 
@@ -4140,6 +4309,40 @@
       .finally(function () {
         botaoEnviarResumo.disabled = false;
         botaoEnviarResumo.textContent = 'Enviar resumo (Excel + PDF)';
+      });
+  });
+
+  var botaoEnviarSnapshotDashboard = document.getElementById('botaoEnviarSnapshotDashboard');
+  botaoEnviarSnapshotDashboard.addEventListener('click', function () {
+    var emails = document.getElementById('emailsResumo').value.trim();
+    if (!emails) {
+      mostrarEstado('Indique pelo menos um e-mail no campo "Enviar resumo de produção por e-mail", mais abaixo.', 'erro');
+      return;
+    }
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+
+    botaoEnviarSnapshotDashboard.disabled = true;
+    botaoEnviarSnapshotDashboard.textContent = 'A enviar...';
+    mostrarEstado('A gerar o PDF do Painel e a enviar, aguarde...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ acao: 'enviarSnapshotDashboard', emails: emails }) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') {
+          mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro');
+          return;
+        }
+        mostrarEstado('Snapshot do Painel enviado por e-mail.', 'sucesso');
+      })
+      .catch(function (erro) {
+        mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro');
+      })
+      .finally(function () {
+        botaoEnviarSnapshotDashboard.disabled = false;
+        botaoEnviarSnapshotDashboard.textContent = '📤 Enviar snapshot do Painel por e-mail';
       });
   });
 
@@ -4288,6 +4491,8 @@
   if (LISTAS_JSON.indexOf('{') === 0) {
     try { LISTAS_CG = JSON.parse(LISTAS_JSON); } catch (erroListasCg) { /* mantem os valores por omissao */ }
   }
+  var MINIMOS_FOTOS_GRUPOS = (LISTAS_CG.regrasFotosChecklist || {}).grupos || {};
+  function minimoFotosGrupos(campo) { return MINIMOS_FOTOS_GRUPOS[campo] || 1; }
 
   function preencherSelectComOutro(idSelect, valores) {
     var select = document.getElementById(idSelect);
@@ -4614,7 +4819,7 @@
     return estado.canvas.toDataURL('image/png');
   }
 
-  ['cg-assinatura3', 'cg-assinatura4', 'cg-assinatura5', 'cg-assinatura6', 'cg-assinatura7'].forEach(configurarAssinatura);
+  ['cg-assinatura3', 'cg-assinatura4', 'cg-assinatura5', 'cg-assinatura6', 'cg-assinatura7', 'cg-assinaturaSupervisor'].forEach(configurarAssinatura);
 
   document.querySelectorAll('#checklistGrupos .assinatura-limpar').forEach(function (botao) {
     botao.addEventListener('click', function () {
@@ -4734,26 +4939,27 @@
       return false;
     }
 
+    if (numero === 8 && !obterAssinaturaDataUrl('cg-assinaturaSupervisor')) {
+      mostrarEstadoChecklistGrupos('Assinatura do Supervisor em falta antes de enviar.', 'erro');
+      return false;
+    }
+
     if (numero === 6) {
-      if (!cgFotos.fotosEtiquetas.length && !cgFotosExistentes.fotosEtiquetas) {
-        mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto das etiquetas.', 'erro');
-        return false;
-      }
-      if (!cgFotos.fotosControlador.length && !cgFotosExistentes.fotosControlador) {
-        mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do controlador.', 'erro');
-        return false;
-      }
-      if (!cgFotos.fotosTesteEletrico.length && !cgFotosExistentes.fotosTesteEletrico) {
-        mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do teste eléctrico.', 'erro');
-        return false;
-      }
-      if (!cgFotos.fotosTestePressao.length && !cgFotosExistentes.fotosTestePressao) {
-        mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do teste de pressão.', 'erro');
-        return false;
-      }
-      if (!cgFotos.fotosTesteVacuo.length && !cgFotosExistentes.fotosTesteVacuo) {
-        mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos uma foto do teste de vácuo.', 'erro');
-        return false;
+      var regrasFotosPagina6 = [
+        { campo: 'fotosEtiquetas', fotos: cgFotos.fotosEtiquetas, existentes: cgFotosExistentes.fotosEtiquetas, rotulo: 'das etiquetas' },
+        { campo: 'fotosControlador', fotos: cgFotos.fotosControlador, existentes: cgFotosExistentes.fotosControlador, rotulo: 'do controlador' },
+        { campo: 'fotosTesteEletrico', fotos: cgFotos.fotosTesteEletrico, existentes: cgFotosExistentes.fotosTesteEletrico, rotulo: 'do teste eléctrico' },
+        { campo: 'fotosTestePressao', fotos: cgFotos.fotosTestePressao, existentes: cgFotosExistentes.fotosTestePressao, rotulo: 'do teste de pressão' },
+        { campo: 'fotosTesteVacuo', fotos: cgFotos.fotosTesteVacuo, existentes: cgFotosExistentes.fotosTesteVacuo, rotulo: 'do teste de vácuo' }
+      ];
+      for (var iFotoCg = 0; iFotoCg < regrasFotosPagina6.length; iFotoCg++) {
+        var regraCg = regrasFotosPagina6[iFotoCg];
+        var minimoCg = minimoFotosGrupos(regraCg.campo);
+        var contagemCg = regraCg.fotos.length + (regraCg.existentes || 0);
+        if (contagemCg < minimoCg) {
+          mostrarEstadoChecklistGrupos('Tire ou escolha pelo menos ' + minimoCg + ' foto(s) ' + regraCg.rotulo + '.', 'erro');
+          return false;
+        }
       }
     }
 
@@ -4826,7 +5032,7 @@
     renderizarPreviewsChecklist('fotosTesteEletrico', 'cg-fotosTesteEletricoPreviews');
     renderizarPreviewsChecklist('fotosTestePressao', 'cg-fotosTestePressaoPreviews');
     renderizarPreviewsChecklist('fotosTesteVacuo', 'cg-fotosTesteVacuoPreviews');
-    ['cg-assinatura3', 'cg-assinatura4', 'cg-assinatura5', 'cg-assinatura6', 'cg-assinatura7'].forEach(function (id) {
+    ['cg-assinatura3', 'cg-assinatura4', 'cg-assinatura5', 'cg-assinatura6', 'cg-assinatura7', 'cg-assinaturaSupervisor'].forEach(function (id) {
       var estado = assinaturas[id];
       if (estado) {
         estado.ctx.clearRect(0, 0, estado.canvas.width, estado.canvas.height);
@@ -4868,7 +5074,8 @@
       assinaturaPagina6: obterAssinaturaDataUrl('cg-assinatura6'),
       embalagem: valoresItens(CG_PAGINA7_ITENS),
       assinaturaPagina7: obterAssinaturaDataUrl('cg-assinatura7'),
-      observacoes: valorTexto('cg-observacoes')
+      observacoes: valorTexto('cg-observacoes'),
+      assinaturaSupervisor: obterAssinaturaDataUrl('cg-assinaturaSupervisor')
     };
   }
 
@@ -5127,6 +5334,8 @@
   if (LISTAS_JSON.indexOf('{') === 0) {
     try { LISTAS_CC = JSON.parse(LISTAS_JSON); } catch (erroListasCc) { /* mantem os valores por omissao */ }
   }
+  var MINIMOS_FOTOS_CICLOS = (LISTAS_CC.regrasFotosChecklist || {}).ciclos || {};
+  function minimoFotosCiclos(campo) { return MINIMOS_FOTOS_CICLOS[campo] || 1; }
 
   function preencherSelectComOutroCiclos(idSelect, valores) {
     var select = document.getElementById(idSelect);
@@ -5337,7 +5546,7 @@
     return estado.canvas.toDataURL('image/png');
   }
 
-  ['cc-assinatura3', 'cc-assinatura5', 'cc-assinatura6', 'cc-assinatura7', 'cc-assinatura8'].forEach(configurarAssinaturaCiclos);
+  ['cc-assinatura3', 'cc-assinatura5', 'cc-assinatura6', 'cc-assinatura7', 'cc-assinatura8', 'cc-assinaturaSupervisor'].forEach(configurarAssinaturaCiclos);
 
   document.querySelectorAll('#checklistCiclos .assinatura-limpar').forEach(function (botao) {
     botao.addEventListener('click', function () {
@@ -5456,15 +5665,29 @@
       return false;
     }
 
-    if (numero === 5 && !ccFotos.fotosIdentificacao.length && !ccFotosExistentes.fotosIdentificacao) {
-      mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto da identificação do clico.', 'erro');
+    if (numero === 9 && !obterAssinaturaCiclosDataUrl('cc-assinaturaSupervisor')) {
+      mostrarEstadoChecklistCiclos('Assinatura do Supervisor em falta antes de enviar.', 'erro');
       return false;
     }
-    if (numero === 6) {
-      if (!ccFotos.fotosTesteEletrico.length && !ccFotosExistentes.fotosTesteEletrico) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste elétrico.', 'erro'); return false; }
-      if (!ccFotos.fotosTestePressao.length && !ccFotosExistentes.fotosTestePressao) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de pressão.', 'erro'); return false; }
-      if (!ccFotos.fotosTesteVacuo.length && !ccFotosExistentes.fotosTesteVacuo) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste de vácuo.', 'erro'); return false; }
-      if (!ccFotos.fotosTesteEletricoHumidificador.length && !ccFotosExistentes.fotosTesteEletricoHumidificador) { mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos uma foto do teste elétrico do humidificador.', 'erro'); return false; }
+
+    if (numero === 5 || numero === 6) {
+      var regrasFotosCc = numero === 5
+        ? [{ campo: 'fotosIdentificacao', fotos: ccFotos.fotosIdentificacao, existentes: ccFotosExistentes.fotosIdentificacao, rotulo: 'da identificação do clico' }]
+        : [
+            { campo: 'fotosTesteEletrico', fotos: ccFotos.fotosTesteEletrico, existentes: ccFotosExistentes.fotosTesteEletrico, rotulo: 'do teste elétrico' },
+            { campo: 'fotosTestePressao', fotos: ccFotos.fotosTestePressao, existentes: ccFotosExistentes.fotosTestePressao, rotulo: 'do teste de pressão' },
+            { campo: 'fotosTesteVacuo', fotos: ccFotos.fotosTesteVacuo, existentes: ccFotosExistentes.fotosTesteVacuo, rotulo: 'do teste de vácuo' },
+            { campo: 'fotosTesteEletricoHumidificador', fotos: ccFotos.fotosTesteEletricoHumidificador, existentes: ccFotosExistentes.fotosTesteEletricoHumidificador, rotulo: 'do teste elétrico do humidificador' }
+          ];
+      for (var iFotoCc = 0; iFotoCc < regrasFotosCc.length; iFotoCc++) {
+        var regraCc = regrasFotosCc[iFotoCc];
+        var minimoCc = minimoFotosCiclos(regraCc.campo);
+        var contagemCc = regraCc.fotos.length + (regraCc.existentes || 0);
+        if (contagemCc < minimoCc) {
+          mostrarEstadoChecklistCiclos('Tire ou escolha pelo menos ' + minimoCc + ' foto(s) ' + regraCc.rotulo + '.', 'erro');
+          return false;
+        }
+      }
     }
 
     esconderEstadoChecklistCiclos();
@@ -5540,7 +5763,7 @@
     renderizarPreviewsChecklistCiclos('fotosTestePressao', 'cc-fotosTestePressaoPreviews');
     renderizarPreviewsChecklistCiclos('fotosTesteVacuo', 'cc-fotosTesteVacuoPreviews');
     renderizarPreviewsChecklistCiclos('fotosTesteEletricoHumidificador', 'cc-fotosTesteEletricoHumidificadorPreviews');
-    ['cc-assinatura3', 'cc-assinatura5', 'cc-assinatura6', 'cc-assinatura7', 'cc-assinatura8'].forEach(function (id) {
+    ['cc-assinatura3', 'cc-assinatura5', 'cc-assinatura6', 'cc-assinatura7', 'cc-assinatura8', 'cc-assinaturaSupervisor'].forEach(function (id) {
       var estado = assinaturasCiclos[id];
       if (estado) {
         estado.ctx.clearRect(0, 0, estado.canvas.width, estado.canvas.height);
@@ -5584,7 +5807,8 @@
       assinaturaPagina7: obterAssinaturaCiclosDataUrl('cc-assinatura7'),
       embalagem: valoresItensCiclos(CC_PAGINA8_ITENS),
       assinaturaPagina8: obterAssinaturaCiclosDataUrl('cc-assinatura8'),
-      observacoes: valorTextoCiclos('cc-observacoes')
+      observacoes: valorTextoCiclos('cc-observacoes'),
+      assinaturaSupervisor: obterAssinaturaCiclosDataUrl('cc-assinaturaSupervisor')
     };
   }
 
@@ -5842,6 +6066,10 @@
           document.getElementById('abaChecklistGrupos').click();
           if (window.preencherChecklistGruposEdicaoGlobal) window.preencherChecklistGruposEdicaoGlobal(dados);
         }
+        // Tira o ?checklistId= do URL depois de carregado, para um
+        // refresh acidental da pagina nao voltar a abrir o mesmo link de
+        // edicao (e para nao ficar guardado assim no historico/favoritos).
+        try { window.history.replaceState(null, '', window.location.pathname); } catch (erroHistorico) { /* ignora */ }
       })
       .catch(function (erro) {
         alert('Erro ao carregar o checklist para edição: ' + erro.message);
@@ -5931,6 +6159,111 @@
   if (!checklistId) {
     carregarBannerRascunhosChecklist();
   }
+
+  // -------------------------------------------------------------------
+  // Pesquisa global: junta Controlo de Producao (Grupos+Ciclos),
+  // Checklists e o historico combinado de Relatorios+Producao, todos
+  // pelo mesmo numero de serie - sem precisar de saber de antemao em
+  // que separador esta o que procura.
+  // -------------------------------------------------------------------
+  function escaparHtmlPesquisa(texto) {
+    return (texto || '').toString()
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function abrirRegistoNoProducaoGlobal(tipo, serial) {
+    mostrarApp('producao');
+    document.getElementById(tipo === 'ciclos' ? 'abaCiclosProducao' : 'abaGrupos').click();
+    document.getElementById('serialProducao').value = serial;
+    document.getElementById('botaoProcurar').click();
+  }
+
+  function executarPesquisaGlobal() {
+    var serial = document.getElementById('pesquisaGlobalInput').value.trim();
+    var painel = document.getElementById('pesquisaGlobalResultados');
+    if (!serial) { painel.hidden = true; return; }
+    if (!APPS_SCRIPT_URL) {
+      painel.hidden = false;
+      painel.innerHTML = '<div class="ajuda">Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.</div>';
+      return;
+    }
+
+    painel.hidden = false;
+    painel.innerHTML = '<div class="ajuda">A pesquisar...</div>';
+
+    Promise.all([
+      fetch(APPS_SCRIPT_URL + '?action=obter&tipo=grupos&serial=' + encodeURIComponent(serial)).then(respostaParaJsonGlobal).catch(function () { return { status: 'erro' }; }),
+      fetch(APPS_SCRIPT_URL + '?action=obter&tipo=ciclos&serial=' + encodeURIComponent(serial)).then(respostaParaJsonGlobal).catch(function () { return { status: 'erro' }; }),
+      fetch(APPS_SCRIPT_URL + '?action=listarChecklists').then(respostaParaJsonGlobal).catch(function () { return { status: 'erro', itens: [] }; }),
+      fetch(APPS_SCRIPT_URL + '?action=historicoCompleto&serial=' + encodeURIComponent(serial)).then(respostaParaJsonGlobal).catch(function () { return { status: 'erro', eventos: [] }; })
+    ]).then(function (resultados) {
+      var producaoGrupos = resultados[0];
+      var producaoCiclos = resultados[1];
+      var checklists = resultados[2];
+      var historico = resultados[3];
+
+      var html = '';
+
+      if (producaoGrupos.status === 'ok' && producaoGrupos.existe) {
+        html += '<div class="item-material"><span class="codigo-material">🏭 Produção (Grupos)</span>' +
+          '<span class="descricao-material">' + escaparHtmlPesquisa(producaoGrupos.dados.estado) + '</span>' +
+          '<button type="button" class="botao pesquisa-abrir-producao" data-tipo="grupos" data-serial="' + escaparHtmlPesquisa(serial) + '">Abrir</button></div>';
+      }
+      if (producaoCiclos.status === 'ok' && producaoCiclos.existe) {
+        html += '<div class="item-material"><span class="codigo-material">🏭 Produção (Ciclos)</span>' +
+          '<span class="descricao-material">' + escaparHtmlPesquisa(producaoCiclos.dados.estado) + '</span>' +
+          '<button type="button" class="botao pesquisa-abrir-producao" data-tipo="ciclos" data-serial="' + escaparHtmlPesquisa(serial) + '">Abrir</button></div>';
+      }
+
+      var serialMin = serial.toLowerCase();
+      var checklistsEncontrados = (checklists.itens || []).filter(function (c) {
+        return (c.numeroSerie || '').toLowerCase().indexOf(serialMin) !== -1 ||
+          (c.numeroChecklist || '').toLowerCase().indexOf(serialMin) !== -1 ||
+          (c.equipamento || '').toLowerCase().indexOf(serialMin) !== -1;
+      });
+      checklistsEncontrados.forEach(function (c) {
+        html += '<div class="item-material"><span class="codigo-material">✅ ' + escaparHtmlPesquisa(c.numeroChecklist) + '</span>' +
+          '<span class="descricao-material">' + escaparHtmlPesquisa(c.numeroSerie) + ' · ' + escaparHtmlPesquisa(c.equipamento || '') + '</span>' +
+          '<button type="button" class="botao pesquisa-abrir-checklist" data-id="' + escaparHtmlPesquisa(c.id) + '">Abrir</button></div>';
+      });
+
+      if (historico.status === 'ok' && historico.eventos && historico.eventos.length) {
+        html += '<label class="campo-label" style="margin-top:10px;">Histórico (Relatórios + Produção)</label>';
+        historico.eventos.slice(-10).forEach(function (ev) {
+          var dataFormatada = new Date(ev.data).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+          html += '<div class="ajuda">' + dataFormatada + ' — ' + escaparHtmlPesquisa(ev.descricao) + '</div>';
+        });
+      }
+
+      if (!html) {
+        html = '<div class="ajuda">Nada encontrado para "' + escaparHtmlPesquisa(serial) + '".</div>';
+      }
+      html += '<div class="linha-botoes" style="margin-top:8px;"><button type="button" class="botao" id="pesquisaGlobalFechar">Fechar</button></div>';
+      painel.innerHTML = html;
+    });
+  }
+
+  document.getElementById('pesquisaGlobalBotao').addEventListener('click', executarPesquisaGlobal);
+  document.getElementById('pesquisaGlobalInput').addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') executarPesquisaGlobal();
+  });
+  document.getElementById('pesquisaGlobalResultados').addEventListener('click', function (ev) {
+    var botaoFechar = ev.target.closest('#pesquisaGlobalFechar');
+    if (botaoFechar) {
+      document.getElementById('pesquisaGlobalResultados').hidden = true;
+      return;
+    }
+    var botaoProducao = ev.target.closest('.pesquisa-abrir-producao');
+    if (botaoProducao) {
+      abrirRegistoNoProducaoGlobal(botaoProducao.dataset.tipo, botaoProducao.dataset.serial);
+      document.getElementById('pesquisaGlobalResultados').hidden = true;
+      return;
+    }
+    var botaoChecklist = ev.target.closest('.pesquisa-abrir-checklist');
+    if (botaoChecklist) {
+      window.location.href = APPS_SCRIPT_URL + '?checklistId=' + encodeURIComponent(botaoChecklist.dataset.id);
+    }
+  });
 })();
 </script>
 
