@@ -1123,6 +1123,23 @@
     </div>
   </div>
 
+  <div class="card">
+    <div class="card-titulo">Alertas por WhatsApp</div>
+    <div class="ajuda" style="margin-bottom:10px;">
+      Até 5 números podem receber os mesmos alertas automáticos por WhatsApp (stock mínimo, checklist com não conformidade, checklist em falta, máquina em atraso) — usa a API gratuita do
+      <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank">CallMeBot</a>.
+      Cada número precisa da sua própria "apikey": do telemóvel que vai receber os alertas, envie a mensagem
+      "I allow callmebot to send me messages" para o número do bot indicado nessa página, e vai receber a apikey de volta por WhatsApp.
+    </div>
+    <div id="listaWhatsapp"></div>
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-largo" id="botaoAddWhatsapp">+ Adicionar número</button>
+    </div>
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-verde botao-largo" id="botaoGuardarWhatsapp">Guardar números</button>
+    </div>
+  </div>
+
   <div class="estado" id="estadoProducao"></div>
 </main>
 
@@ -4443,6 +4460,87 @@
     el.className = 'estado';
   }
 
+  // ---------------------------------------------------------------------
+  // Alertas por WhatsApp - até 5 numeros, cada um com a sua apikey
+  // (CallMeBot). Guardados nas Propriedades do Script, nao na Sheet.
+  // ---------------------------------------------------------------------
+  var WHATSAPP_MAX_NUMEROS = 5;
+  var listaWhatsapp = document.getElementById('listaWhatsapp');
+
+  function linhaWhatsappHtml(telefone, apikey) {
+    return '<div class="duas-colunas linha-whatsapp" style="margin-bottom:8px;align-items:center;">' +
+      '<input type="text" class="whatsapp-telefone" placeholder="Número com código do país (ex.: 351912345678)" value="' + (telefone || '') + '" autocomplete="off" />' +
+      '<div style="display:flex;gap:6px;">' +
+        '<input type="text" class="whatsapp-apikey" placeholder="apikey" value="' + (apikey || '') + '" autocomplete="off" style="flex:1;" />' +
+        '<button type="button" class="botao-remover-whatsapp" aria-label="Remover">✕</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function adicionarLinhaWhatsapp(telefone, apikey) {
+    if (listaWhatsapp.querySelectorAll('.linha-whatsapp').length >= WHATSAPP_MAX_NUMEROS) {
+      mostrarEstado('Máximo de ' + WHATSAPP_MAX_NUMEROS + ' números de WhatsApp.', 'erro');
+      return;
+    }
+    listaWhatsapp.insertAdjacentHTML('beforeend', linhaWhatsappHtml(telefone, apikey));
+  }
+
+  listaWhatsapp.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('.botao-remover-whatsapp');
+    if (!botao) return;
+    botao.closest('.linha-whatsapp').remove();
+  });
+
+  document.getElementById('botaoAddWhatsapp').addEventListener('click', function () {
+    adicionarLinhaWhatsapp('', '');
+  });
+
+  function carregarConfigWhatsapp() {
+    if (!APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=configWhatsapp').then(respostaParaJsonGlobal).then(function (dados) {
+      if (dados.status !== 'ok') return;
+      listaWhatsapp.innerHTML = '';
+      (dados.itens || []).forEach(function (item) {
+        adicionarLinhaWhatsapp(item.telefone, item.apikey);
+      });
+      if (!listaWhatsapp.querySelectorAll('.linha-whatsapp').length) {
+        adicionarLinhaWhatsapp('', '');
+      }
+    }).catch(function () { /* falha em silencio, mantem uma linha vazia */ });
+  }
+
+  document.getElementById('botaoGuardarWhatsapp').addEventListener('click', function () {
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+    var itens = Array.prototype.map.call(listaWhatsapp.querySelectorAll('.linha-whatsapp'), function (linha) {
+      return {
+        telefone: linha.querySelector('.whatsapp-telefone').value.trim(),
+        apikey: linha.querySelector('.whatsapp-apikey').value.trim()
+      };
+    }).filter(function (item) { return item.telefone || item.apikey; });
+
+    var incompleto = itens.some(function (item) { return !item.telefone || !item.apikey; });
+    if (incompleto) {
+      mostrarEstado('Preencha o número e a apikey de cada linha (ou remova a linha).', 'erro');
+      return;
+    }
+
+    var botaoGuardarWhatsapp = document.getElementById('botaoGuardarWhatsapp');
+    botaoGuardarWhatsapp.disabled = true;
+    mostrarEstado('A guardar números de WhatsApp...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ acao: 'configurarWhatsapp', itens: itens }) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') { mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro'); return; }
+        mostrarEstado(dados.mensagem, 'sucesso');
+      })
+      .catch(function (erro) { mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro'); })
+      .finally(function () { botaoGuardarWhatsapp.disabled = false; });
+  });
+
   preencherSelectGrupo();
   carregarLista();
   carregarDashboard();
@@ -4450,6 +4548,7 @@
   carregarEstatisticasEtapas();
   carregarMateriaisStock();
   carregarConfigEnvioAutomatico();
+  carregarConfigWhatsapp();
 })();
 
 </script>

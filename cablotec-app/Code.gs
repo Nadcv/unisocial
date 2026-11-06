@@ -168,6 +168,9 @@ function doGet(e) {
   if (acao === 'configEnvio') {
     return respostaJson(obterConfigEnvioAutomatico());
   }
+  if (acao === 'configWhatsapp') {
+    return respostaJson(obterConfigWhatsapp());
+  }
   if (acao === 'materiaisPadrao') {
     return respostaJson(listarMateriaisPadrao(e.parameter.tipo, e.parameter.modelo));
   }
@@ -365,6 +368,8 @@ function doPost(e) {
         resposta = enviarSnapshotDashboard(dados);
       } else if (dados.acao === 'configurarEnvioAutomatico') {
         resposta = configurarEnvioAutomatico(dados);
+      } else if (dados.acao === 'configurarWhatsapp') {
+        resposta = configurarWhatsapp(dados);
       } else if (dados.acao === 'adicionarMaterialPadrao') {
         resposta = adicionarMaterialPadrao(dados);
       } else if (dados.acao === 'removerMaterialPadrao') {
@@ -2716,24 +2721,84 @@ function exportarAbaComoBlob(aba, formato) {
 
 // ===========================================================================
 // Alerta por WhatsApp (opcional, desligado por omissao). Usa a API gratuita
-// do CallMeBot: basta enviar uma mensagem "I allow callmebot to send me
-// messages" para o numero do bot indicado em
-// https://www.callmebot.com/blog/free-api-whatsapp-messages/, receber de
-// volta uma apikey por WhatsApp, e preencher WHATSAPP_TELEFONE/APIKEY abaixo.
-// Enquanto estiver vazio, enviarAlertaWhatsapp_ nao faz nada (sem erros).
+// do CallMeBot: cada numero que deva receber alertas tem de enviar, do seu
+// proprio telemovel, a mensagem "I allow callmebot to send me messages"
+// para o numero do bot indicado em
+// https://www.callmebot.com/blog/free-api-whatsapp-messages/, e recebe de
+// volta a SUA PROPRIA apikey (uma apikey so funciona para o numero que a
+// gerou - nao e um "token global"). Ate 5 numeros podem ser configurados
+// em "✅ Checklist/Produção → Definições" (cada um com o seu numero+apikey),
+// e todos recebem os mesmos alertas (stock minimo, checklist com nao
+// conformidade, checklist em falta, maquina em atraso). Os dois campos
+// abaixo (WHATSAPP_TELEFONE/APIKEY) sao so um fallback de 1 numero, para
+// compatibilidade com configuracoes antigas feitas direto no codigo -
+// deixe-os vazios e use antes a configuracao na aplicacao.
 // ===========================================================================
 var WHATSAPP_TELEFONE = ''; // numero com codigo do pais, sem "+" (ex.: '351912345678')
 var WHATSAPP_APIKEY = '';
+var WHATSAPP_CONFIG_KEY_ = 'whatsappDestinatarios';
+var WHATSAPP_MAX_DESTINATARIOS_ = 5;
+
+function obterDestinatariosWhatsapp_() {
+  var propriedades = PropertiesService.getScriptProperties();
+  var guardado = propriedades.getProperty(WHATSAPP_CONFIG_KEY_);
+  var lista = [];
+  if (guardado) {
+    try {
+      lista = JSON.parse(guardado);
+    } catch (erroParse) {
+      lista = [];
+    }
+  }
+  if (!lista.length && WHATSAPP_TELEFONE && WHATSAPP_APIKEY) {
+    lista = [{ telefone: WHATSAPP_TELEFONE, apikey: WHATSAPP_APIKEY }];
+  }
+  return lista;
+}
+
+/**
+ * Devolve a lista de numeros configurados (para a aplicacao mostrar nas
+ * Definicoes) - a apikey fica visivel porque esta aplicacao nao tem
+ * autenticacao de utilizador (ver README), so quem tiver o URL consegue
+ * configurar isto de qualquer forma.
+ */
+function obterConfigWhatsapp() {
+  return { status: 'ok', itens: obterDestinatariosWhatsapp_() };
+}
+
+/**
+ * Guarda a lista de numeros de WhatsApp (telefone + apikey de cada um)
+ * que devem receber os alertas automaticos - maximo de
+ * WHATSAPP_MAX_DESTINATARIOS_ numeros.
+ */
+function configurarWhatsapp(dados) {
+  var itens = (dados.itens || []).map(function (item) {
+    return {
+      telefone: (item.telefone || '').toString().trim(),
+      apikey: (item.apikey || '').toString().trim()
+    };
+  }).filter(function (item) { return item.telefone && item.apikey; });
+
+  if (itens.length > WHATSAPP_MAX_DESTINATARIOS_) {
+    throw new Error('Maximo de ' + WHATSAPP_MAX_DESTINATARIOS_ + ' numeros de WhatsApp.');
+  }
+
+  PropertiesService.getScriptProperties().setProperty(WHATSAPP_CONFIG_KEY_, JSON.stringify(itens));
+  return { status: 'ok', mensagem: 'Numeros de WhatsApp guardados.', itens: itens };
+}
 
 function enviarAlertaWhatsapp_(mensagem) {
-  if (!WHATSAPP_TELEFONE || !WHATSAPP_APIKEY) return;
-  try {
-    var url = 'https://api.callmebot.com/whatsapp.php?phone=' + encodeURIComponent(WHATSAPP_TELEFONE) +
-      '&text=' + encodeURIComponent(mensagem) + '&apikey=' + encodeURIComponent(WHATSAPP_APIKEY);
-    UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-  } catch (erroWhatsapp) {
-    // Alerta e sempre "best effort" - nunca deve bloquear a operacao principal.
-  }
+  obterDestinatariosWhatsapp_().forEach(function (destinatario) {
+    if (!destinatario.telefone || !destinatario.apikey) return;
+    try {
+      var url = 'https://api.callmebot.com/whatsapp.php?phone=' + encodeURIComponent(destinatario.telefone) +
+        '&text=' + encodeURIComponent(mensagem) + '&apikey=' + encodeURIComponent(destinatario.apikey);
+      UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    } catch (erroWhatsapp) {
+      // Alerta e sempre "best effort" - uma falha num numero nunca deve
+      // impedir o envio aos outros nem bloquear a operacao principal.
+    }
+  });
 }
 
 // ===========================================================================

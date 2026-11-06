@@ -151,15 +151,24 @@ de Produção guarda os seus registos) — não é um script standalone.
   único feed cronológico os relatórios enviados (Drive) e as etapas
   de produção concluídas, sem ter de consultar os dois separadores em
   separado.
-- **Alerta por WhatsApp (opcional)** — quando um material do Armazém
-  atinge o stock mínimo, pode enviar um aviso por WhatsApp em vez de
-  (ou além de) e-mail. Desligado por omissão. Para ativar: envie a
-  mensagem "I allow callmebot to send me messages" para o número
-  indicado em
-  https://www.callmebot.com/blog/free-api-whatsapp-messages/, receba a
-  sua `apikey` de volta por WhatsApp, e preencha `WHATSAPP_TELEFONE` e
-  `WHATSAPP_APIKEY` no topo do `Code.gs` (procure por "Alerta por
-  WhatsApp"). É grátis e não precisa de aprovação de nenhuma app.
+- **Alertas por WhatsApp (opcional, até 5 números)** — além de material
+  do Armazém a atingir o stock mínimo, também avisa por WhatsApp em
+  checklists com não conformidade, checklists em falta e máquinas em
+  atraso. Desligado por omissão, e configurado dentro da própria
+  aplicação (🏭 Controlo de Produção → cartão "Alertas por WhatsApp"),
+  sem precisar de tocar em código: cada número que deva receber
+  alertas tem de, do seu próprio telemóvel, enviar a mensagem "I allow
+  callmebot to send me messages" para o número indicado em
+  https://www.callmebot.com/blog/free-api-whatsapp-messages/, receber a
+  sua própria `apikey` de volta por WhatsApp (uma apikey só funciona
+  para o número que a gerou), e preencher esse número + apikey nesse
+  cartão. Até 5 números podem ser adicionados, todos a receber os
+  mesmos alertas. É grátis e não precisa de aprovação de nenhuma app.
+  (As variáveis `WHATSAPP_TELEFONE`/`WHATSAPP_APIKEY` no topo do
+  `Code.gs` continuam a funcionar como um 1º número de reserva, só por
+  compatibilidade com quem já as tinha preenchido antes desta
+  atualização — para configurações novas, use antes o cartão na
+  aplicação.)
 - **Funciona parcialmente sem rede (PWA experimental)** — a aplicação
   pode ser "Adicionada ao ecrã principal" do telemóvel, e a própria
   página fica em cache para abrir mais rapidamente/mesmo sem rede.
