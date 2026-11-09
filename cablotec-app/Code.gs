@@ -173,6 +173,9 @@ function doGet(e) {
   if (acao === 'configWhatsapp') {
     return respostaJson(obterConfigWhatsapp());
   }
+  if (acao === 'configDocRaptor') {
+    return respostaJson(obterConfigDocRaptor());
+  }
   if (acao === 'materiaisPadrao') {
     return respostaJson(listarMateriaisPadrao(e.parameter.tipo, e.parameter.modelo));
   }
@@ -372,6 +375,8 @@ function doPost(e) {
         resposta = configurarEnvioAutomatico(dados);
       } else if (dados.acao === 'configurarWhatsapp') {
         resposta = configurarWhatsapp(dados);
+      } else if (dados.acao === 'configurarDocRaptor') {
+        resposta = configurarDocRaptor(dados);
       } else if (dados.acao === 'adicionarMaterialPadrao') {
         resposta = adicionarMaterialPadrao(dados);
       } else if (dados.acao === 'removerMaterialPadrao') {
@@ -2789,6 +2794,28 @@ function configurarWhatsapp(dados) {
   return { status: 'ok', mensagem: 'Numeros de WhatsApp guardados.', itens: itens };
 }
 
+// ===========================================================================
+// Chave API do DocRaptor (conversor HTML -> PDF usado para o Checklist
+// ficar com o visual exato do modelo oficial - ver secao "PDF estilizado
+// do Checklist" mais abaixo). Guardada nas Propriedades do script, tal
+// como a configuracao do WhatsApp acima.
+// ===========================================================================
+var DOCRAPTOR_API_KEY_KEY_ = 'docraptorApiKey';
+
+function obterChaveDocRaptor_() {
+  return (PropertiesService.getScriptProperties().getProperty(DOCRAPTOR_API_KEY_KEY_) || '').trim();
+}
+
+function obterConfigDocRaptor() {
+  return { status: 'ok', apikey: obterChaveDocRaptor_() };
+}
+
+function configurarDocRaptor(dados) {
+  var apikey = (dados.apikey || '').toString().trim();
+  PropertiesService.getScriptProperties().setProperty(DOCRAPTOR_API_KEY_KEY_, apikey);
+  return { status: 'ok', mensagem: apikey ? 'Chave API do DocRaptor guardada.' : 'Chave API do DocRaptor removida.' };
+}
+
 function enviarAlertaWhatsapp_(mensagem) {
   obterDestinatariosWhatsapp_().forEach(function (destinatario) {
     if (!destinatario.telefone || !destinatario.apikey) return;
@@ -3918,6 +3945,434 @@ var PAGINAS_CHECKLIST_CICLOS_ = {
 var A4_LARGURA_PT_ = 595.3;
 var A4_ALTURA_PT_ = 841.9;
 
+// ===========================================================================
+// PDF estilizado do Checklist (visual identico ao modelo oficial em PDF):
+// gera HTML+CSS (fundo cinza, cartao branco arredondado, cabecalho
+// repetido em cada pagina, radios circulares, fotos com borda tracejada,
+// assinaturas em caixa) e converte-o num PDF atraves da API externa
+// DocRaptor (motor PrinceXML, com suporte completo as regras de CSS
+// paginado usadas aqui - cabecalho que se repete via "running element" e
+// o cartao a continuar entre paginas via "box-decoration-break").
+//
+// So o PASSO de converter HTML->PDF sai do Apps Script (chamada
+// UrlFetchApp) - tudo o resto (ler os dados, montar o HTML, enviar o
+// e-mail) continua dentro desta mesma aplicacao. Se a chave API nao
+// estiver configurada, ou a chamada falhar por qualquer razao, cai-se
+// para o PDF mais simples do Google Docs (criarDocChecklist_ abaixo),
+// para o checklist nunca deixar de ser enviado por e-mail.
+// ===========================================================================
+
+var CG_PAGINA3_ITENS_PDF_ = [
+  { chave: 'armazenamentoPreparacao', rotulo: 'Armazenamento e preparação de material' },
+  { chave: 'identificacaoGC', rotulo: 'Identificação do GC (etiqueta com nº de obra, data de início, data de conclusão, operador, supervisor e assinaturas)' },
+  { chave: 'montagemRefrigeracao', rotulo: 'Montagem de componentes de refrigeração conforme esquema de refrigeração' },
+  { chave: 'elaboracaoTubosCobre', rotulo: 'Elaboração e montagem dos tubos de cobre' },
+  { chave: 'oleoAcumuladorLiquido', rotulo: 'Inserir 0,5L de óleo no acumulador líquido (aplicável a grupos MPUM107MLP00E/MPUM108MLP00E)' },
+  { chave: 'oleoSeparadorOleo', rotulo: 'Inserir 0,5L de óleo no separador de óleo (aplicável a grupos especiais com separador de óleo)' },
+  { chave: 'brasagemComponentes', rotulo: 'Brasagem de componentes e tubos de cobre', nota: 'Ver instrução de trabalho IT92 – Brasagem de componentes sensíveis' }
+];
+var CG_PAGINA3_ITENS2_PDF_ = [
+  { chave: 'apertoPorcas', rotulo: 'Aperto de porcas (untar com óleo a parte de fora do abocardado do tubo para evitar torção no momento do aperto)' },
+  { chave: 'apertoSensoresPressao', rotulo: 'Aperto de sensores de pressão (devem ficar posicionados na vertical)' },
+  { chave: 'pontasTuboSeladas', rotulo: 'Pontas de tubo seladas depois das torneiras de serviço com 20cm' },
+  { chave: 'isolamentoTubagensAspiracao', rotulo: 'Isolamento de tubagens de aspiração' },
+  { chave: 'bornesEsquemaEletrico', rotulo: 'Montagem e identificação de bornes conforme esquema elétrico' },
+  { chave: 'eletrificacaoEsquema', rotulo: 'Eletrificação conforme esquema elétrico' },
+  { chave: 'snubbersBobinas', rotulo: 'Eletrificação e montagem de snubbers nas bobinas das electroválvulas de Cool compressor / Bypass / Defrost' },
+  { chave: 'cartaComunicacaoEKA', rotulo: 'Montagem da carta de comunicação (EKA 178B) no interior do controlador Optyma Plus (Danfoss)' },
+  { chave: 'identificacaoComponentesEsquemas', rotulo: 'Identificação dos componentes elétricos e mecânicos conforme esquemas elétrico e refrigeração' },
+  { chave: 'sondasTemperatura', rotulo: 'Montagem das sondas de temperatura de sucção, ambiente e descarga, devidamente identificadas e na posição indicada no esquema de refrigeração - atenção ao isolamento com silicone da sonda de descarga.' }
+];
+var CG_PAGINA4_ITENS_PDF_ = [
+  { chave: 'identificacaoGrupoCondensador', rotulo: 'Identificação do grupo condensador (etiqueta de fabrico / supervisão)' },
+  { chave: 'identificacaoComponentes', rotulo: 'Identificação dos componentes' },
+  { chave: 'cravacaoPonteiras', rotulo: 'Cravação de ponteiras e aplicação em bornes/conetores de forma adequada' },
+  { chave: 'montagemEletrificacaoComponentes', rotulo: 'Montagem e eletrificação de componentes conforme esquemas elétrico e refrigeração' },
+  { chave: 'isolamentoTubosCobre', rotulo: 'Isolamento dos tubos de cobre e outros componentes' },
+  { chave: 'fixacaoComponentes', rotulo: 'Fixação adequada de todos os componentes (verificação de apertos)', nota: 'Atenção ao aperto da bobina de Cool/Dry' },
+  { chave: 'ausenciaDanosCondensador', rotulo: 'Ausência de danos físicos no Condensador (ou outros componentes)' },
+  { chave: 'limpezaGeral', rotulo: 'Limpeza geral' }
+];
+var CG_PAGINA7_ITENS_PDF_ = [
+  { chave: 'caixaMadeira', rotulo: 'Caixa de madeira 1590 × 770 × 1070mm (devidamente identificada)' },
+  { chave: 'protecoesPontasTubos', rotulo: 'Colocação de proteções nas pontas dos tubos de cobre ou sobreposições' },
+  { chave: 'fixacaoBaseGrupo', rotulo: 'Fixação da base do grupo na base da caixa de madeira' },
+  { chave: 'cantosEsponja', rotulo: 'Colocação de cantos em esponja almofadada anti-choque' }
+];
+
+var GRUPOS_BLOCOS_PDF_ = [
+  { tipo: 'texto', chave: 'equipamento', rotulo: 'Equipamento' },
+  { tipo: 'texto', chave: 'numeroSerie', rotulo: 'Nº Série' },
+  { tipo: 'radio2', chave: 'producaoPor', rotulo: 'Produção do Grupo por', opcoes: ['Aralab', 'Subcontrato'] },
+  { tipo: 'texto_condicional', chave: 'producaoPorEmpresa', rotulo: 'Nome do Subcontracto', chaveCond: 'producaoPor', valorCond: 'Subcontrato' },
+  { tipo: 'texto', chave: 'email', rotulo: 'E-Mail de quem preenche o documento' },
+  { tipo: 'texto', chave: 'esquemaEletrico', rotulo: 'Esquema Elétrico' },
+  { tipo: 'texto', chave: 'esquemaRefrigeracao', rotulo: 'Esquema de refrigeração' },
+  { tipo: 'nota_destaque', texto: 'Verificação de conformidade das estruturas e componentes com a documentação técnica.', destaque: '(Qualquer anomalia deverá ser comunicada de imediato à Aralab)' },
+  { tipo: 'oknanok', chave: 'verificacaoEstruturas', itens: CG_PAGINA3_ITENS_PDF_ },
+  { tipo: 'oknanok', chave: 'verificacaoEstruturas', itens: CG_PAGINA3_ITENS2_PDF_ },
+  { tipo: 'assinatura', chave: 'assinaturaPagina3', rotulo: 'Assinatura do Responsável' },
+  { tipo: 'oknanok', chave: 'grupoCondensador', itens: CG_PAGINA4_ITENS_PDF_ },
+  { tipo: 'assinatura', chave: 'assinaturaPagina4', rotulo: 'Assinatura do Responsável' },
+  { tipo: 'radio_okna', chave: 'testeEletricoOk', rotulo: 'Teste Eléctrico' },
+  { tipo: 'texto', chave: 'testeEletrico', rotulo: 'Gás' },
+  { tipo: 'radio_okna', chave: 'testePressao', rotulo: 'Teste de pressão', nota: 'Conforme IT128' },
+  { tipo: 'radio_okna', chave: 'testeVacuo', rotulo: 'Teste de vácuo', nota: 'Conforme IT128' },
+  { tipo: 'assinatura', chave: 'assinaturaPagina5', rotulo: 'Assinatura do Responsável' },
+  { tipo: 'tabela_componentes', chave: 'componentes', linhas: [['grupoCondensador', 'Grupo condensador'], ['compressor', 'Compressor'], ['ventilador', 'Ventilador']] },
+  { tipo: 'fotos', chave: 'fotosEtiquetas', rotulo: 'Fotos etiquetas' },
+  { tipo: 'tabela_controlador', chave: 'controlador', rotulo: 'Controlador Optima Plus (Danfoss)' },
+  { tipo: 'radio2', chave: 'temModulosExpansao', rotulo: 'Tem módulos de expansão?', opcoes: ['Sim', 'Não'] },
+  { tipo: 'fotos', chave: 'fotosControlador', rotulo: 'Fotos Controlador' },
+  { tipo: 'fotos', chave: 'fotosTesteEletrico', rotulo: 'Fotos Teste Eléctrico' },
+  { tipo: 'fotos', chave: 'fotosTestePressao', rotulo: 'Fotos Teste de Pressão' },
+  { tipo: 'fotos', chave: 'fotosTesteVacuo', rotulo: 'Fotos Teste de Vácuo' },
+  { tipo: 'assinatura', chave: 'assinaturaPagina6', rotulo: 'Assinatura do Responsável' },
+  { tipo: 'oknanok', chave: 'embalagem', itens: CG_PAGINA7_ITENS_PDF_ },
+  { tipo: 'assinatura', chave: 'assinaturaPagina7', rotulo: 'Assinatura do Responsável' },
+  { tipo: 'radio2', chave: '_conformidade', rotulo: 'Durante a produção do grupo, houve alguma não conformidade que deva ser registada?', opcoes: ['Não', 'Sim'] },
+  { tipo: 'textarea', chave: 'observacoes', rotulo: 'Observações' },
+  { tipo: 'assinatura', chave: 'assinaturaSupervisor', rotulo: 'Assinatura do Supervisor' }
+];
+
+var CC_PAGINA3_ITENS_PDF_ = [
+  { chave: 'armazenamentoPreparacao', rotulo: 'Armazenamento e preparação de material' },
+  { chave: 'identificacaoClico', rotulo: 'Identificação do Clico (etiqueta com nº de obra, data de início, data de conclusão, operador, supervisor e assinaturas)' },
+  { chave: 'montagemVentiladorTampa', rotulo: 'Montagem de ventilador na tampa do evaporador' },
+  { chave: 'montagemTampaExterior', rotulo: 'Montagem de tampa exteriror para acesso ao evaporador (apenas modelo PLH)' },
+  { chave: 'fixacaoEvaporador', rotulo: 'Fixação do evaporador à estrutura' },
+  { chave: 'montagemComponentesRefrigeracao', rotulo: 'Montagem de componentes conforme esquema de refrigeração' },
+  { chave: 'brasagemComponentes', rotulo: 'Brasagem de componentes e tubos de cobre' },
+  { chave: 'selagemPontasTubos', rotulo: 'Selagem das pontas dos tubos de cobre' },
+  { chave: 'isolamentoValvulaExpansao', rotulo: 'Isolamento de válvula de expansão e troço de tubo até ao filtro' },
+  { chave: 'montagemSondasEvaporator', rotulo: 'Montagem das sonda "Evaporator" e "Evaporator Out", devidamente identificadas (consultar posição no esquema refrigeração)' },
+  { chave: 'montagemSondaTempHumidade', rotulo: 'Montagem da sonda Temperatura/Humidade Vaisala T1/H1' },
+  { chave: 'certificadoVaisala', rotulo: 'Certificado Vaisala digitalizado e arquivado' },
+  { chave: 'montagemSondasHeaterAirSafety', rotulo: 'Montagem das sondas "Heater" e "Air safety" devidamente identificadas' },
+  { chave: 'montagemTermicoResistencias', rotulo: 'Montagem de térmico (70°C/80°C) das resistências' }
+];
+var CC_PAGINA3_ITENS2_PDF_ = [
+  { chave: 'montagemCaixaDerivacaoSondas', rotulo: 'Montagem de caixa de derivação (sondas) com conetores de interface de acordo com esquema elétrico' },
+  { chave: 'montagemCaixaDerivacaoHeaterSteam', rotulo: 'Montagem de caixa de derivação (heater steam) com conetores e bornes identificados de acordo com layout no esquema elétrico (aplicável ao modelo PH)' },
+  { chave: 'conexaoSensoresCaixaDerivacao', rotulo: 'Conexão dos sensores na caixa de derivação conforme esquema elétrico' },
+  { chave: 'ligacaoCabosConectoresInterface', rotulo: 'Ligação dos cabos elétricos com conetores de interface em: caixas de derivação, ventilador e sonda T/H (quando solicitado)' },
+  { chave: 'conexaoResistenciasTermicoEletrovalvula', rotulo: 'Conexão das resistências, térmico e eletroválvula no conetor macho HC-EVO-B10' },
+  { chave: 'aplicacaoConetorFemeaHCEVOB10', rotulo: 'Aplicação de conetor fêmea HC-EVO-B10 (quando solicitado)' },
+  { chave: 'montagemAnelVaporHumido', rotulo: 'Montagem de anel de vapor húmido e admissão de ar para gerador humidade em tubagem de PVC (aplicável ao modelo PH)' },
+  { chave: 'identificacaoCablagem', rotulo: 'Identificação de cablagem (quando solicitada sua integração)' }
+];
+var CC_PAGINA5_ITENS_PDF_ = [
+  { chave: 'identificacaoComponentes', rotulo: 'Identificação dos componentes' },
+  { chave: 'cravacaoPonteiras', rotulo: 'Cravação de ponteiras e aplicação em bornes/conetores de forma adequada' },
+  { chave: 'montagemEletrificacaoComponentes', rotulo: 'Montagem e eletrificação de componentes conforme esquemas elétrico e refrigeração' },
+  { chave: 'isolamentoTubosCobre', rotulo: 'Isolamento dos tubos de cobre e outros componentes' },
+  { chave: 'fixacaoComponentes', rotulo: 'Fixação adequada de todos os componentes (verificação de apertos)', nota: 'Atenção ao aperto da bobina de Cool/Dry' },
+  { chave: 'ausenciaDanosClico', rotulo: 'Ausência de danos físicos no clico (ou outros componentes)' },
+  { chave: 'limpezaGeral', rotulo: 'Limpeza geral' }
+];
+var CC_PAGINA8_ITENS_PDF_ = [
+  { chave: 'caixaMadeira', rotulo: 'Caixa de madeira 1375 × 1275 × 1010mm (devidamente identificada)' },
+  { chave: 'protecoesPontasTubos', rotulo: 'Colocação de proteções nas pontas dos tubos de cobre ou sobreposições' },
+  { chave: 'fixacaoBaseMetatica', rotulo: 'Fixação da base metática do Clico na base da caixa de madeira' },
+  { chave: 'cantosEsponja', rotulo: 'Colocação de cantos em esponja almofadada anti-choque' },
+  { chave: 'inclusaoKitFixacao', rotulo: 'Inclusão do kit de fixação do Clico' }
+];
+
+var CICLOS_BLOCOS_PDF_ = [
+  { tipo: 'texto', chave: 'equipamento', rotulo: 'Equipamento' },
+  { tipo: 'texto', chave: 'numeroSerie', rotulo: 'Nº Série' },
+  { tipo: 'radio2', chave: 'producaoPor', rotulo: 'Produção do Clico/VA por', opcoes: ['Aralab', 'Subcontrato'] },
+  { tipo: 'texto_condicional', chave: 'producaoPorEmpresa', rotulo: 'Nome do Subcontracto', chaveCond: 'producaoPor', valorCond: 'Subcontrato' },
+  { tipo: 'texto', chave: 'email', rotulo: 'E-Mail de quem preenche o documento' },
+  { tipo: 'texto', chave: 'esquemaEletrico', rotulo: 'Esquema Elétrico' },
+  { tipo: 'texto', chave: 'esquemaRefrigeracao', rotulo: 'Esquema de refrigeração' },
+  { tipo: 'nota_destaque', texto: 'Verificação de conformidade das estruturas e componentes com a documentação técnica.', destaque: '(Qualquer anomalia deverá ser comunicada de imediato à Aralab)' },
+  { tipo: 'oknanok', chave: 'verificacaoEstruturas', itens: CC_PAGINA3_ITENS_PDF_ },
+  { tipo: 'texto', chave: 'refa', rotulo: 'Refª' },
+  { tipo: 'oknanok', chave: 'verificacaoEstruturas', itens: CC_PAGINA3_ITENS2_PDF_ },
+  { tipo: 'assinatura', chave: 'assinaturaPagina3', rotulo: 'Assinatura do Responsável' },
+  { tipo: 'radio2', chave: 'ventiladoresAdicionais', rotulo: 'Há Ventiladores adicionais?', opcoes: ['Sim', 'Não'] },
+  { tipo: 'fotos', chave: 'fotosIdentificacao', rotulo: 'Fotos identificação' },
+  { tipo: 'oknanok', chave: 'clico', itens: CC_PAGINA5_ITENS_PDF_ },
+  { tipo: 'assinatura', chave: 'assinaturaPagina5', rotulo: 'Assinatura do Responsável' },
+  { tipo: 'fotos', chave: 'fotosTesteEletrico', rotulo: 'Fotos Teste Eléctrico' },
+  { tipo: 'fotos', chave: 'fotosTestePressao', rotulo: 'Fotos Teste de Pressão' },
+  { tipo: 'fotos', chave: 'fotosTesteVacuo', rotulo: 'Fotos Teste de Vácuo' },
+  { tipo: 'fotos', chave: 'fotosTesteEletricoHumidificador', rotulo: 'Fotos Teste Eléctrico Humidificador' },
+  { tipo: 'assinatura', chave: 'assinaturaPagina6', rotulo: 'Assinatura do Responsável' },
+  { tipo: 'tabela_pessoas3', chave: 'sondaTemperaturaHumidade', rotulo: 'Sonda Temperatura/Humidade' },
+  { tipo: 'tabela_pessoas3', chave: 'evaporador', rotulo: 'Evaporador' },
+  { tipo: 'tabela_pessoas3', chave: 'clicoIdentificacao', rotulo: 'Identificação Clico' },
+  { tipo: 'assinatura', chave: 'assinaturaPagina7', rotulo: 'Assinatura do Responsável' },
+  { tipo: 'oknanok', chave: 'embalagem', itens: CC_PAGINA8_ITENS_PDF_ },
+  { tipo: 'assinatura', chave: 'assinaturaPagina8', rotulo: 'Assinatura do Responsável' },
+  { tipo: 'textarea', chave: 'observacoes', rotulo: 'Observações' },
+  { tipo: 'assinatura', chave: 'assinaturaSupervisor', rotulo: 'Assinatura do Supervisor' }
+];
+
+var TITULOS_PDF_ = {
+  grupos: { titulo: 'CHECK-LIST DE PRODUÇÃO Grupo Cond. Walkin', codigo: 'DP156/R05' },
+  ciclos: { titulo: 'CHECK-LIST DE PRODUÇÃO Clico/VA', codigo: 'DP155/R06' }
+};
+var BLOCOS_POR_TIPO_PDF_ = { grupos: GRUPOS_BLOCOS_PDF_, ciclos: CICLOS_BLOCOS_PDF_ };
+
+/**
+ * Converte uma referencia de imagem do checklist ({id, nome} no Drive, ou
+ * ja uma string) numa data-URI pronta a usar num <img src="...">, usando
+ * uma cache (objeto "cache") para nao descarregar o mesmo ficheiro duas
+ * vezes na mesma geracao de PDF.
+ */
+function imagemChecklistParaDataUri_(valor, cache) {
+  if (!valor) return null;
+  if (typeof valor === 'string') return { url: valor, nome: null };
+  if (typeof valor === 'object' && valor.id) {
+    if (cache[valor.id] !== undefined) return cache[valor.id];
+    var resultado = null;
+    try {
+      var ficheiro = DriveApp.getFileById(valor.id);
+      var blob = ficheiro.getBlob();
+      var base64 = Utilities.base64Encode(blob.getBytes());
+      resultado = { url: 'data:' + blob.getContentType() + ';base64,' + base64, nome: valor.nome || ficheiro.getName() };
+    } catch (erroImagem) {
+      resultado = null;
+    }
+    cache[valor.id] = resultado;
+    return resultado;
+  }
+  return null;
+}
+
+/**
+ * Converte os "campos" de um checklist (o mesmo objeto guardado em
+ * dadosJson.campos) numa lista de blocos prontos a desenhar em HTML -
+ * mesma logica do context_builder.py do pipeline Python, para o PDF
+ * ficar identico seja qual for o caminho usado para o gerar.
+ */
+function construirBlocosChecklistPdf_(tipo, campos, cacheImagens) {
+  campos = campos || {};
+  var blocosDef = BLOCOS_POR_TIPO_PDF_[tipo] || [];
+  var saida = [];
+
+  blocosDef.forEach(function (b) {
+    if (b.tipo === 'texto') {
+      saida.push({ tipo: 'texto', rotulo: b.rotulo, valor: campos[b.chave] || '' });
+    } else if (b.tipo === 'texto_condicional') {
+      if (campos[b.chaveCond] !== b.valorCond) return;
+      saida.push({ tipo: 'texto', rotulo: b.rotulo, valor: campos[b.chave] || '' });
+    } else if (b.tipo === 'radio2') {
+      saida.push({ tipo: 'radio2', rotulo: b.rotulo, opcoes: b.opcoes, selecionado: campos[b.chave] });
+    } else if (b.tipo === 'radio_okna') {
+      saida.push({ tipo: 'oknanok', itens: [{ rotulo: b.rotulo, valor: campos[b.chave], nota: b.nota }] });
+    } else if (b.tipo === 'nota_destaque') {
+      saida.push({ tipo: 'nota_destaque', texto: b.texto, destaque: b.destaque });
+    } else if (b.tipo === 'oknanok') {
+      var dadosGrupo = campos[b.chave] || {};
+      var linhas = b.itens.map(function (item) {
+        var info = dadosGrupo[item.chave] || {};
+        return { rotulo: item.rotulo, valor: info.valor, nota: item.nota };
+      });
+      saida.push({ tipo: 'oknanok', itens: linhas });
+    } else if (b.tipo === 'assinatura') {
+      saida.push({ tipo: 'assinatura', rotulo: b.rotulo, imagem: imagemChecklistParaDataUri_(campos[b.chave], cacheImagens) });
+    } else if (b.tipo === 'fotos') {
+      var fotos = (campos[b.chave] || []).map(function (f) {
+        return imagemChecklistParaDataUri_(f, cacheImagens);
+      }).filter(function (f) { return !!f; });
+      saida.push({ tipo: 'fotos', rotulo: b.rotulo, fotos: fotos });
+    } else if (b.tipo === 'textarea') {
+      saida.push({ tipo: 'textarea', rotulo: b.rotulo, valor: campos[b.chave] || '' });
+    } else if (b.tipo === 'tabela_componentes') {
+      var dadosComp = campos[b.chave] || {};
+      var linhasComp = b.linhas.map(function (par) {
+        var item = dadosComp[par[0]] || {};
+        return { rotulo: par[1], valores: [item.modelo || '', item.serie || ''] };
+      });
+      saida.push({ tipo: 'tabela', titulo: 'Componentes', colunas: ['Modelo', 'Nº Série'], linhas: linhasComp });
+    } else if (b.tipo === 'tabela_controlador') {
+      var itemCtrl = campos[b.chave] || {};
+      saida.push({
+        tipo: 'tabela', titulo: b.rotulo, colunas: ['Modelo', 'Nº Série', 'Versão do firmware (PV/SW)'],
+        linhas: [{ rotulo: 'Controlador', valores: [itemCtrl.modelo || '', itemCtrl.serie || '', itemCtrl.versaoFirmware || ''] }],
+        nota: '* Informar Aralab sempre que verificada alteração na versão.'
+      });
+    } else if (b.tipo === 'tabela_pessoas3') {
+      var itemT = campos[b.chave] || {};
+      saida.push({
+        tipo: 'tabela', titulo: b.rotulo, colunas: ['Fabricante', 'Modelo', 'Nº Série'],
+        linhas: [{ rotulo: b.rotulo, valores: [itemT.fabricante || '', itemT.modelo || '', itemT.serie || ''] }]
+      });
+    }
+  });
+
+  return saida;
+}
+
+var CSS_CHECKLIST_PDF_ = [
+  '@page{size:A4;margin-top:28mm;margin-bottom:14mm;margin-left:12mm;margin-right:12mm;background:#eef1f4;',
+  '@top-center{content:element(cabecalho);width:100%;vertical-align:bottom;padding:0;margin:0;}}',
+  '*{box-sizing:border-box;}',
+  'html{background:#eef1f4;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#27303a;font-size:11pt;}',
+  'body{margin:0;padding:0;}',
+  '.cabecalho{position:running(cabecalho);width:100%;background:#fff;border-radius:10px 10px 0 0;padding:18px 24px 14px 24px;text-align:center;}',
+  '.cabecalho h1{margin:0 0 4px 0;font-size:17pt;font-weight:700;color:#1f2a37;line-height:1.3;}',
+  '.cabecalho .codigo{margin:0;font-size:10.5pt;color:#6b7785;}',
+  '.cartao{background:#fff;border-radius:0 0 10px 10px;padding:4px 24px 22px 24px;box-decoration-break:clone;-webkit-box-decoration-break:clone;}',
+  '.divisor-topo{border-top:1px solid #e3e6ea;padding-top:16px;margin-top:2px;}',
+  '.bloco{margin:0 0 18px 0;page-break-inside:avoid;}',
+  '.rotulo{font-size:10.5pt;font-weight:500;color:#27303a;margin-bottom:7px;}',
+  '.obrigatorio{color:#e0393e;margin-left:2px;}',
+  '.caixa-valor{border:1px solid #d6dbe1;border-radius:6px;padding:9px 12px;background:#fff;color:#3a4350;font-size:10.5pt;min-height:1.3em;}',
+  '.caixa-textarea{min-height:54px;}',
+  '.radios{display:flex;flex-wrap:wrap;gap:22px;}',
+  '.radio-item{display:flex;align-items:center;gap:7px;}',
+  '.radio-circulo{width:15px;height:15px;border-radius:50%;border:1.5px solid #aeb4bb;display:inline-block;position:relative;flex:none;}',
+  '.radio-item.selecionado .radio-circulo{border-color:#0f9c87;}',
+  '.radio-item.selecionado .radio-circulo::after{content:"";position:absolute;inset:2.5px;border-radius:50%;background:#0f9c87;}',
+  '.radio-texto{font-size:10.5pt;color:#3a4350;}',
+  '.radio-item.selecionado .radio-texto{color:#27303a;}',
+  '.nota{font-size:8.5pt;color:#828a93;margin-top:6px;line-height:1.5;}',
+  '.nota-destaque{font-size:8.5pt;color:#5c6670;line-height:1.55;}',
+  '.nota-destaque .forte{font-weight:700;}',
+  '.divisor-depois{border-bottom:1px solid #e3e6ea;margin-top:10px;margin-bottom:18px;}',
+  '.item-oknanok .rotulo{margin-bottom:7px;}',
+  '.assinatura-caixa{border:1px solid #d6dbe1;border-radius:6px;background:#fff;height:100px;text-align:center;padding:6px;}',
+  '.assinatura-caixa img{max-height:88px;max-width:100%;}',
+  '.fotos-galeria{display:flex;flex-wrap:wrap;gap:18px;}',
+  '.foto-item{width:115px;}',
+  '.foto-miniatura{width:115px;height:115px;border:1.5px dashed #9aa1a9;border-radius:4px;background:#fafbfc;display:flex;align-items:center;justify-content:center;overflow:hidden;}',
+  '.foto-miniatura img{width:100%;height:100%;object-fit:cover;}',
+  '.foto-nome{font-size:8pt;color:#6b7785;margin-top:5px;word-break:break-all;text-align:center;}',
+  'table.tabela-campos{width:100%;border-collapse:collapse;table-layout:fixed;}',
+  'table.tabela-campos th{font-size:9.5pt;font-weight:500;color:#27303a;text-align:left;padding:0 8px 8px 8px;}',
+  'table.tabela-campos th:first-child{visibility:hidden;}',
+  'table.tabela-campos td{padding:0 8px 10px 8px;vertical-align:top;}',
+  'table.tabela-campos td.rotulo-linha{font-size:10.5pt;color:#27303a;padding-top:9px;white-space:nowrap;width:1%;}',
+  'table.tabela-campos .caixa-valor{font-size:10pt;padding:8px 10px;}',
+  '.tabela-titulo{margin-bottom:10px;}'
+].join('');
+
+function htmlRadios_(opcoes, selecionado) {
+  return '<div class="radios">' + opcoes.map(function (opcao) {
+    var sel = opcao === selecionado ? ' selecionado' : '';
+    return '<div class="radio-item' + sel + '"><span class="radio-circulo"></span><span class="radio-texto">' + escaparHtml_(opcao) + '</span></div>';
+  }).join('') + '</div>';
+}
+
+function htmlBlocoChecklistPdf_(bloco) {
+  if (bloco.tipo === 'texto') {
+    return '<div class="bloco"><div class="rotulo">' + escaparHtml_(bloco.rotulo) + '<span class="obrigatorio">*</span></div>' +
+      '<div class="caixa-valor">' + escaparHtml_(bloco.valor) + '</div></div>';
+  }
+  if (bloco.tipo === 'textarea') {
+    return '<div class="bloco"><div class="rotulo">' + escaparHtml_(bloco.rotulo) + '</div>' +
+      '<div class="caixa-valor caixa-textarea">' + escaparHtml_(bloco.valor) + '</div></div>';
+  }
+  if (bloco.tipo === 'radio2') {
+    return '<div class="bloco"><div class="rotulo">' + escaparHtml_(bloco.rotulo) + '<span class="obrigatorio">*</span></div>' +
+      htmlRadios_(bloco.opcoes, bloco.selecionado) + '</div>';
+  }
+  if (bloco.tipo === 'nota_destaque') {
+    var destaque = bloco.destaque ? '<br><span class="forte">' + escaparHtml_(bloco.destaque) + '</span>' : '';
+    return '<div class="bloco nota-destaque">' + escaparHtml_(bloco.texto) + destaque + '</div><div class="divisor-depois"></div>';
+  }
+  if (bloco.tipo === 'oknanok') {
+    return bloco.itens.map(function (item) {
+      var nota = item.nota ? '<div class="nota">' + escaparHtml_(item.nota) + '</div>' : '';
+      return '<div class="bloco item-oknanok"><div class="rotulo">' + escaparHtml_(item.rotulo) + '<span class="obrigatorio">*</span></div>' +
+        htmlRadios_(['OK', 'NA', 'NOK'], item.valor) + nota + '</div>';
+    }).join('');
+  }
+  if (bloco.tipo === 'assinatura') {
+    var imgAssinatura = bloco.imagem && bloco.imagem.url ? '<img src="' + bloco.imagem.url + '" alt="">' : '';
+    return '<div class="bloco"><div class="rotulo">' + escaparHtml_(bloco.rotulo) + '<span class="obrigatorio">*</span></div>' +
+      '<div class="assinatura-caixa">' + imgAssinatura + '</div></div>';
+  }
+  if (bloco.tipo === 'fotos') {
+    var fotosHtml = bloco.fotos.map(function (foto) {
+      var img = foto.url ? '<img src="' + foto.url + '" alt="">' : '';
+      var nomeFoto = foto.nome ? '<div class="foto-nome">' + escaparHtml_(foto.nome) + '</div>' : '';
+      return '<div class="foto-item"><div class="foto-miniatura">' + img + '</div>' + nomeFoto + '</div>';
+    }).join('');
+    return '<div class="bloco"><div class="rotulo">' + escaparHtml_(bloco.rotulo) + '<span class="obrigatorio">*</span></div>' +
+      '<div class="fotos-galeria">' + fotosHtml + '</div></div>';
+  }
+  if (bloco.tipo === 'tabela') {
+    var cabecalhos = bloco.colunas.map(function (c) { return '<th>' + escaparHtml_(c) + '<span class="obrigatorio">*</span></th>'; }).join('');
+    var linhasHtml = bloco.linhas.map(function (linha) {
+      var celulas = linha.valores.map(function (v) { return '<td><div class="caixa-valor">' + escaparHtml_(v) + '</div></td>'; }).join('');
+      return '<tr><td class="rotulo-linha">' + escaparHtml_(linha.rotulo) + '<span class="obrigatorio">*</span></td>' + celulas + '</tr>';
+    }).join('');
+    var notaTabela = bloco.nota ? '<div class="nota">' + escaparHtml_(bloco.nota) + '</div>' : '';
+    return '<div class="bloco"><div class="rotulo tabela-titulo">' + escaparHtml_(bloco.titulo) + '<span class="obrigatorio">*</span></div>' +
+      '<table class="tabela-campos"><thead><tr><th></th>' + cabecalhos + '</tr></thead><tbody>' + linhasHtml + '</tbody></table>' + notaTabela + '</div>';
+  }
+  return '';
+}
+
+/**
+ * Gera o HTML completo (com o CSS embutido) do PDF estilizado de um
+ * checklist, pronto a enviar para o DocRaptor.
+ */
+function gerarHtmlChecklistPdf_(tipo, campos, conformidade) {
+  var camposComConformidade = Object.assign({}, campos, { _conformidade: conformidade === 'Sim' ? 'Sim' : 'Não' });
+  var cacheImagens = {};
+  var blocos = construirBlocosChecklistPdf_(tipo, camposComConformidade, cacheImagens);
+  var infoTitulo = TITULOS_PDF_[tipo];
+  var corpoHtml = blocos.map(htmlBlocoChecklistPdf_).join('');
+
+  return '<!doctype html><html lang="pt"><head><meta charset="utf-8">' +
+    '<title>' + escaparHtml_(infoTitulo.titulo) + '</title><style>' + CSS_CHECKLIST_PDF_ + '</style></head><body>' +
+    '<div class="cabecalho"><h1>' + escaparHtml_(infoTitulo.titulo) + '</h1><p class="codigo">' + escaparHtml_(infoTitulo.codigo) + '</p></div>' +
+    '<div class="cartao"><div class="divisor-topo"></div>' + corpoHtml + '</div></body></html>';
+}
+
+/**
+ * Envia o HTML para a API do DocRaptor e devolve o PDF como Blob.
+ * Lanca erro se a chave API nao estiver configurada ou se a API falhar -
+ * quem chamar esta funcao deve ter um "catch" com um PDF alternativo
+ * (ver enviarChecklistPorEmail_).
+ */
+function gerarPdfViaDocRaptor_(html, nomeFicheiro) {
+  var apikey = obterChaveDocRaptor_();
+  if (!apikey) {
+    throw new Error('Chave API do DocRaptor nao configurada.');
+  }
+
+  var payload = {
+    test: false,
+    type: 'pdf',
+    document_content: html,
+    name: nomeFicheiro,
+    prince_options: { media: 'print' }
+  };
+
+  var resposta = UrlFetchApp.fetch('https://api.docraptor.com/docs', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Basic ' + Utilities.base64Encode(apikey + ':') },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  var codigo = resposta.getResponseCode();
+  if (codigo !== 200 && codigo !== 201) {
+    throw new Error('DocRaptor devolveu erro ' + codigo + ': ' + resposta.getContentText().slice(0, 300));
+  }
+
+  return resposta.getBlob().setName(nomeFicheiro);
+}
+
+/**
+ * Caminho principal para obter o PDF (igual ao modelo oficial) de um
+ * checklist. Lanca erro se a chave DocRaptor nao estiver configurada ou
+ * se a chamada falhar - o chamador deve ter um PDF alternativo pronto.
+ */
+function gerarPdfEstilizadoChecklist_(tipo, numeroChecklist, campos, conformidade) {
+  var html = gerarHtmlChecklistPdf_(tipo, campos, conformidade);
+  var nomeFicheiro = 'Checklist_' + sanitizeNomeFicheiro(numeroChecklist) + '.pdf';
+  return gerarPdfViaDocRaptor_(html, nomeFicheiro);
+}
+
 /**
  * Gera o PDF reproduzindo pagina a pagina o formulario tal como aparece
  * no ecra durante o preenchimento: o mesmo titulo + codigo DP repetidos
@@ -3990,12 +4445,26 @@ function criarDocChecklist_(tipo, numeroChecklist, equipamento, numeroSerie, ema
  * uma falha aqui (ex.: Gmail indisponivel) nao deve impedir o checklist
  * de ficar guardado.
  */
+function obterPdfBlobChecklist_(tipo, numeroChecklist, equipamento, numeroSerie, email, conformidade, campos) {
+  try {
+    return gerarPdfEstilizadoChecklist_(tipo, numeroChecklist, campos, conformidade);
+  } catch (erroEstilizado) {
+    console.error('PDF estilizado (DocRaptor) indisponivel, a usar alternativa: ' +
+      (erroEstilizado && erroEstilizado.message ? erroEstilizado.message : erroEstilizado));
+  }
+
+  var doc = criarDocChecklist_(tipo, numeroChecklist, equipamento, numeroSerie, email, conformidade, campos);
+  try {
+    return exportarDocComoBlob_(doc, 'pdf').setName('Checklist_' + sanitizeNomeFicheiro(numeroChecklist) + '.pdf');
+  } finally {
+    try { DriveApp.getFileById(doc.getId()).setTrashed(true); } catch (erroLimpeza) { /* ignora */ }
+  }
+}
+
 function enviarChecklistPorEmail_(tipo, id, numeroChecklist, equipamento, numeroSerie, email, conformidade, campos) {
   if (!email) return;
-  var doc = null;
   try {
-    doc = criarDocChecklist_(tipo, numeroChecklist, equipamento, numeroSerie, email, conformidade, campos);
-    var pdfBlob = exportarDocComoBlob_(doc, 'pdf').setName('Checklist_' + sanitizeNomeFicheiro(numeroChecklist) + '.pdf');
+    var pdfBlob = obterPdfBlobChecklist_(tipo, numeroChecklist, equipamento, numeroSerie, email, conformidade, campos);
 
     var nomeTipo = tipo === 'ciclos' ? 'Clico/VA' : 'Grupo Cond. Walkin';
     var linkEdicao = ScriptApp.getService().getUrl() + '?checklistId=' + encodeURIComponent(id);
@@ -4020,10 +4489,6 @@ function enviarChecklistPorEmail_(tipo, id, numeroChecklist, equipamento, numero
     // Fica registado no Registo de execucoes (Apps Script) para conseguir
     // perceber o motivo sem bloquear quem esta a preencher o checklist.
     console.error('Falha ao gerar/enviar o PDF do checklist: ' + (erroEmail && erroEmail.message ? erroEmail.message : erroEmail));
-  } finally {
-    if (doc) {
-      try { DriveApp.getFileById(doc.getId()).setTrashed(true); } catch (erroLimpeza) { /* ignora */ }
-    }
   }
 }
 
@@ -4407,7 +4872,6 @@ function apagarRascunhoChecklist(dados) {
  * mesmo padrao usado em gerarRelatorioEntrega.
  */
 function gerarPdfChecklistSobDemanda_(parametros) {
-  var temporario = null;
   try {
     var id = (parametros.id || '').toString().trim();
     if (!id) {
@@ -4424,11 +4888,10 @@ function gerarPdfChecklistSobDemanda_(parametros) {
     var dados = JSON.parse(encontrado.dadosJson || '{}');
     var numeroChecklist = dados.numeroChecklist || encontrado.id;
 
-    temporario = criarDocChecklist_(encontrado.tipo, numeroChecklist, encontrado.equipamento,
+    var blob = obterPdfBlobChecklist_(encontrado.tipo, numeroChecklist, encontrado.equipamento,
       encontrado.numeroSerie, encontrado.email, encontrado.conformidade, dados.campos || {});
-    var blob = exportarDocComoBlob_(temporario, 'pdf');
     var base64 = Utilities.base64Encode(blob.getBytes());
-    var nomeFicheiro = 'Checklist_' + sanitizeNomeFicheiro(numeroChecklist) + '.pdf';
+    var nomeFicheiro = blob.getName();
 
     var html = '<html><body onload="document.getElementById(\'l\').click();">' +
       '<a id="l" href="data:application/pdf;base64,' + base64 + '" download="' + nomeFicheiro + '">A transferir...</a>' +
@@ -4438,9 +4901,5 @@ function gerarPdfChecklistSobDemanda_(parametros) {
   } catch (erro) {
     var mensagem = erro && erro.message ? erro.message : String(erro);
     return HtmlService.createHtmlOutput('<p>Erro ao gerar o PDF: ' + escaparHtml_(mensagem) + '</p>');
-  } finally {
-    if (temporario) {
-      try { DriveApp.getFileById(temporario.getId()).setTrashed(true); } catch (erroLimpeza) { /* ignora */ }
-    }
   }
 }

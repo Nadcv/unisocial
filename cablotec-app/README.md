@@ -379,19 +379,28 @@ pela primeira vez ou numa correção — a aplicação:
    para Grupos, `CC-0001` para Ciclos — contadores independentes),
    diferente do id técnico interno. Ao editar/corrigir um checklist já
    enviado, o número **mantém-se o mesmo** (não gera um novo).
-2. Gera automaticamente um **PDF em formato A4**, reproduzindo página a
-   página o mesmo formulário tal como aparece no ecrã durante o
-   preenchimento: o título ("CHECK-LIST DE PRODUÇÃO Grupo Cond. Walkin"
-   / "DP156/R05", ou o equivalente de Ciclos) repete-se no topo de cada
-   página, os campos seguem a mesma ordem da respetiva página do
-   formulário, os itens OK/NA/NOK aparecem numa tabela Item/Resultado,
-   as fotos e assinaturas ficam incorporadas como imagens, e há um
-   contador "N/Total" (ex.: "1/8") no fundo de cada página, tal como no
-   ecrã. **As cores são exatamente as mesmas da aplicação** (texto
-   principal `#1f2937`, código DP a cinza `#5f6b7a`) — não se usam
-   "Título 1/2" do Google Docs (que trariam a cor de tema do Docs),
-   nem nenhuma cor nova; é deliberadamente o mesmo visual simples do
-   formulário, sem alterações.
+2. Gera automaticamente um **PDF em formato A4** com todos os dados do
+   checklist. Há dois motores possíveis, escolhidos automaticamente:
+   - **PDF com o visual exato do modelo oficial** (cartão branco com
+     cantos arredondados sobre fundo cinza, cabeçalho repetido em cada
+     página, radios OK/NA/NOK circulares a verde, fotos com borda
+     tracejada e nome do ficheiro por baixo, assinaturas numa caixa) —
+     usado sempre que a chave API do **DocRaptor** estiver configurada em
+     🏭 Controlo de Produção → cartão "PDF do Checklist com o visual
+     exato (DocRaptor)". A app já gera e envia o HTML+CSS internamente
+     (`gerarHtmlChecklistPdf_` em `Code.gs`); o DocRaptor só faz a
+     conversão final de HTML para PDF (via `UrlFetchApp`, uma única
+     chamada HTTP) — não há nenhum serviço nem projeto externo a manter,
+     só uma conta gratuita em [docraptor.com](https://docraptor.com) e
+     uma chave API colada nessa definição.
+   - **PDF simples do Google Docs** (sem essa chave configurada, ou se a
+     chamada ao DocRaptor falhar por qualquer razão) — reproduz página a
+     página o mesmo formulário tal como aparece no ecrã, com o título e
+     código DP repetidos no topo de cada página e um contador "N/Total"
+     no fundo; mesmas cores da aplicação, mas sem os elementos visuais
+     mais elaborados (cantos arredondados, radios coloridos, etc.). Serve
+     de rede de segurança: o checklist nunca deixa de ser enviado por
+     e-mail por falta dessa chave.
 3. Envia esse PDF por e-mail para o endereço preenchido em "E-Mail de
    quem preenche o documento" (página 1), com um **link de edição** no
    corpo da mensagem.

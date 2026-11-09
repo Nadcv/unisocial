@@ -1213,6 +1213,23 @@
     </div>
   </div>
 
+  <div class="card">
+    <div class="card-titulo">PDF do Checklist com o visual exato (DocRaptor)</div>
+    <div class="ajuda" style="margin-bottom:10px;">
+      Opcional. Sem esta chave, o PDF do Checklist enviado por e-mail usa um formato mais simples (Google Docs).
+      Com a chave preenchida, passa a usar o <a href="https://docraptor.com" target="_blank">DocRaptor</a> para gerar um PDF
+      com o visual exato do modelo oficial (cartão branco, radios a verde, fotos com borda tracejada). Crie uma conta gratuita
+      em docraptor.com e cole aqui a "API Key" (em Settings).
+    </div>
+    <div class="campo">
+      <label class="campo-label" for="docraptorApiKey">Chave API do DocRaptor</label>
+      <input type="text" id="docraptorApiKey" placeholder="ex.: 7f3a1b2c..." autocomplete="off" />
+    </div>
+    <div class="linha-botoes">
+      <button type="button" class="botao botao-verde botao-largo" id="botaoGuardarDocRaptor">Guardar chave</button>
+    </div>
+  </div>
+
   <div class="estado" id="estadoProducao"></div>
 </main>
 
@@ -4618,6 +4635,38 @@
       .finally(function () { botaoGuardarWhatsapp.disabled = false; });
   });
 
+  // ---------------------------------------------------------------------
+  // Chave API do DocRaptor - opcional, para o PDF do Checklist ficar com
+  // o visual exato do modelo oficial. Guardada nas Propriedades do Script.
+  // ---------------------------------------------------------------------
+  function carregarConfigDocRaptor() {
+    if (!APPS_SCRIPT_URL) return;
+    fetch(APPS_SCRIPT_URL + '?action=configDocRaptor').then(respostaParaJsonGlobal).then(function (dados) {
+      if (dados.status !== 'ok') return;
+      document.getElementById('docraptorApiKey').value = dados.apikey || '';
+    }).catch(function () { /* falha em silencio */ });
+  }
+
+  document.getElementById('botaoGuardarDocRaptor').addEventListener('click', function () {
+    if (!APPS_SCRIPT_URL) {
+      mostrarEstado('Configuração em falta: defina APPS_SCRIPT_URL / implante a Aplicação Web.', 'erro');
+      return;
+    }
+    var apikey = document.getElementById('docraptorApiKey').value.trim();
+    var botaoGuardarDocRaptor = document.getElementById('botaoGuardarDocRaptor');
+    botaoGuardarDocRaptor.disabled = true;
+    mostrarEstado('A guardar chave do DocRaptor...', 'info');
+
+    fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ acao: 'configurarDocRaptor', apikey: apikey }) })
+      .then(respostaParaJsonGlobal)
+      .then(function (dados) {
+        if (dados.status !== 'ok') { mostrarEstado('Erro: ' + (dados.msg || 'falha desconhecida.'), 'erro'); return; }
+        mostrarEstado(dados.mensagem, 'sucesso');
+      })
+      .catch(function (erro) { mostrarEstado('Erro de rede/ligação: ' + erro.message, 'erro'); })
+      .finally(function () { botaoGuardarDocRaptor.disabled = false; });
+  });
+
   preencherSelectGrupo();
   carregarLista();
   carregarDashboard();
@@ -4626,6 +4675,7 @@
   carregarMateriaisStock();
   carregarConfigEnvioAutomatico();
   carregarConfigWhatsapp();
+  carregarConfigDocRaptor();
 })();
 
 </script>
