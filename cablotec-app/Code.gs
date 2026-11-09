@@ -57,6 +57,7 @@ var CATEGORIAS_ESQUEMA = ['esquemaEletrico', 'esquemaFrio'];
 var LISTAS_PADRAO = {
   grupos: [
     '30',
+    '33',
     '46',
     '67',
     '68',
@@ -106,6 +107,7 @@ var LISTAS_PADRAO = {
   tecnicos: [],
   gruposProducao: [
     '30',
+    '33',
     '46',
     '67',
     '68',
