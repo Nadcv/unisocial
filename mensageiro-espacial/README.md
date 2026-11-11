@@ -29,17 +29,18 @@ ao destino. Quem recebe um pacote que não é para si pode reencaminhá‑lo.
 
 ## 🆘 Emergência (Portugal, Espanha, São Tomé e Príncipe)
 
-Separador **Emergência**: gera uma mensagem compacta **≤ 160 caracteres, sem
-acentos** (um acento faz o SMS cair para 70 caracteres), legível por quem não
-tem a app:
+Separador **Emergência**: gera uma mensagem compacta **≤ 160 caracteres, em
+maiúsculas, sem acentos nem vírgulas** — o mesmo texto serve para SMS (um acento
+faria o SMS cair para 70 caracteres), e‑mail, Winlink e JS8Call — legível por
+quem não tem a app:
 
 ```
-SOS1 SAO-TOME-1 T111015 L0.33650,6.72730 P3 FER AGUA Casa azul junto a ponte #1B49
+SOS1 SAO-TOME-1 T111015 L0.33650/6.72730 P3 FER AGUA CASA AZUL JUNTO A PONTE CK1B49
 ```
 
 `T` = dia/hora/minuto UTC · `L` = latitude,longitude (GPS, funciona sem rede) ·
 `P` = n.º de pessoas · códigos (`OK FER GRV PRESO EVAC AGUA COMIDA MED ABRIGO
-CHEIA FOGO BAT`) · texto livre · `#XXXX` = verificação (CRC‑16). Mensagens
+CHEIA FOGO BAT`) · texto livre · `CKXXXX` = verificação (CRC‑16). Mensagens
 maiores são divididas em partes `(1/2)`, `(2/2)` e voltam a juntar‑se ao ler.
 
 **Contactos e envio** (abre a app de SMS ou de e‑mail do telemóvel já preenchida):
@@ -51,6 +52,14 @@ maiores são divididas em partes `(1/2)`, `(2/2)` e voltam a juntar‑se ao ler.
 | 🛰️ Inmarsat | e‑mail para `<número>@message.inmarsat.com` |
 | 🛰️ Thuraya | e‑mail para `sms@smsr.thuraya.com`, número no assunto |
 | ✉️ E‑mail | endereço livre (ex.: Garmin inReach) |
+| 📻 Winlink | e‑mail para `<INDICATIVO>@winlink.org`, assunto `//WL2K SOS`: quem tem internet escreve, o radioamador recebe por rádio HF sem internet |
+| 📻 JS8Call | copia a linha `<INDICATIVO> MSG SOS1 …` para colar no JS8Call |
+
+**Radioamador:** só pode transmitir quem tiver licença (a licença CEPT
+portuguesa cobre visitas temporárias a Espanha; São Tomé e Príncipe exige
+licença local da AGER). **Por rádio é proibido cifrar**, por isso a mensagem SOS
+vai sempre em texto aberto. Para ~800 km (PT ⇄ Valência) a banda dos 40 m
+costuma ser melhor do que a dos 20 m; para São Tomé (~4 600 km), 20 m.
 
 ⚠️ Os formatos de e‑mail‑para‑satélite devem ser **confirmados com o
 fornecedor** de cada terminal. O envio por e‑mail precisa de internet do lado

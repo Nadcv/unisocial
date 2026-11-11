@@ -253,7 +253,11 @@
       <h2>📇 Contactos de emergência</h2>
       <p class="hint">SMS vai pela rede do telemóvel (ou por satélite, se o telemóvel e a operadora suportarem Direct to Cell).
         Para um terminal de satélite a app abre um e‑mail para o endereço do fornecedor (precisa de internet <i>do lado de quem envia</i>).
-        <b>Confirme o formato do endereço com o seu fornecedor</b> antes de depender dele.</p>
+        <b>Confirme o formato do endereço com o seu fornecedor</b> antes de depender dele.<br>
+        📻 <b>Radioamador:</b> com <b>Winlink</b>, quem tem internet escreve para <code>INDICATIVO@winlink.org</code> e o
+        radioamador recebe por rádio HF mesmo sem internet do lado dele. Com <b>JS8Call</b>, a app copia a linha pronta a colar.
+        Só pode transmitir quem tiver licença, e <b>por rádio é proibido cifrar</b> — por isso a mensagem SOS vai sempre em texto
+        aberto (nunca use a palavra‑passe por rádio).</p>
       <div class="grid2">
         <div><label>Nome</label><input id="cName" placeholder="ex.: Tia Maria (São Tomé)" /></div>
         <div><label>Tipo</label>
@@ -263,6 +267,8 @@
             <option value="inmarsat">🛰️ Inmarsat (e‑mail → SMS)</option>
             <option value="thuraya">🛰️ Thuraya (e‑mail → SMS)</option>
             <option value="email">✉️ E‑mail (inReach, outro)</option>
+            <option value="winlink">📻 Radioamador — Winlink (e‑mail → rádio HF)</option>
+            <option value="js8">📻 Radioamador — JS8Call (copiar linha)</option>
           </select>
         </div>
       </div>
@@ -277,7 +283,7 @@
     <div class="card">
       <h2>📥 Ler SOS recebido por SMS / e‑mail</h2>
       <p class="hint">Cole a(s) mensagem(ns) recebida(s). Se veio em várias partes (1/2, 2/2), cole todas.</p>
-      <textarea class="code" id="eIn" placeholder="SOS1 TERRA-1 L0.33650,6.72730 P3 FER AGUA ... #1A2B"></textarea>
+      <textarea class="code" id="eIn" placeholder="SOS1 TERRA-1 L0.33650/6.72730 P3 FER AGUA ... CK1A2B"></textarea>
       <button class="btn primary" id="eRead">Ler e guardar</button>
       <div class="eta" id="eParsed" style="display:none"></div>
     </div>
@@ -807,6 +813,8 @@ const SOS_LABEL = Object.fromEntries(SOS_CODES);
 const SMS_MAX = 160;
 // Só caracteres do alfabeto GSM‑7 básico: um acento força UCS‑2 e o SMS cai para 70 caracteres.
 const gsmSafe = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9 .,;:!?()\-+'"\/@&%=<>*]/g, '').replace(/\s+/g, ' ').trim();
+// Formato único compatível com SMS, e-mail, Winlink e JS8Call: maiúsculas, dígitos, espaço e . / ? + -
+const radioSafe = (t) => gsmSafe(t).toUpperCase().replace(/[^A-Z0-9 .\/?+\-]/g, ' ').replace(/\s+/g, ' ').trim();
 const chk16 = (t) => (crc32(enc.encode(t)) & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
 
 let sosSel = new Set(store.get('me.sosSel', []));
@@ -821,13 +829,13 @@ function parseLoc(s) {
 }
 function buildSos() {
   const now = new Date(), pad = (n) => String(n).padStart(2, '0');
-  const parts = ['SOS1', gsmSafe(myCall()).replace(/ /g, '-') || 'ANON', 'T' + pad(now.getUTCDate()) + pad(now.getUTCHours()) + pad(now.getUTCMinutes())];
-  const loc = parseLoc($('eLoc').value); if (loc) parts.push(`L${loc[0].toFixed(5)},${loc[1].toFixed(5)}`);
+  const parts = ['SOS1', radioSafe(myCall()).replace(/ /g, '-') || 'ANON', 'T' + pad(now.getUTCDate()) + pad(now.getUTCHours()) + pad(now.getUTCMinutes())];
+  const loc = parseLoc($('eLoc').value); if (loc) parts.push(`L${loc[0].toFixed(5)}/${loc[1].toFixed(5)}`);
   const ppl = parseInt($('ePeople').value, 10); if (ppl >= 0) parts.push('P' + ppl);
   SOS_CODES.forEach(([c]) => sosSel.has(c) && parts.push(c));
-  const txt = gsmSafe($('eText').value); if (txt) parts.push(txt);
+  const txt = radioSafe($('eText').value); if (txt) parts.push(txt);
   const body = parts.join(' ');
-  return body + ' #' + chk16(body);
+  return body + ' CK' + chk16(body);
 }
 // Divide em partes "(k/n) " que cabem cada uma num SMS
 function splitSms(msg) {
@@ -840,16 +848,17 @@ function parseSos(raw) {
   const chunks = [...raw.matchAll(/\((\d+)\/(\d+)\)\s?([\s\S]*?)(?=\(\d+\/\d+\)|$)/g)];
   let msg = chunks.length ? chunks.sort((a, b) => a[1] - b[1]).map((c) => c[3].replace(/[\r\n]+/g, '')).join('').trim() : raw.trim();
   if (chunks.length && new Set(chunks.map((c) => c[1])).size < +chunks[0][2]) throw new Error(`Faltam partes: recebidas ${new Set(chunks.map((c) => c[1])).size} de ${chunks[0][2]}`);
+  msg = msg.toUpperCase();
   const start = msg.indexOf('SOS1 '); if (start < 0) throw new Error('Não encontrei uma mensagem SOS1');
   msg = msg.slice(start).replace(/\s+/g, ' ');
-  const m = msg.match(/^(SOS1 .*?) #([0-9A-F]{4})/i);
-  if (!m) throw new Error('Mensagem incompleta (falta o código #XXXX no fim)');
-  const body = m[1], ok = chk16(body) === m[2].toUpperCase();
-  const tok = body.split(' ').slice(1), r = { from: tok.shift(), codes: [], text: [], ok, body: body + ' #' + m[2].toUpperCase() };
+  const m = msg.match(/^(SOS1 .*?) CK([0-9A-F]{4})\b/);
+  if (!m) throw new Error('Mensagem incompleta (falta o código CKXXXX no fim)');
+  const body = m[1], ok = chk16(body) === m[2];
+  const tok = body.split(' ').slice(1), r = { from: tok.shift(), codes: [], text: [], ok, body: body + ' CK' + m[2] };
   for (const t of tok) {
     let x;
     if (!r.text.length && (x = t.match(/^T(\d{2})(\d{2})(\d{2})$/))) r.time = x;
-    else if (!r.text.length && (x = t.match(/^L(-?\d+\.\d+),(-?\d+\.\d+)$/))) r.loc = [+x[1], +x[2]];
+    else if (!r.text.length && (x = t.match(/^L(-?\d+\.\d+)\/(-?\d+\.\d+)$/))) r.loc = [+x[1], +x[2]];
     else if (!r.text.length && (x = t.match(/^P(\d+)$/))) r.people = +x[1];
     else if (!r.text.length && SOS_LABEL[t]) r.codes.push(t);
     else r.text.push(t);
@@ -869,12 +878,16 @@ const CONTACT_TYPES = {
   iridium: { lbl: 'Número Iridium (ex.: 8816xxxxxxxx)', addr: (n) => n.replace(/\D/g, '') + '@msg.iridium.com' },
   inmarsat: { lbl: 'Número Inmarsat (ex.: 870xxxxxxxxx)', addr: (n) => n.replace(/\D/g, '') + '@message.inmarsat.com' },
   thuraya: { lbl: 'Número Thuraya (ex.: 88216xxxxxxx)', addr: () => 'sms@smsr.thuraya.com', subject: (n) => n.replace(/\D/g, '') },
-  email: { lbl: 'Endereço de e‑mail (ex.: endereço do inReach)', addr: (n) => n.trim() },
+  email: { lbl: 'Endereço de e‑mail (ex.: endereço do inReach)', addr: (n) => n.trim(), whole: true },
+  // Winlink: e-mail da internet → radioamador por HF. "//WL2K" no assunto deixa passar remetentes não autorizados.
+  winlink: { lbl: 'Indicativo de radioamador (ex.: EA5XXX)', addr: (n) => n.trim().toUpperCase().replace(/[^A-Z0-9\-]/g, '') + '@winlink.org', subject: () => '//WL2K SOS', whole: true },
+  // JS8Call: não há link; copia a linha "<INDICATIVO> MSG <texto>" para colar no JS8Call
+  js8: { lbl: 'Indicativo de radioamador (ex.: EA5XXX)', addr: (n) => n.trim().toUpperCase().replace(/[^A-Z0-9\/]/g, ''), whole: true, radio: true },
 };
 function contactPreview() {
   const t = CONTACT_TYPES[$('cType').value], n = $('cNum').value;
   $('cNumLbl').textContent = t.lbl;
-  $('cPreview').textContent = n.trim() ? (($('cType').value === 'sms' ? 'SMS para ' : 'E‑mail para ') + t.addr(n) + (t.subject ? ` · assunto: ${t.subject(n)}` : '')) : '';
+  $('cPreview').textContent = n.trim() ? (($('cType').value === 'sms' ? 'SMS para ' : t.radio ? 'Linha para o JS8Call: ' : 'E‑mail para ') + t.addr(n) + (t.radio ? ' MSG SOS1 …' : '') + (t.subject ? ` · assunto: ${t.subject(n)}` : '')) : '';
 }
 $('cType').addEventListener('change', contactPreview); $('cNum').addEventListener('input', contactPreview);
 
@@ -889,7 +902,8 @@ function renderSos() {
   $('eOut').value = parts.join('\n');
   $('eCount').innerHTML = `${msg.length} caracteres · ${parts.length === 1 ? '<span class="tag ok">1 SMS</span>' : `<span class="tag warn">${parts.length} SMS — encurte o texto para caber num só</span>`}`;
   $('cList').innerHTML = contacts.length ? contacts.map((c, i) => `<div class="msg"><div class="meta"><span><b>${esc(c.name)}</b></span><span>${esc(c.type)} · ${esc(CONTACT_TYPES[c.type].addr(c.num))}</span></div>
-      ${parts.map((p, k) => `<a class="btn primary" href="${esc(sendLink(c, p))}">${c.type === 'sms' ? '📱 Enviar SMS' : '✉️ Enviar e‑mail'}${parts.length > 1 ? ` ${k + 1}/${parts.length}` : ''}</a>`).join('')}
+      ${CONTACT_TYPES[c.type].radio ? `<button class="btn primary" data-js8="${i}">📻 Copiar para o JS8Call</button>`
+        : (CONTACT_TYPES[c.type].whole ? [msg] : parts).map((p, k, all) => `<a class="btn primary" href="${esc(sendLink(c, p))}">${c.type === 'sms' ? '📱 Enviar SMS' : '✉️ Enviar e‑mail'}${all.length > 1 ? ` ${k + 1}/${all.length}` : ''}</a>`).join('')}
       <button class="btn danger" data-cdel="${i}">Apagar</button></div>`).join('') : '<p class="hint">Sem contactos. Adicione pelo menos um.</p>';
 }
 $('eCodes').addEventListener('click', (e) => {
@@ -912,7 +926,12 @@ $('cAdd').addEventListener('click', () => {
   contacts.push({ name, type: $('cType').value, num }); store.set('me.contacts', contacts);
   $('cName').value = $('cNum').value = ''; contactPreview(); renderSos();
 });
-$('cList').addEventListener('click', (e) => {
+$('cList').addEventListener('click', async (e) => {
+  if (e.target.dataset.js8 != null) {
+    const c = contacts[+e.target.dataset.js8], line = `${CONTACT_TYPES.js8.addr(c.num)} MSG ${buildSos()}`;
+    try { await navigator.clipboard.writeText(line); setStatus($('eStatus'), '📻 Copiado: ' + line, 'ok'); } catch { prompt('Copie para o JS8Call:', line); }
+    return;
+  }
   const i = e.target.dataset.cdel; if (i == null || !confirm('Apagar contacto?')) return;
   contacts.splice(+i, 1); store.set('me.contacts', contacts); renderSos();
 });
