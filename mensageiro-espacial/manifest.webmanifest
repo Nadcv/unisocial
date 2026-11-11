@@ -1,0 +1,11 @@
+{
+  "name": "Mensageiro Espacial",
+  "short_name": "Mensageiro",
+  "description": "Mensagens tolerantes a atrasos, sem Wi-Fi nem internet: som, Morse, ficheiro ou código.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#05070d",
+  "theme_color": "#05070d",
+  "lang": "pt-PT",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
