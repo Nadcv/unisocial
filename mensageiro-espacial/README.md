@@ -27,6 +27,46 @@ ao destino. Quem recebe um pacote que não é para si pode reencaminhá‑lo.
 | 📤 **Ficheiro / Partilha** | Ficheiro `.uni` por Bluetooth, Nearby Share, AirDrop, cabo USB, cartão SD. |
 | 🔤 **Código de texto** | `UNI1.…` para copiar por SMS, ditar por rádio de voz ou escrever em papel. |
 
+## 🆘 Emergência (Portugal, Espanha, São Tomé e Príncipe)
+
+Separador **Emergência**: gera uma mensagem compacta **≤ 160 caracteres, sem
+acentos** (um acento faz o SMS cair para 70 caracteres), legível por quem não
+tem a app:
+
+```
+SOS1 SAO-TOME-1 T111015 L0.33650,6.72730 P3 FER AGUA Casa azul junto a ponte #1B49
+```
+
+`T` = dia/hora/minuto UTC · `L` = latitude,longitude (GPS, funciona sem rede) ·
+`P` = n.º de pessoas · códigos (`OK FER GRV PRESO EVAC AGUA COMIDA MED ABRIGO
+CHEIA FOGO BAT`) · texto livre · `#XXXX` = verificação (CRC‑16). Mensagens
+maiores são divididas em partes `(1/2)`, `(2/2)` e voltam a juntar‑se ao ler.
+
+**Contactos e envio** (abre a app de SMS ou de e‑mail do telemóvel já preenchida):
+
+| Tipo | Envio |
+|------|-------|
+| 📱 Telemóvel | SMS normal. Um SMS internacional de PT/ES para um número de STP (+239, CST/Unitel) não precisa de gateway. Se o telemóvel e a operadora suportarem Starlink Direct to Cell, segue por satélite. |
+| 🛰️ Iridium | e‑mail para `<número>@msg.iridium.com` |
+| 🛰️ Inmarsat | e‑mail para `<número>@message.inmarsat.com` |
+| 🛰️ Thuraya | e‑mail para `sms@smsr.thuraya.com`, número no assunto |
+| ✉️ E‑mail | endereço livre (ex.: Garmin inReach) |
+
+⚠️ Os formatos de e‑mail‑para‑satélite devem ser **confirmados com o
+fornecedor** de cada terminal. O envio por e‑mail precisa de internet do lado
+de quem envia. Em perigo imediato: **112** (PT/ES) ou números locais em STP.
+
+**Ler SOS recebido**: cole o SMS/e‑mail; a app verifica o código, mostra a
+localização (link `geo:` para mapas offline) e guarda em Mensagens, de onde
+pode ser reencaminhado por som, Morse ou ficheiro.
+
+### Gateway de SMS (ainda não implementado)
+
+Envio/receção **automáticos** (sem o utilizador carregar em "Enviar SMS")
+exigiria um pequeno servidor: app → servidor → API do gateway (Telerivet,
+eSMS Africa, …) → SMS em STP, e respostas pelo caminho inverso (webhook).
+A chave da API tem de ficar no servidor — nunca dentro da app.
+
 ## Funcionalidades
 
 - **Cifra de ponta a ponta opcional** (AES‑256‑GCM, chave PBKDF2 a partir de palavra‑passe).
