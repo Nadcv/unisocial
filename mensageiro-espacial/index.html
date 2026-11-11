@@ -86,6 +86,7 @@
     <button data-tab="transmitir">📡 Transmitir</button>
     <button data-tab="receber">📥 Receber</button>
     <button data-tab="mensagens">🗂️ Mensagens</button>
+    <button data-tab="rele">🌐 Relé grátis</button>
     <button data-tab="fisica">🌌 Física</button>
   </nav>
 </header>
@@ -279,6 +280,41 @@
       <textarea class="code" id="eIn" placeholder="SOS1 TERRA-1 L0.33650,6.72730 P3 FER AGUA ... #1A2B"></textarea>
       <button class="btn primary" id="eRead">Ler e guardar</button>
       <div class="eta" id="eParsed" style="display:none"></div>
+    </div>
+  </section>
+  <!-- RELÉ -->
+  <section id="rele">
+    <div class="card">
+      <h2>🌐 Relé gratuito — envia sozinho quando houver internet</h2>
+      <p class="hint">As mensagens ficam guardadas no telemóvel. Assim que houver <b>qualquer</b> ligação — mesmo por poucos
+        segundos: Wi‑Fi de um café, dados de um vizinho, a escola — a app envia o que está na caixa de saída e recolhe o que
+        chegou. Usa o <b>ntfy</b>, um serviço público, gratuito e de código aberto, sem conta. Quem tiver o mesmo
+        <b>canal</b> (em Portugal, Espanha ou São Tomé e Príncipe) recebe as mensagens; quando a mensagem é para essa pessoa,
+        a app dela confirma a entrega automaticamente.</p>
+      <div class="grid2">
+        <div><label>Canal (partilhe só com a família/equipa — funciona como uma chave)</label>
+          <div style="display:flex;gap:6px"><input id="yTopic" maxlength="64" placeholder="ex.: familia-x7k2..." /><button class="btn" id="yGen" style="margin:0;white-space:nowrap">🎲 Gerar</button></div>
+        </div>
+        <div><label>Servidor (pode usar um próprio, também grátis)</label><input id="yServer" value="https://ntfy.sh" /></div>
+      </div>
+      <label class="switch"><input type="checkbox" id="yAuto" /> Sincronizar automaticamente sempre que houver internet</label>
+      <button class="btn primary" id="ySync">🔄 Sincronizar agora</button>
+      <button class="btn" id="yCopy">📋 Copiar canal para partilhar</button>
+      <div class="status" id="yStatus"></div>
+      <div class="hint" id="yLast"></div>
+    </div>
+    <div class="card hint">
+      <b>⚠️ Limites (honestos):</b>
+      <ul>
+        <li>O servidor público <code>ntfy.sh</code> guarda as mensagens só durante cerca de <b>12 horas</b>. Por isso a app
+          <b>volta a publicar</b> cada mensagem a cada 10 h, durante 7 dias, até receber a confirmação de entrega.</li>
+        <li>Quem souber o nome do canal consegue ler as mensagens. Use um canal gerado (difícil de adivinhar) e, para assuntos
+          privados, uma <b>palavra‑passe</b> em "Escrever" — aí o servidor só vê texto cifrado.</li>
+        <li>Pelo menos uma pessoa em cada ponta tem de apanhar internet de vez em quando. Entre esses momentos, a mensagem pode
+          continuar a viajar sem rede: som, Morse, ficheiro, papel, de pessoa para pessoa.</li>
+      </ul>
+      <b>Tudo grátis, de ponta a ponta:</b> pessoa isolada → (som/Morse/ficheiro, sem rede) → alguém que vai à vila →
+      (Wi‑Fi grátis, relé) → família em Portugal/Espanha — e a resposta faz o caminho inverso.
     </div>
   </section>
 </main>
@@ -709,7 +745,8 @@ function renderOutbox() {
   $('outbox').innerHTML = outbox.length ? outbox.map((o, idx) => `<div class="msg"><div class="meta">
       <span>📤 <b>${esc(o.b.f)}</b> → <b>${esc(o.b.t)}</b></span><span>id ${esc(o.b.i)}</span>
       <span>${new Date(o.created).toLocaleString('pt-PT')}</span><span>${o.b.h} salto(s)</span>
-      ${o.b.e ? '<span class="tag lock">🔒 cifrada</span>' : ''}</div>
+      ${o.b.e ? '<span class="tag lock">🔒 cifrada</span>' : ''}
+      ${o.delivered ? `<span class="tag ok">✅ entregue a ${esc(o.deliveredTo || '?')} (relé)</span>` : o.relayedAt ? `<span class="tag lock">🌐 no relé (${o.relayCount}×), à espera de confirmação</span>` : ''}</div>
       <div class="body">${o.b.e ? '<i>conteúdo cifrado</i>' : esc(o.b.m)}</div>
       <button class="btn" data-send="${o.b.i}">📡 Transmitir</button>
       <button class="btn danger" data-del-out="${idx}">Apagar</button></div>`).join('') : '<p class="hint">Vazia.</p>';
@@ -904,6 +941,85 @@ $('eRead').addEventListener('click', async () => {
   } catch (e) { out.innerHTML = '❌ ' + esc(e.message); }
 });
 renderSos();
+
+/* =========================================================
+   Relé gratuito (ntfy): armazenar e reencaminhar pela internet
+   Publica: POST <servidor>/<canal> (corpo = código UNI1.…)
+   Recebe:  GET  <servidor>/<canal>/json?poll=1&since=<id|all>
+   Confirma: publica "ACK.<id>.<INDICATIVO>" quando recebe uma mensagem para si
+   ========================================================= */
+let relay = Object.assign({ server: 'https://ntfy.sh', topic: '', auto: false, since: 'all', last: 0 }, store.get('me.relay', {}));
+$('yTopic').value = relay.topic; $('yServer').value = relay.server; $('yAuto').checked = relay.auto;
+const saveRelay = () => store.set('me.relay', relay);
+const validTopic = (t) => /^[-_A-Za-z0-9]{8,64}$/.test(t);
+$('yTopic').addEventListener('input', () => { relay.topic = $('yTopic').value.trim(); relay.since = 'all'; saveRelay(); });
+$('yServer').addEventListener('input', () => { relay.server = $('yServer').value.trim() || 'https://ntfy.sh'; relay.since = 'all'; saveRelay(); });
+$('yAuto').addEventListener('change', () => { relay.auto = $('yAuto').checked; saveRelay(); if (relay.auto) relaySync(false); });
+$('yGen').addEventListener('click', () => {
+  $('yTopic').value = 'uni-' + Array.from(crypto.getRandomValues(new Uint8Array(10)), (x) => x.toString(36).padStart(2, '0')).join('').slice(0, 18);
+  $('yTopic').dispatchEvent(new Event('input'));
+});
+$('yCopy').addEventListener('click', async () => {
+  const t = `Canal do Mensageiro Espacial: ${relay.topic}\nServidor: ${relay.server}`;
+  try { await navigator.clipboard.writeText(t); setStatus($('yStatus'), '📋 Copiado. Envie à família (pessoalmente, SMS, papel…).', 'ok'); } catch { prompt('Copie:', t); }
+});
+const relayUrl = () => relay.server.replace(/\/+$/, '') + '/' + encodeURIComponent(relay.topic);
+async function relayPublish(text) {
+  const r = await fetch(relayUrl(), { method: 'POST', body: text });
+  if (!r.ok) throw new Error('servidor respondeu ' + r.status);
+}
+const RELAY_REPUBLISH = 10 * 3600e3, RELAY_MAX_AGE = 7 * 86400e3;
+let relayBusy = false;
+async function relaySync(manual) {
+  if (relayBusy) return;
+  if (!validTopic(relay.topic)) { if (manual) setStatus($('yStatus'), 'Defina um canal com 8–64 letras, números, - ou _ (ou carregue em Gerar).', 'err'); return; }
+  if (!manual && !navigator.onLine) return;
+  relayBusy = true; let got = 0, sent = 0, acks = 0;
+  try {
+    if (manual) setStatus($('yStatus'), '🔄 A sincronizar…');
+    // 1) Receber
+    const r = await fetch(relayUrl() + '/json?poll=1&since=' + encodeURIComponent(relay.since || 'all'));
+    if (!r.ok) throw new Error('servidor respondeu ' + r.status);
+    const lines = (await r.text()).split('\n').filter(Boolean).slice(-500);
+    for (const line of lines) {
+      let ev; try { ev = JSON.parse(line); } catch { continue; }
+      if (ev.event !== 'message' || typeof ev.message !== 'string') continue;
+      relay.since = ev.id || relay.since;
+      const m = ev.message.trim();
+      if (m.startsWith('ACK.')) {
+        const [, id, who] = m.split('.');
+        const o = outbox.find((x) => x.b.i === id);
+        if (o && !o.delivered) { o.delivered = Date.now(); o.deliveredTo = (who || '?').slice(0, 20); acks++; }
+      } else if (m.startsWith('UNI1.')) {
+        try {
+          const res = await receiveCode(m, 'internet (relé)');
+          if (!res.dup) { got++; if (isForMe(res.b) && res.b.f !== myCall()) await relayPublish(`ACK.${res.b.i}.${myCall().replace(/[^\w-]/g, '')}`); }
+        } catch { /* pacote inválido: ignora */ }
+      }
+    }
+    // 2) Enviar (e republicar até confirmação, porque o servidor público só guarda ~12 h)
+    const now = Date.now();
+    for (const o of outbox) {
+      if (o.delivered) continue;
+      if (o.relayedAt && (now - o.relayedAt < RELAY_REPUBLISH || now - o.created > RELAY_MAX_AGE)) continue;
+      await relayPublish(o.code); o.relayedAt = now; o.relayCount = (o.relayCount || 0) + 1; sent++;
+    }
+    relay.last = now; save(); saveRelay(); renderAll();
+    setStatus($('yStatus'), `✅ Sincronizado: ${got} recebida(s), ${sent} enviada(s), ${acks} confirmação(ões) de entrega.`, 'ok');
+  } catch (e) {
+    save(); saveRelay();
+    setStatus($('yStatus'), (manual ? '❌ ' : '⏳ ') + (e.message === 'Failed to fetch' ? 'Sem ligação ao servidor — fica tudo guardado e tenta de novo quando houver internet.' : e.message), manual ? 'err' : 'info');
+  } finally { relayBusy = false; renderRelayLast(); }
+}
+function renderRelayLast() {
+  const pend = outbox.filter((o) => !o.delivered).length;
+  $('yLast').textContent = (relay.last ? `Última sincronização: ${new Date(relay.last).toLocaleString('pt-PT')}. ` : 'Ainda não sincronizou. ') + `${pend} mensagem(ns) por confirmar.`;
+}
+$('ySync').addEventListener('click', () => relaySync(true));
+window.addEventListener('online', () => relay.auto && relaySync(false));
+setInterval(() => relay.auto && relaySync(false), 60000);
+renderRelayLast();
+if (relay.auto) setTimeout(() => relaySync(false), 1500);
 
 renderAll();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -60,6 +60,26 @@ de quem envia. Em perigo imediato: **112** (PT/ES) ou números locais em STP.
 localização (link `geo:` para mapas offline) e guarda em Mensagens, de onde
 pode ser reencaminhado por som, Morse ou ficheiro.
 
+## 🌐 Relé gratuito (Portugal/Espanha ⇄ São Tomé e Príncipe, custo zero)
+
+Não existe satélite grátis e ilimitado entre PT e STP. A forma **gratuita**
+é aproveitar **qualquer momento de internet**, mesmo breve (Wi‑Fi de um café,
+escola, dados de um vizinho):
+
+1. As mensagens ficam guardadas no telemóvel (caixa de saída).
+2. Quando há ligação, a app publica‑as num **canal** do
+   [ntfy](https://ntfy.sh) — serviço público, gratuito, de código aberto, sem
+   conta (também pode ser alojado por conta própria).
+3. A app de quem tem o mesmo canal recolhe‑as quando apanhar ligação e
+   publica uma **confirmação de entrega** (`ACK.<id>.<indicativo>`).
+4. O servidor público guarda as mensagens só ~12 h, por isso a app
+   **republica** a cada 10 h, durante 7 dias, até receber a confirmação.
+
+Entre esses momentos a mensagem continua a viajar **sem rede** (som, Morse,
+ficheiro, papel), de pessoa em pessoa. Quem souber o canal lê as mensagens:
+use um canal gerado e, para assuntos privados, uma palavra‑passe (cifra
+AES‑256 — o servidor só vê texto cifrado).
+
 ### Gateway de SMS (ainda não implementado)
 
 Envio/receção **automáticos** (sem o utilizador carregar em "Enviar SMS")

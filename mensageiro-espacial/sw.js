@@ -1,5 +1,7 @@
-// Service worker: guarda a app em cache para funcionar 100% offline depois da 1.ª visita.
-const CACHE = 'mensageiro-espacial-v1';
+// Service worker: a app funciona 100% offline depois da 1.ª visita.
+// Ficheiros da app: tenta a rede primeiro (para receber atualizações) e usa a cache se não houver ligação.
+// Pedidos a outros servidores (ex.: relé ntfy) não passam pela cache.
+const CACHE = 'mensageiro-espacial-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
@@ -7,6 +9,10 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request)));
+  const url = new URL(e.request.url);
+  if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
+  e.respondWith(
+    fetch(e.request).then((r) => { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return r; })
+      .catch(() => caches.match(e.request, { ignoreSearch: true }))
+  );
 });
