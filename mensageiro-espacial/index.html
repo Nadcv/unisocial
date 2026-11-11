@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#05070d" />
+<title>Mensageiro Espacial — mensagens sem rede</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<style>
+  :root {
+    --bg: #05070d; --panel: #0e1320; --border: #24304a; --text: #d6deeb;
+    --dim: #8592a8; --accent: #6cb6ff; --ok: #3fb950; --warn: #e3b341; --danger: #f85149;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    margin: 0; color: var(--text); min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    background: radial-gradient(ellipse at top, #0d1730 0%, var(--bg) 60%) fixed;
+  }
+  header { padding: 14px 16px 0; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(5,7,13,.95); backdrop-filter: blur(8px); z-index: 5; }
+  header .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 1.15rem; }
+  h1 small { color: var(--dim); font-weight: normal; font-size: .8rem; display: block; }
+  .me { font-size: .85rem; color: var(--dim); }
+  .me input { width: 120px; }
+  nav { display: flex; gap: 4px; overflow-x: auto; margin-top: 10px; }
+  nav button { background: none; border: none; color: var(--dim); padding: 10px 12px; border-bottom: 2px solid transparent; cursor: pointer; font-size: .95rem; white-space: nowrap; }
+  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+  main { max-width: 860px; margin: 0 auto; padding: 16px; }
+  section { display: none; } section.active { display: block; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .card h2 { margin: 0 0 10px; font-size: 1rem; }
+  label { display: block; font-size: .85rem; color: var(--dim); margin: 10px 0 4px; }
+  input, textarea, select {
+    width: 100%; background: #070b14; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 9px; font-size: .95rem; font-family: inherit;
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  textarea.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .8rem; word-break: break-all; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+  a.btn { display: inline-block; text-decoration: none; }
+  .btn { background: #1a2540; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 9px 13px; cursor: pointer; font-size: .9rem; margin: 6px 6px 0 0; }
+  .btn:hover { border-color: var(--accent); }
+  .primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .danger { color: var(--danger); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .hint { color: var(--dim); font-size: .82rem; line-height: 1.45; }
+  .eta { margin-top: 10px; padding: 10px; border-radius: 6px; background: #0a1a33; border: 1px solid #1d3b66; font-size: .9rem; line-height: 1.5; }
+  .msg { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: #0a0f1b; }
+  .msg .meta { font-size: .78rem; color: var(--dim); margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .msg .body { white-space: pre-wrap; word-break: break-word; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: .72rem; border: 1px solid var(--border); }
+  .tag.ok { color: var(--ok); border-color: var(--ok); } .tag.warn { color: var(--warn); border-color: var(--warn); }
+  .tag.lock { color: var(--accent); border-color: var(--accent); }
+  .status { margin-top: 8px; font-size: .88rem; min-height: 1.2em; }
+  .status.ok { color: var(--ok); } .status.err { color: var(--danger); } .status.info { color: var(--accent); }
+  .spectrum { display: flex; align-items: flex-end; gap: 2px; height: 60px; margin-top: 10px; background: #070b14; border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
+  .spectrum div { flex: 1; background: var(--accent); min-height: 1px; border-radius: 2px 2px 0 0; transition: height .05s; }
+  .spectrum div.s { background: var(--ok); } .spectrum div.e { background: var(--danger); }
+  progress { width: 100%; height: 10px; margin-top: 8px; }
+  #flash { position: fixed; inset: 0; background: #000; z-index: 50; display: none; align-items: flex-end; justify-content: center; }
+  #flash.on { background: #fff; }
+  #flash button { margin-bottom: 30px; }
+  .big { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1.05rem; letter-spacing: .5px; word-break: break-all; line-height: 1.7; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  td, th { border-bottom: 1px solid var(--border); padding: 6px 4px; text-align: left; }
+  th { color: var(--dim); font-weight: normal; }
+  .switch { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: .9rem; margin-top: 10px; }
+  .switch input { width: auto; }
+  .chip { display:inline-block; margin:4px 4px 0 0; padding:6px 10px; border-radius:16px; border:1px solid var(--border); background:#0a0f1b; color:var(--text); cursor:pointer; font-size:.85rem; }
+  .chip.on { background:#6e2a2a; border-color:#f85149; }
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <h1>🛰️ Mensageiro Espacial<small>mensagens tolerantes a atrasos — sem Wi‑Fi, sem internet</small></h1>
+    <div class="me">O meu indicativo: <input id="myCall" maxlength="20" placeholder="ex.: NADIA-1" /></div>
+  </div>
+  <nav id="tabs">
+    <button data-tab="emergencia" style="color:#ff7b72">🆘 Emergência</button>
+    <button data-tab="escrever" class="active">✍️ Escrever</button>
+    <button data-tab="transmitir">📡 Transmitir</button>
+    <button data-tab="receber">📥 Receber</button>
+    <button data-tab="mensagens">🗂️ Mensagens</button>
+    <button data-tab="rele">🌐 Relé grátis</button>
+    <button data-tab="fisica">🌌 Física</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ESCREVER -->
+  <section id="escrever" class="active">
+    <div class="card">
+      <h2>Nova mensagem</h2>
+      <div class="grid2">
+        <div><label>Para (indicativo, ou * para todos)</label><input id="wTo" maxlength="20" value="*" /></div>
+        <div><label>Distância até ao destino (km)</label><input id="wDist" type="text" inputmode="decimal" value="1000000000000" /></div>
+      </div>
+      <label>Mensagem</label>
+      <textarea id="wBody" maxlength="2000" placeholder="Olá do planeta Terra…"></textarea>
+      <label>Palavra‑passe (opcional — cifra AES‑256 de ponta a ponta)</label>
+      <input id="wPass" type="password" autocomplete="new-password" placeholder="deixe vazio para mensagem aberta" />
+      <div class="eta" id="wEta"></div>
+      <button class="btn primary" id="wCreate">Criar pacote e pôr na caixa de saída</button>
+      <div class="status" id="wStatus"></div>
+    </div>
+    <div class="card hint">
+      <b>Como funciona?</b> A mensagem é transformada num <i>pacote</i> (como no protocolo DTN da NASA): tem
+      remetente, destino, hora de envio, distância, número de saltos e um código de verificação (CRC‑32).
+      Depois pode viajar por <b>qualquer meio</b> — som entre telemóveis, código Morse por luz ou rádio,
+      ficheiro por Bluetooth/cabo, ou até escrito em papel. Quem recebe um pacote que não é para si pode
+      <b>reencaminhá‑lo</b>, e assim a mensagem vai saltando de pessoa em pessoa até chegar ao destino.
+    </div>
+  </section>
+
+  <!-- TRANSMITIR -->
+  <section id="transmitir">
+    <div class="card">
+      <h2>Escolher pacote</h2>
+      <select id="tSel"></select>
+      <div class="hint" id="tInfo" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <h2>🔊 Som (modem acústico)</h2>
+      <p class="hint">Coloque o outro aparelho perto (até ~1 m), abra o separador <b>Receber → Ouvir</b> nele e toque.
+        Usa 34 tons entre 800 e 3440 Hz. Velocidade ≈ 4 bytes/s.</p>
+      <button class="btn primary" id="tPlay">▶ Tocar pacote</button>
+      <button class="btn" id="tStop">■ Parar</button>
+      <progress id="tProg" value="0" max="1"></progress>
+      <div class="status" id="tStatus"></div>
+    </div>
+    <div class="card">
+      <h2>🔤 Código de texto</h2>
+      <p class="hint">Copie e envie por SMS, rádio de voz, papel, e‑mail quando houver ligação… O código tem verificação de erros.</p>
+      <textarea class="code" id="tCode" readonly></textarea>
+      <button class="btn" id="tCopy">📋 Copiar</button>
+      <button class="btn" id="tShare">📤 Partilhar (Bluetooth / Nearby)</button>
+      <button class="btn" id="tFile">💾 Guardar ficheiro .uni</button>
+      <button class="btn" id="tBig">🔎 Mostrar em grande (ditar / fotografar)</button>
+      <div class="big" id="tBigBox" style="display:none;margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2>💡 Código Morse (luz, som, vibração, rádio)</h2>
+      <p class="hint">Só para mensagens abertas (sem palavra‑passe). Envia o texto em Morse — funciona com uma
+        lanterna, um espelho ao sol, um rádio CB ou batidas numa parede. Acentos são removidos.</p>
+      <div class="grid2">
+        <div><label>Velocidade (palavras/min)</label><input id="mWpm" type="number" min="3" max="30" value="12" /></div>
+        <div><label>Saída</label>
+          <select id="mOut"><option value="sound">Som</option><option value="flash">Ecrã a piscar</option><option value="vibrate">Vibração</option><option value="all">Tudo</option></select>
+        </div>
+      </div>
+      <textarea class="code" id="mText" readonly style="min-height:60px;margin-top:10px"></textarea>
+      <button class="btn primary" id="mPlay">▶ Transmitir Morse</button>
+      <button class="btn" id="mStop">■ Parar</button>
+    </div>
+  </section>
+
+  <!-- RECEBER -->
+  <section id="receber">
+    <div class="card">
+      <h2>🎤 Ouvir (modem acústico)</h2>
+      <p class="hint">Dê permissão ao microfone e aproxime o aparelho que está a tocar. Ambiente silencioso ajuda.</p>
+      <button class="btn primary" id="rListen">🎤 Começar a ouvir</button>
+      <button class="btn" id="rStopListen" disabled>■ Parar</button>
+      <div class="spectrum" id="rSpec"></div>
+      <div class="status" id="rStatus"></div>
+    </div>
+    <div class="card">
+      <h2>🔤 Colar código / abrir ficheiro</h2>
+      <textarea class="code" id="rCode" placeholder="UNI1.…"></textarea>
+      <button class="btn primary" id="rImport">Importar código</button>
+      <label class="btn" style="display:inline-block;margin:6px 6px 0 0;color:var(--text)">📂 Abrir ficheiro .uni
+        <input type="file" id="rFile" accept=".uni,.txt,text/plain" style="display:none" /></label>
+      <div class="status" id="rImpStatus"></div>
+    </div>
+    <div class="card">
+      <h2>💡 Descodificar Morse</h2>
+      <p class="hint">Escreva os pontos e traços que viu/ouviu: <code>.</code> e <code>-</code>, espaço entre letras, <code>/</code> entre palavras.</p>
+      <textarea class="code" id="rMorse" placeholder=".... --- .-.. .- / - . .-. .-. .-"></textarea>
+      <div class="eta" id="rMorseOut">—</div>
+    </div>
+  </section>
+
+  <!-- MENSAGENS -->
+  <section id="mensagens">
+    <div class="card">
+      <h2>📥 Recebidas</h2>
+      <label class="switch"><input type="checkbox" id="simDelay" /> Simular o atraso da luz (a mensagem só "chega" quando a luz lá chegaria)</label>
+      <div id="inbox" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h2>📤 Caixa de saída</h2>
+      <div id="outbox"></div>
+    </div>
+  </section>
+
+  <!-- FÍSICA -->
+  <section id="fisica">
+    <div class="card">
+      <h2>Quanto tempo demora e quão fraco chega o sinal?</h2>
+      <div class="grid2">
+        <div><label>Distância (km)</label><input id="pDist" type="text" inputmode="decimal" value="1000000000000" /></div>
+        <div><label>Frequência do rádio (GHz)</label><input id="pFreq" type="number" value="8.4" step="0.1" /></div>
+      </div>
+      <div class="eta" id="pOut"></div>
+    </div>
+    <div class="card">
+      <h2>Comparações</h2>
+      <table id="pTable"><thead><tr><th>Destino</th><th>Distância</th><th>Tempo à velocidade da luz</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card hint">
+      <b>A verdade sobre 1 000 000 000 000 km.</b> É cerca de 6 700 vezes a distância Terra‑Sol (≈ 0,1 ano‑luz,
+      no início da Nuvem de Oort). Nada viaja mais depressa do que a luz, por isso <b>qualquer</b> mensagem
+      leva no mínimo ~38,6 dias a lá chegar e outros tantos para vir a resposta. Um telemóvel emite ~1 W com uma
+      antena minúscula: a esta distância o sinal ficaria biliões de vezes abaixo do ruído. Para falar com a
+      Voyager 1 (~25 mil milhões de km) a NASA usa antenas de 70 m e recebe ~160 bits/s.<br><br>
+      Por isso esta aplicação faz o que a NASA faz na prática: <b>armazenar e reencaminhar</b> (DTN — Bundle
+      Protocol, RFC 9171). A mensagem não precisa de uma ligação contínua até ao destino; basta que cada salto
+      — de pessoa para pessoa, de aparelho para aparelho, de estação para estação — a passe ao seguinte.
+    </div>
+  </section>
+  <!-- EMERGÊNCIA -->
+  <section id="emergencia">
+    <div class="card" style="border-color:#6e2a2a">
+      <h2>🆘 Mensagem de emergência (cabe num SMS)</h2>
+      <p class="hint"><b>Em perigo imediato ligue primeiro 112</b> (Portugal e Espanha) ou os números de emergência locais
+        (São Tomé e Príncipe). Esta mensagem é um complemento: curta (≤ 160 caracteres, sem acentos), legível mesmo por
+        quem não tem a app, e passa por SMS normal, SMS via satélite (Starlink Direct to Cell) ou terminais
+        Iridium/Inmarsat/Thuraya/inReach.</p>
+      <a class="btn primary" href="tel:112" style="background:#da3633;border-color:#da3633;font-size:1rem">📞 Ligar 112</a>
+      <p class="hint">Num iPhone 14 ou mais recente sem rede, ao ligar 112 o próprio iPhone propõe o <b>SOS de emergência via satélite</b>
+        (ao ar livre, com vista para o céu). Nenhuma app consegue ativar essa função diretamente — este botão é o caminho.
+        Em São Tomé e Príncipe confirme os números de emergência locais.</p>
+      <label>Situação (toque para marcar)</label>
+      <div id="eCodes"></div>
+      <div class="grid2">
+        <div><label>N.º de pessoas</label><input id="ePeople" type="number" min="0" max="999" placeholder="ex.: 3" /></div>
+        <div><label>Localização (lat, lon)</label>
+          <div style="display:flex;gap:6px"><input id="eLoc" placeholder="0.33650, 6.72730" /><button class="btn" id="eGps" style="margin:0;white-space:nowrap">📍 GPS</button></div>
+        </div>
+      </div>
+      <label>Texto livre (curto)</label>
+      <input id="eText" maxlength="300" placeholder="ex.: casa azul junto a ponte" />
+      <label>Mensagem gerada</label>
+      <textarea class="code" id="eOut" readonly style="min-height:70px"></textarea>
+      <div class="hint" id="eCount"></div>
+    </div>
+    <div class="card">
+      <h2>📇 Contactos de emergência</h2>
+      <p class="hint">SMS vai pela rede do telemóvel (ou por satélite, se o telemóvel e a operadora suportarem Direct to Cell).
+        Para um terminal de satélite a app abre um e‑mail para o endereço do fornecedor (precisa de internet <i>do lado de quem envia</i>).
+        <b>Confirme o formato do endereço com o seu fornecedor</b> antes de depender dele.<br>
+        📻 <b>Radioamador:</b> com <b>Winlink</b>, quem tem internet escreve para <code>INDICATIVO@winlink.org</code> e o
+        radioamador recebe por rádio HF mesmo sem internet do lado dele. Com <b>JS8Call</b>, a app copia a linha pronta a colar.
+        Só pode transmitir quem tiver licença, e <b>por rádio é proibido cifrar</b> — por isso a mensagem SOS vai sempre em texto
+        aberto (nunca use a palavra‑passe por rádio).</p>
+      <div class="grid2">
+        <div><label>Nome</label><input id="cName" placeholder="ex.: Tia Maria (São Tomé)" /></div>
+        <div><label>Tipo</label>
+          <select id="cType">
+            <option value="sms">📱 Telemóvel (SMS)</option>
+            <option value="iridium">🛰️ Iridium (e‑mail → SMS)</option>
+            <option value="inmarsat">🛰️ Inmarsat (e‑mail → SMS)</option>
+            <option value="thuraya">🛰️ Thuraya (e‑mail → SMS)</option>
+            <option value="email">✉️ E‑mail (inReach, outro)</option>
+            <option value="winlink">📻 Radioamador — Winlink (e‑mail → rádio HF)</option>
+            <option value="js8">📻 Radioamador — JS8Call (copiar linha)</option>
+          </select>
+        </div>
+      </div>
+      <label id="cNumLbl">Número (com indicativo, ex.: +239 9xx xxxx)</label>
+      <input id="cNum" />
+      <div class="hint" id="cPreview"></div>
+      <button class="btn" id="cAdd">➕ Guardar contacto</button>
+      <div id="cList" style="margin-top:10px"></div>
+      <button class="btn" id="eQueue">📡 Pôr também na caixa de saída (som, Morse, ficheiro, reencaminhar)</button>
+      <div class="status" id="eStatus"></div>
+    </div>
+    <div class="card">
+      <h2>📥 Ler SOS recebido por SMS / e‑mail</h2>
+      <p class="hint">Cole a(s) mensagem(ns) recebida(s). Se veio em várias partes (1/2, 2/2), cole todas.</p>
+      <textarea class="code" id="eIn" placeholder="SOS1 TERRA-1 L0.33650/6.72730 P3 FER AGUA ... CK1A2B"></textarea>
+      <button class="btn primary" id="eRead">Ler e guardar</button>
+      <div class="eta" id="eParsed" style="display:none"></div>
+    </div>
+  </section>
+  <!-- RELÉ -->
+  <section id="rele">
+    <div class="card">
+      <h2>🌐 Relé gratuito — envia sozinho quando houver internet</h2>
+      <p class="hint">As mensagens ficam guardadas no telemóvel. Assim que houver <b>qualquer</b> ligação — mesmo por poucos
+        segundos: Wi‑Fi de um café, dados de um vizinho, a escola — a app envia o que está na caixa de saída e recolhe o que
+        chegou. Usa o <b>ntfy</b>, um serviço público, gratuito e de código aberto, sem conta. Quem tiver o mesmo
+        <b>canal</b> (em Portugal, Espanha ou São Tomé e Príncipe) recebe as mensagens; quando a mensagem é para essa pessoa,
+        a app dela confirma a entrega automaticamente.</p>
+      <div class="grid2">
+        <div><label>Canal (partilhe só com a família/equipa — funciona como uma chave)</label>
+          <div style="display:flex;gap:6px"><input id="yTopic" maxlength="64" placeholder="ex.: familia-x7k2..." /><button class="btn" id="yGen" style="margin:0;white-space:nowrap">🎲 Gerar</button></div>
+        </div>
+        <div><label>Servidor (pode usar um próprio, também grátis)</label><input id="yServer" value="https://ntfy.sh" /></div>
+      </div>
+      <label class="switch"><input type="checkbox" id="yAuto" /> Sincronizar automaticamente sempre que houver internet</label>
+      <button class="btn primary" id="ySync">🔄 Sincronizar agora</button>
+      <button class="btn" id="yCopy">📋 Copiar canal para partilhar</button>
+      <div class="status" id="yStatus"></div>
+      <div class="hint" id="yLast"></div>
+    </div>
+    <div class="card hint">
+      <b>⚠️ Limites (honestos):</b>
+      <ul>
+        <li>O servidor público <code>ntfy.sh</code> guarda as mensagens só durante cerca de <b>12 horas</b>. Por isso a app
+          <b>volta a publicar</b> cada mensagem a cada 10 h, durante 7 dias, até receber a confirmação de entrega.</li>
+        <li>Quem souber o nome do canal consegue ler as mensagens. Use um canal gerado (difícil de adivinhar) e, para assuntos
+          privados, uma <b>palavra‑passe</b> em "Escrever" — aí o servidor só vê texto cifrado.</li>
+        <li>Pelo menos uma pessoa em cada ponta tem de apanhar internet de vez em quando. Entre esses momentos, a mensagem pode
+          continuar a viajar sem rede: som, Morse, ficheiro, papel, de pessoa para pessoa.</li>
+      </ul>
+      <b>Tudo grátis, de ponta a ponta:</b> pessoa isolada → (som/Morse/ficheiro, sem rede) → alguém que vai à vila →
+      (Wi‑Fi grátis, relé) → família em Portugal/Espanha — e a resposta faz o caminho inverso.
+    </div>
+  </section>
+</main>
+
+<div id="flash"><button class="btn" id="flashStop">■ Parar</button></div>
+
+<script>
+'use strict';
+/* =========================================================
+   Utilidades
+   ========================================================= */
+const $ = (id) => document.getElementById(id);
+const C_KM_S = 299792.458;
+const enc = new TextEncoder(), dec = new TextDecoder();
+const store = {
+  get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } },
+  set(k, v) { localStorage.setItem(k, JSON.stringify(v)); },
+};
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const parseNum = (s) => Number(String(s).replace(/\s|_/g, '').replace(',', '.'));
+const fmtInt = (n) => n.toLocaleString('pt-PT', { maximumFractionDigits: 0 });
+
+function fmtDuration(sec) {
+  if (!isFinite(sec)) return '—';
+  if (sec < 1) return (sec * 1000).toFixed(1) + ' ms';
+  if (sec < 60) return sec.toFixed(2) + ' s';
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60), s = Math.floor(sec % 60);
+  if (d >= 365.25 * 2) return (sec / (86400 * 365.25)).toLocaleString('pt-PT', { maximumFractionDigits: 1 }) + ' anos';
+  return [d && d + ' d', h && h + ' h', m && m + ' min', (!d && s) && s + ' s'].filter(Boolean).join(' ') || '0 s';
+}
+const lightSeconds = (km) => km / C_KM_S;
+
+/* CRC-32 */
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+
+/* base64url */
+function b64u(bytes) { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function unb64u(str) { str = str.replace(/-/g, '+').replace(/_/g, '/'); while (str.length % 4) str += '='; const bin = atob(str); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }
+
+/* Compressão (opcional, se o browser suportar) */
+async function streamThrough(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+const canCompress = typeof CompressionStream !== 'undefined';
+
+/* =========================================================
+   Pacote (bundle) e enquadramento
+   Trama: 'U' | flags | len(2) | payload | crc32(4)
+   flags bit0 = payload comprimido (deflate-raw)
+   ========================================================= */
+async function packFrame(obj) {
+  let payload = enc.encode(JSON.stringify(obj)), flags = 0;
+  if (canCompress) {
+    const z = await streamThrough(payload, new CompressionStream('deflate-raw'));
+    if (z.length < payload.length) { payload = z; flags |= 1; }
+  }
+  if (payload.length > 65535) throw new Error('Mensagem demasiado grande');
+  const f = new Uint8Array(4 + payload.length + 4);
+  f[0] = 0x55; f[1] = flags; f[2] = payload.length >> 8; f[3] = payload.length & 255;
+  f.set(payload, 4);
+  const c = crc32(f.subarray(0, 4 + payload.length));
+  f.set([c >>> 24, (c >>> 16) & 255, (c >>> 8) & 255, c & 255], 4 + payload.length);
+  return f;
+}
+async function unpackFrame(f) {
+  if (f.length < 8 || f[0] !== 0x55) throw new Error('Não é um pacote válido');
+  const len = (f[2] << 8) | f[3];
+  if (f.length < 8 + len) throw new Error('Pacote incompleto');
+  const c = crc32(f.subarray(0, 4 + len));
+  const got = ((f[4 + len] << 24) | (f[5 + len] << 16) | (f[6 + len] << 8) | f[7 + len]) >>> 0;
+  if (c !== got) throw new Error('Pacote corrompido (CRC não confere)');
+  let payload = f.slice(4, 4 + len);
+  if (f[1] & 1) {
+    if (typeof DecompressionStream === 'undefined') throw new Error('Este browser não descomprime pacotes');
+    payload = await streamThrough(payload, new DecompressionStream('deflate-raw'));
+  }
+  const b = JSON.parse(dec.decode(payload));
+  if (!b || typeof b.i !== 'string' || typeof b.m !== 'string') throw new Error('Conteúdo do pacote inválido');
+  return b;
+}
+const frameToCode = (f) => 'UNI1.' + b64u(f);
+function codeToFrame(code) {
+  const m = code.replace(/\s+/g, '').match(/UNI1\.([A-Za-z0-9_-]+)/);
+  if (!m) throw new Error('Código não reconhecido (deve começar por UNI1.)');
+  return unb64u(m[1]);
+}
+
+/* Cifra AES-GCM com chave derivada da palavra-passe (PBKDF2) */
+async function deriveKey(pass, salt) {
+  if (!crypto.subtle) throw new Error('Cifra indisponível: abra a app em https:// ou localhost');
+  const base = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 150000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function encryptText(text, pass) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await deriveKey(pass, salt), enc.encode(text)));
+  const out = new Uint8Array(28 + ct.length); out.set(salt); out.set(iv, 16); out.set(ct, 28);
+  return b64u(out);
+}
+async function decryptText(b64, pass) {
+  const d = unb64u(b64);
+  try {
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: d.subarray(16, 28) }, await deriveKey(pass, d.subarray(0, 16)), d.subarray(28));
+    return dec.decode(pt);
+  } catch (e) { if (e.message && e.message.startsWith('Cifra')) throw e; throw new Error('Palavra‑passe errada'); }
+}
+
+/* =========================================================
+   Estado
+   ========================================================= */
+let outbox = store.get('me.outbox', []);   // {code, b, created}
+let inbox = store.get('me.inbox', []);     // {code, b, received, via, plain?}
+const save = () => { store.set('me.outbox', outbox); store.set('me.inbox', inbox); };
+const myCall = () => ($('myCall').value.trim() || 'ANÓNIMO').toUpperCase();
+$('myCall').value = store.get('me.call', '');
+$('myCall').addEventListener('input', () => { store.set('me.call', $('myCall').value); renderAll(); });
+$('simDelay').checked = store.get('me.sim', false);
+$('simDelay').addEventListener('change', () => { store.set('me.sim', $('simDelay').checked); renderInbox(); });
+
+/* Tabs */
+$('tabs').addEventListener('click', (e) => {
+  const t = e.target.closest('button'); if (!t) return;
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b === t));
+  document.querySelectorAll('main section').forEach((s) => s.classList.toggle('active', s.id === t.dataset.tab));
+});
+function setStatus(el, msg, kind = 'info') { el.textContent = msg; el.className = 'status ' + kind; }
+
+/* =========================================================
+   Escrever
+   ========================================================= */
+function updateEta() {
+  const km = parseNum($('wDist').value);
+  if (!(km >= 0)) { $('wEta').textContent = 'Distância inválida.'; return; }
+  const s = lightSeconds(km), arr = new Date(Date.now() + s * 1000);
+  $('wEta').innerHTML = `⏱️ À velocidade da luz a mensagem demora <b>${fmtDuration(s)}</b> a percorrer ${fmtInt(km)} km.<br>` +
+    `📅 Chegada mais cedo possível: <b>${arr.toLocaleString('pt-PT')}</b>` +
+    (s > 86400 ? `<br>🔁 Uma resposta só chegaria daqui a <b>${fmtDuration(2 * s)}</b>.` : '');
+}
+$('wDist').addEventListener('input', updateEta); updateEta();
+
+$('wCreate').addEventListener('click', async () => {
+  const body = $('wBody').value.trim(), pass = $('wPass').value, km = parseNum($('wDist').value);
+  if (!body) return setStatus($('wStatus'), 'Escreva uma mensagem.', 'err');
+  if (!(km >= 0)) return setStatus($('wStatus'), 'Distância inválida.', 'err');
+  try {
+    const id = Array.from(crypto.getRandomValues(new Uint8Array(4)), (x) => x.toString(16).padStart(2, '0')).join('');
+    const b = { v: 1, i: id, f: myCall(), t: ($('wTo').value.trim() || '*').toUpperCase(), s: Math.floor(Date.now() / 1000), d: km, h: 0, e: pass ? 1 : 0, m: pass ? await encryptText(body, pass) : body };
+    const code = frameToCode(await packFrame(b));
+    outbox.unshift({ code, b, created: Date.now() }); save();
+    $('wBody').value = ''; $('wPass').value = '';
+    setStatus($('wStatus'), `✅ Pacote ${id} criado (${code.length} caracteres). Vá a "Transmitir" para o enviar.`, 'ok');
+    renderAll(); $('tSel').value = id; renderTransmit();
+  } catch (e) { setStatus($('wStatus'), '❌ ' + e.message, 'err'); }
+});
+
+/* =========================================================
+   Modem acústico (MFSK com bancos alternados)
+   Tons 0-15: nibble em símbolos pares; 16-31: nibble em símbolos ímpares;
+   32: início; 33: fim. Símbolos consecutivos nunca são iguais → auto‑sincronização.
+   ========================================================= */
+const MODEM = { base: 800, step: 80, sym: 0.12, mark: 0.4, n: 34, START: 32, END: 33 };
+const toneFreq = (i) => MODEM.base + i * MODEM.step;
+
+function bytesToTones(bytes) {
+  const t = [MODEM.START]; let k = 0;
+  for (const by of bytes) for (const nib of [by >> 4, by & 15]) t.push(nib + (k++ % 2 ? 16 : 0));
+  t.push(MODEM.END); return t;
+}
+function tonesToBytes(t) {
+  const out = new Uint8Array(t.length >> 1);
+  for (let i = 0; i < out.length; i++) out[i] = ((t[2 * i] & 15) << 4) | (t[2 * i + 1] & 15);
+  return out;
+}
+
+let txCtx = null, txTimer = null;
+function stopTx() { if (txCtx) { txCtx.close(); txCtx = null; } clearInterval(txTimer); }
+function playTones(tones, onProgress, onEnd) {
+  stopTx();
+  const ctx = txCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.type = 'sine'; osc.connect(g).connect(ctx.destination);
+  const t0 = ctx.currentTime + 0.15; let t = t0;
+  g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(0.6, t0 + 0.03);
+  tones.forEach((tone, idx) => {
+    osc.frequency.setValueAtTime(toneFreq(tone), t);
+    t += (idx === 0 || idx === tones.length - 1) ? MODEM.mark : MODEM.sym;
+  });
+  g.gain.setValueAtTime(0.6, t - 0.03); g.gain.linearRampToValueAtTime(0, t);
+  osc.start(t0); osc.stop(t + 0.05);
+  const total = t - t0;
+  txTimer = setInterval(() => { const p = (ctx.currentTime - t0) / total; onProgress(Math.max(0, Math.min(1, p))); if (p >= 1) { clearInterval(txTimer); onEnd(); } }, 100);
+  return total;
+}
+
+/* Descodificador: Goertzel sobre janelas de 2048 amostras (Hann), passo de 1024 */
+class ToneDecoder {
+  constructor(sampleRate, onFrame, onLevels) {
+    this.sr = sampleRate; this.N = 2048; this.hop = 1024;
+    this.buf = new Float32Array(this.N); this.fill = 0;
+    this.win = new Float32Array(this.N).map((_, i) => 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (this.N - 1)));
+    this.coef = Array.from({ length: MODEM.n }, (_, i) => 2 * Math.cos(2 * Math.PI * toneFreq(i) / sampleRate));
+    this.onFrame = onFrame; this.onLevels = onLevels;
+    this.cand = -1; this.cnt = 0; this.last = -1; this.rx = null; this.silence = 0;
+  }
+  push(samples) {
+    let off = 0;
+    while (off < samples.length) {
+      const take = Math.min(this.N - this.fill, samples.length - off);
+      this.buf.set(samples.subarray(off, off + take), this.fill); this.fill += take; off += take;
+      if (this.fill === this.N) { this.analyse(); this.buf.copyWithin(0, this.hop); this.fill = this.N - this.hop; }
+    }
+  }
+  analyse() {
+    const N = this.N, x = this.buf, w = this.win, pw = new Float32Array(MODEM.n);
+    let energy = 0;
+    for (let j = 0; j < N; j++) energy += x[j] * x[j];
+    for (let i = 0; i < MODEM.n; i++) {
+      const c = this.coef[i]; let s1 = 0, s2 = 0;
+      for (let j = 0; j < N; j++) { const s0 = x[j] * w[j] + c * s1 - s2; s2 = s1; s1 = s0; }
+      pw[i] = s1 * s1 + s2 * s2 - c * s1 * s2;
+    }
+    let best = 0, sum = 0;
+    for (let i = 0; i < MODEM.n; i++) { sum += pw[i]; if (pw[i] > pw[best]) best = i; }
+    const others = (sum - pw[best]) / (MODEM.n - 1);
+    const rms = Math.sqrt(energy / N);
+    const det = (rms > 0.003 && pw[best] > 8 * others) ? best : -1;
+    if (this.onLevels) this.onLevels(pw, pw[best]);
+    this.step(det);
+  }
+  step(det) {
+    if (det === -1) {
+      // Silêncio prolongado durante a receção → abandona
+      if (this.rx && ++this.silence > 40) { this.rx = null; this.onFrame(null, 'Sinal perdido'); }
+      return;
+    }
+    this.silence = 0;
+    if (det === this.cand) this.cnt++; else { this.cand = det; this.cnt = 1; }
+    if (this.cnt !== 2 || det === this.last) return;
+    this.last = det;
+    if (det === MODEM.START) { this.rx = []; this.onFrame(null, 'start'); return; }
+    if (!this.rx) return;
+    if (det === MODEM.END) { const t = this.rx; this.rx = null; this.onFrame(tonesToBytes(t), 'end'); return; }
+    this.rx.push(det);
+    if (this.rx.length % 16 === 0) this.onFrame(null, 'progress:' + (this.rx.length >> 1));
+  }
+}
+
+/* =========================================================
+   Morse
+   ========================================================= */
+const MORSE = { A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..',
+  0: '-----', 1: '.----', 2: '..---', 3: '...--', 4: '....-', 5: '.....', 6: '-....', 7: '--...', 8: '---..', 9: '----.',
+  '.': '.-.-.-', ',': '--..--', '?': '..--..', '!': '-.-.--', '/': '-..-.', '-': '-....-', '(': '-.--.', ')': '-.--.-', ':': '---...', '=': '-...-', '+': '.-.-.', '@': '.--.-.', "'": '.----.', '"': '.-..-.' };
+const MORSE_REV = Object.fromEntries(Object.entries(MORSE).map(([k, v]) => [v, k]));
+const toMorse = (txt) => txt.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().split(/\s+/).filter(Boolean)
+  .map((w) => [...w].map((c) => MORSE[c]).filter(Boolean).join(' ')).filter(Boolean).join(' / ');
+const fromMorse = (m) => m.trim().split(/\s*\/\s*|\s{3,}/).map((w) => w.split(/\s+/).filter(Boolean).map((s) => MORSE_REV[s] ?? '�').join('')).join(' ');
+
+/* Linha temporal: [[ligado(bool), duração em unidades], ...] */
+function morseTimeline(m) {
+  const tl = [];
+  for (const word of m.split(' / ')) {
+    for (const letter of word.split(' ')) { for (const s of letter) tl.push([true, s === '.' ? 1 : 3], [false, 1]); tl[tl.length - 1][1] = 3; }
+    tl[tl.length - 1][1] = 7;
+  }
+  return tl;
+}
+let morseCtx = null, morseRaf = null;
+function stopMorse() { if (morseCtx) { morseCtx.close(); morseCtx = null; } cancelAnimationFrame(morseRaf); $('flash').style.display = 'none'; $('flash').classList.remove('on'); if (navigator.vibrate) navigator.vibrate(0); }
+function playMorse(m, wpm, out) {
+  stopMorse();
+  const unit = 1.2 / wpm, tl = morseTimeline(m);
+  const sound = out === 'sound' || out === 'all', flash = out === 'flash' || out === 'all', vib = (out === 'vibrate' || out === 'all') && navigator.vibrate;
+  const ctx = morseCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator(), g = ctx.createGain();
+  osc.frequency.value = 650; osc.connect(g).connect(ctx.destination); g.gain.value = 0;
+  const t0 = ctx.currentTime + 0.3; let t = t0; const edges = [];
+  for (const [on, u] of tl) {
+    if (on) { if (sound) { g.gain.setTargetAtTime(0.5, t, 0.004); g.gain.setTargetAtTime(0, t + u * unit, 0.004); } edges.push([t, t + u * unit]); }
+    t += u * unit;
+  }
+  osc.start(t0); osc.stop(t + 0.1);
+  if (vib) { const pat = []; for (const [on, u] of tl) { const ms = Math.round(u * unit * 1000); if (pat.length % 2 === (on ? 0 : 1)) pat.push(ms); else pat[pat.length - 1] += ms; } setTimeout(() => navigator.vibrate(pat), 300); }
+  if (flash) {
+    $('flash').style.display = 'flex';
+    const tick = () => {
+      if (!morseCtx) return; const now = ctx.currentTime;
+      $('flash').classList.toggle('on', edges.some(([a, b]) => now >= a && now < b));
+      if (now > t) return stopMorse(); morseRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  } else setTimeout(() => { if (morseCtx === ctx) stopMorse(); }, (t - ctx.currentTime + 0.3) * 1000);
+}
+
+/* =========================================================
+   Transmitir
+   ========================================================= */
+function selectedOut() { return outbox.find((o) => o.b.i === $('tSel').value); }
+function renderTransmit() {
+  const cur = $('tSel').value;
+  $('tSel').innerHTML = outbox.length ? outbox.map((o) => `<option value="${o.b.i}">${esc(o.b.i)} → ${esc(o.b.t)} · ${o.b.e ? '🔒 cifrada' : esc(o.b.m.slice(0, 40))}${o.b.h ? ' · reencaminhada' : ''}</option>`).join('') : '<option value="">(caixa de saída vazia)</option>';
+  if (outbox.some((o) => o.b.i === cur)) $('tSel').value = cur;
+  const o = selectedOut();
+  $('tCode').value = o ? o.code : '';
+  $('tBigBox').textContent = o ? o.code.match(/.{1,4}/g).join(' ') : '';
+  $('mText').value = o && !o.b.e ? toMorse(o.b.m) : (o ? '(mensagem cifrada — use som ou código de texto)' : '');
+  $('mPlay').disabled = !o || !!o.b.e;
+  ['tPlay', 'tCopy', 'tShare', 'tFile', 'tBig'].forEach((id) => ($(id).disabled = !o));
+  if (o) {
+    const bytes = codeToFrame(o.code).length;
+    $('tInfo').innerHTML = `De <b>${esc(o.b.f)}</b> para <b>${esc(o.b.t)}</b> · ${bytes} bytes · ${o.b.h} salto(s) · som ≈ ${fmtDuration(bytes * 2 * MODEM.sym + 2 * MODEM.mark)}`;
+  } else $('tInfo').textContent = 'Crie uma mensagem em "Escrever" ou reencaminhe uma recebida.';
+}
+$('tSel').addEventListener('change', renderTransmit);
+$('tPlay').addEventListener('click', () => {
+  const o = selectedOut(); if (!o) return;
+  const tones = bytesToTones(codeToFrame(o.code));
+  const dur = playTones(tones, (p) => ($('tProg').value = p), () => setStatus($('tStatus'), '✅ Transmissão concluída.', 'ok'));
+  setStatus($('tStatus'), `🔊 A transmitir ${tones.length} símbolos (${fmtDuration(dur)})…`);
+});
+$('tStop').addEventListener('click', () => { stopTx(); $('tProg').value = 0; setStatus($('tStatus'), 'Parado.'); });
+$('tCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('tCode').value); setStatus($('tStatus'), '📋 Código copiado.', 'ok'); }
+  catch { $('tCode').select(); document.execCommand('copy'); }
+});
+$('tShare').addEventListener('click', async () => {
+  const o = selectedOut(); if (!o) return;
+  const file = new File([o.code], `pacote-${o.b.i}.uni`, { type: 'text/plain' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'Pacote ' + o.b.i });
+    else if (navigator.share) await navigator.share({ text: o.code });
+    else alert('Partilha não suportada neste browser. Use "Guardar ficheiro" ou "Copiar".');
+  } catch (e) { if (e.name !== 'AbortError') alert(e.message); }
+});
+$('tFile').addEventListener('click', () => {
+  const o = selectedOut(); if (!o) return;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([o.code], { type: 'text/plain' }));
+  a.download = `pacote-${o.b.i}.uni`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$('tBig').addEventListener('click', () => { const b = $('tBigBox'); b.style.display = b.style.display === 'none' ? 'block' : 'none'; });
+$('mPlay').addEventListener('click', () => { if ($('mText').value) playMorse($('mText').value, Math.max(3, +$('mWpm').value || 12), $('mOut').value); });
+$('mStop').addEventListener('click', stopMorse);
+$('flashStop').addEventListener('click', stopMorse);
+
+/* =========================================================
+   Receber
+   ========================================================= */
+async function receiveCode(code, via) {
+  const frame = codeToFrame(code);
+  const b = await unpackFrame(frame);
+  const canonical = frameToCode(frame);
+  if (inbox.some((x) => x.b.i === b.i && x.b.h === b.h) || outbox.some((x) => x.b.i === b.i)) return { b, dup: true };
+  inbox.unshift({ code: canonical, b, received: Date.now(), via }); save(); renderAll();
+  return { b, dup: false };
+}
+const recvMsg = ({ b, dup }) => dup ? `ℹ️ Pacote ${b.i} já estava guardado.` : `✅ Pacote ${b.i} de ${b.f} recebido! Veja em "Mensagens".`;
+
+$('rImport').addEventListener('click', async () => {
+  try { setStatus($('rImpStatus'), recvMsg(await receiveCode($('rCode').value, 'código')), 'ok'); $('rCode').value = ''; }
+  catch (e) { setStatus($('rImpStatus'), '❌ ' + e.message, 'err'); }
+});
+$('rFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try { setStatus($('rImpStatus'), recvMsg(await receiveCode(await f.text(), 'ficheiro')), 'ok'); }
+  catch (err) { setStatus($('rImpStatus'), '❌ ' + err.message, 'err'); }
+  e.target.value = '';
+});
+$('rMorse').addEventListener('input', () => { $('rMorseOut').textContent = $('rMorse').value.trim() ? fromMorse($('rMorse').value) : '—'; });
+
+const spec = $('rSpec');
+spec.innerHTML = Array.from({ length: MODEM.n }, (_, i) => `<div class="${i === MODEM.START ? 's' : i === MODEM.END ? 'e' : ''}"></div>`).join('');
+let rx = null;
+async function startListening() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ctx.createMediaStreamSource(stream);
+    const proc = ctx.createScriptProcessor(1024, 1, 1);
+    const bars = spec.children;
+    const decoder = new ToneDecoder(ctx.sampleRate, async (bytes, ev) => {
+      if (ev === 'start') return setStatus($('rStatus'), '📡 Início de pacote detetado — a receber…');
+      if (ev.startsWith && ev.startsWith('progress:')) return setStatus($('rStatus'), `📡 A receber… ${ev.split(':')[1]} bytes`);
+      if (!bytes) return setStatus($('rStatus'), '⚠️ ' + ev + '. À espera de novo pacote…', 'err');
+      try { setStatus($('rStatus'), recvMsg(await receiveCode(frameToCode(bytes), 'som')), 'ok'); }
+      catch (e) { setStatus($('rStatus'), `❌ ${e.message} (${bytes.length} bytes). Peça para repetir mais perto.`, 'err'); }
+    }, (pw, max) => { if (max > 0) for (let i = 0; i < pw.length; i++) bars[i].style.height = Math.max(1, 100 * Math.sqrt(pw[i] / max)) + '%'; });
+    proc.onaudioprocess = (e) => decoder.push(e.inputBuffer.getChannelData(0));
+    const mute = ctx.createGain(); mute.gain.value = 0;
+    src.connect(proc); proc.connect(mute).connect(ctx.destination);
+    rx = { stream, ctx };
+    $('rListen').disabled = true; $('rStopListen').disabled = false;
+    setStatus($('rStatus'), `🎤 A ouvir (${ctx.sampleRate} Hz)…`);
+  } catch (e) { setStatus($('rStatus'), '❌ Microfone indisponível: ' + e.message, 'err'); }
+}
+function stopListening() {
+  if (rx) { rx.stream.getTracks().forEach((t) => t.stop()); rx.ctx.close(); rx = null; }
+  $('rListen').disabled = false; $('rStopListen').disabled = true; setStatus($('rStatus'), 'Parado.');
+  for (const b of spec.children) b.style.height = '1px';
+}
+$('rListen').addEventListener('click', startListening);
+$('rStopListen').addEventListener('click', stopListening);
+
+/* =========================================================
+   Mensagens
+   ========================================================= */
+function isForMe(b) { return b.t === '*' || b.t === myCall(); }
+function renderInbox() {
+  const sim = $('simDelay').checked, now = Date.now() / 1000;
+  $('inbox').innerHTML = inbox.length ? inbox.map((x, idx) => {
+    const b = x.b, arrival = b.s + lightSeconds(b.d), inTransit = sim && now < arrival;
+    const forMe = isForMe(b);
+    let body;
+    if (inTransit) body = `<i>🚀 Em trânsito à velocidade da luz… chega dentro de <b>${fmtDuration(arrival - now)}</b> (${new Date(arrival * 1000).toLocaleString('pt-PT')}).</i>`;
+    else if (b.e && x.plain == null) body = `<span class="tag lock">🔒 cifrada</span> <input type="password" placeholder="palavra‑passe" data-pass="${idx}" style="width:180px;display:inline-block" /> <button class="btn" data-dec="${idx}">Abrir</button>`;
+    else body = esc(b.e ? x.plain : b.m);
+    return `<div class="msg"><div class="meta">
+        <span>📨 <b>${esc(b.f)}</b> → <b>${esc(b.t)}</b></span>
+        <span>enviada ${new Date(b.s * 1000).toLocaleString('pt-PT')}</span>
+        <span>recebida por ${esc(x.via)}</span>
+        <span>${fmtInt(b.d)} km (${fmtDuration(lightSeconds(b.d))} luz)</span>
+        <span>${b.h} salto(s)</span>
+        ${forMe ? '<span class="tag ok">para mim</span>' : '<span class="tag warn">em trânsito por mim</span>'}
+      </div><div class="body">${body}</div>
+      ${!forMe || b.t === '*' ? `<button class="btn" data-fwd="${idx}">🔁 Reencaminhar (próximo salto)</button>` : ''}
+      <button class="btn danger" data-del-in="${idx}">Apagar</button></div>`;
+  }).join('') : '<p class="hint">Ainda não recebeu nada.</p>';
+}
+function renderOutbox() {
+  $('outbox').innerHTML = outbox.length ? outbox.map((o, idx) => `<div class="msg"><div class="meta">
+      <span>📤 <b>${esc(o.b.f)}</b> → <b>${esc(o.b.t)}</b></span><span>id ${esc(o.b.i)}</span>
+      <span>${new Date(o.created).toLocaleString('pt-PT')}</span><span>${o.b.h} salto(s)</span>
+      ${o.b.e ? '<span class="tag lock">🔒 cifrada</span>' : ''}
+      ${o.delivered ? `<span class="tag ok">✅ entregue a ${esc(o.deliveredTo || '?')} (relé)</span>` : o.relayedAt ? `<span class="tag lock">🌐 no relé (${o.relayCount}×), à espera de confirmação</span>` : ''}</div>
+      <div class="body">${o.b.e ? '<i>conteúdo cifrado</i>' : esc(o.b.m)}</div>
+      <button class="btn" data-send="${o.b.i}">📡 Transmitir</button>
+      <button class="btn danger" data-del-out="${idx}">Apagar</button></div>`).join('') : '<p class="hint">Vazia.</p>';
+}
+function renderAll() { renderInbox(); renderOutbox(); renderTransmit(); }
+
+document.addEventListener('click', async (e) => {
+  const d = e.target.dataset; if (!d) return;
+  if (d.delIn != null && confirm('Apagar esta mensagem?')) { inbox.splice(+d.delIn, 1); save(); renderAll(); }
+  if (d.delOut != null && confirm('Apagar da caixa de saída?')) { outbox.splice(+d.delOut, 1); save(); renderAll(); }
+  if (d.send) { $('tSel').value = d.send; renderTransmit(); document.querySelector('#tabs [data-tab="transmitir"]').click(); }
+  if (d.dec != null) {
+    const x = inbox[+d.dec], pass = document.querySelector(`[data-pass="${d.dec}"]`).value;
+    try { x.plain = await decryptText(x.b.m, pass); renderInbox(); } catch (err) { alert(err.message); }
+  }
+  if (d.fwd != null) {
+    const x = inbox[+d.fwd];
+    const b = { ...x.b, h: x.b.h + 1 };
+    const code = frameToCode(await packFrame(b));
+    outbox = outbox.filter((o) => o.b.i !== b.i);
+    outbox.unshift({ code, b, created: Date.now() }); save(); renderAll();
+    $('tSel').value = b.i; renderTransmit(); document.querySelector('#tabs [data-tab="transmitir"]').click();
+  }
+});
+setInterval(() => { if ($('simDelay').checked && document.querySelector('#mensagens.active')) renderInbox(); }, 1000);
+
+/* =========================================================
+   Física
+   ========================================================= */
+const REFS = [['Lua', 384400], ['Marte (aproximação média)', 225e6], ['Sol', 149.6e6], ['Plutão', 5.9e9], ['Voyager 1 (2026)', 25.3e9], ['A sua mensagem: 10¹² km', 1e12], ['Proxima Centauri', 4.0e13]];
+$('pTable').querySelector('tbody').innerHTML = REFS.map(([n, km]) => `<tr><td>${n}</td><td>${km.toLocaleString('pt-PT', { notation: 'compact', maximumFractionDigits: 2 })} km</td><td>${fmtDuration(lightSeconds(km))}</td></tr>`).join('');
+function updatePhys() {
+  const km = parseNum($('pDist').value), ghz = +$('pFreq').value;
+  if (!(km > 0) || !(ghz > 0)) { $('pOut').textContent = 'Valores inválidos.'; return; }
+  const dm = km * 1000, f = ghz * 1e9;
+  const fspl = 20 * Math.log10(dm) + 20 * Math.log10(f) + 20 * Math.log10(4 * Math.PI / 299792458);
+  const phone = 30 + 0 + 0 - fspl;           // 1 W (30 dBm), antenas isotrópicas
+  const dsn = 43 + 48 + 74 - fspl;          // 20 W + antena 3,7 m (~48 dBi) → DSN 70 m (~74 dBi)
+  const noise = -174 + 10 * Math.log10(1);  // dBm/Hz a 290 K
+  $('pOut').innerHTML = `⏱️ Luz: <b>${fmtDuration(lightSeconds(km))}</b> (ida) · ${fmtDuration(2 * lightSeconds(km))} (ida e volta)<br>` +
+    `📉 Perda em espaço livre a ${ghz} GHz: <b>${fspl.toFixed(1)} dB</b><br>` +
+    `📱 Telemóvel (1 W, antena simples): chega com ${phone.toFixed(0)} dBm — <b>${(noise - phone).toFixed(0)} dB abaixo</b> do ruído térmico por Hz.<br>` +
+    `🛰️ Sonda tipo Voyager (20 W, antena 3,7 m) → antena de 70 m: ${dsn.toFixed(0)} dBm — margem de ${(dsn - noise).toFixed(0)} dB·Hz ` +
+    ((dsn - noise) > 10 ? `(≈ ${Math.pow(10, (dsn - noise - 10) / 10).toLocaleString('pt-PT', { maximumSignificantDigits: 2 })} bit/s teóricos).` : '— <b>insuficiente</b>: nem uma sonda destas seria ouvida.');
+}
+$('pDist').addEventListener('input', updatePhys); $('pFreq').addEventListener('input', updatePhys); updatePhys();
+
+/* =========================================================
+   Emergência: formato compacto SOS1 (≤160 caracteres GSM‑7)
+   SOS1 <INDICATIVO> [T<ddhhmm UTC>] [L<lat>,<lon>] [P<n>] [CÓDIGOS…] [texto] #<CRC16>
+   ========================================================= */
+const SOS_CODES = [
+  ['OK', '✅ Em segurança'], ['FER', '🩹 Feridos'], ['GRV', '🚑 Ferido grave'], ['PRESO', '🧱 Preso / isolado'],
+  ['EVAC', '🚁 Precisa evacuação'], ['AGUA', '💧 Água'], ['COMIDA', '🍞 Comida'], ['MED', '💊 Medicamentos'],
+  ['ABRIGO', '⛺ Abrigo'], ['CHEIA', '🌊 Cheia'], ['FOGO', '🔥 Incêndio'], ['BAT', '🔋 Bateria fraca'],
+];
+const SOS_LABEL = Object.fromEntries(SOS_CODES);
+const SMS_MAX = 160;
+// Só caracteres do alfabeto GSM‑7 básico: um acento força UCS‑2 e o SMS cai para 70 caracteres.
+const gsmSafe = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9 .,;:!?()\-+'"\/@&%=<>*]/g, '').replace(/\s+/g, ' ').trim();
+// Formato único compatível com SMS, e-mail, Winlink e JS8Call: maiúsculas, dígitos, espaço e . / ? + -
+const radioSafe = (t) => gsmSafe(t).toUpperCase().replace(/[^A-Z0-9 .\/?+\-]/g, ' ').replace(/\s+/g, ' ').trim();
+const chk16 = (t) => (crc32(enc.encode(t)) & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+
+let sosSel = new Set(store.get('me.sosSel', []));
+let contacts = store.get('me.contacts', []);
+$('eCodes').innerHTML = SOS_CODES.map(([c, l]) => `<button type="button" class="chip" data-code="${c}">${l}</button>`).join('');
+
+function parseLoc(s) {
+  const m = String(s).match(/(-?\d+(?:[.,]\d+)?)\s*[,; ]\s*(-?\d+(?:[.,]\d+)?)/);
+  if (!m) return null;
+  const lat = +m[1].replace(',', '.'), lon = +m[2].replace(',', '.');
+  return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? [lat, lon] : null;
+}
+function buildSos() {
+  const now = new Date(), pad = (n) => String(n).padStart(2, '0');
+  const parts = ['SOS1', radioSafe(myCall()).replace(/ /g, '-') || 'ANON', 'T' + pad(now.getUTCDate()) + pad(now.getUTCHours()) + pad(now.getUTCMinutes())];
+  const loc = parseLoc($('eLoc').value); if (loc) parts.push(`L${loc[0].toFixed(5)}/${loc[1].toFixed(5)}`);
+  const ppl = parseInt($('ePeople').value, 10); if (ppl >= 0) parts.push('P' + ppl);
+  SOS_CODES.forEach(([c]) => sosSel.has(c) && parts.push(c));
+  const txt = radioSafe($('eText').value); if (txt) parts.push(txt);
+  const body = parts.join(' ');
+  return body + ' CK' + chk16(body);
+}
+// Divide em partes "(k/n) " que cabem cada uma num SMS
+function splitSms(msg) {
+  if (msg.length <= SMS_MAX) return [msg];
+  const room = SMS_MAX - 6, n = Math.ceil(msg.length / room);
+  return Array.from({ length: n }, (_, k) => `(${k + 1}/${n}) ` + msg.slice(k * room, (k + 1) * room));
+}
+function parseSos(raw) {
+  // Junta partes (k/n) pela ordem indicada
+  const chunks = [...raw.matchAll(/\((\d+)\/(\d+)\)\s?([\s\S]*?)(?=\(\d+\/\d+\)|$)/g)];
+  let msg = chunks.length ? chunks.sort((a, b) => a[1] - b[1]).map((c) => c[3].replace(/[\r\n]+/g, '')).join('').trim() : raw.trim();
+  if (chunks.length && new Set(chunks.map((c) => c[1])).size < +chunks[0][2]) throw new Error(`Faltam partes: recebidas ${new Set(chunks.map((c) => c[1])).size} de ${chunks[0][2]}`);
+  msg = msg.toUpperCase();
+  const start = msg.indexOf('SOS1 '); if (start < 0) throw new Error('Não encontrei uma mensagem SOS1');
+  msg = msg.slice(start).replace(/\s+/g, ' ');
+  const m = msg.match(/^(SOS1 .*?) CK([0-9A-F]{4})\b/);
+  if (!m) throw new Error('Mensagem incompleta (falta o código CKXXXX no fim)');
+  const body = m[1], ok = chk16(body) === m[2];
+  const tok = body.split(' ').slice(1), r = { from: tok.shift(), codes: [], text: [], ok, body: body + ' CK' + m[2] };
+  for (const t of tok) {
+    let x;
+    if (!r.text.length && (x = t.match(/^T(\d{2})(\d{2})(\d{2})$/))) r.time = x;
+    else if (!r.text.length && (x = t.match(/^L(-?\d+\.\d+)\/(-?\d+\.\d+)$/))) r.loc = [+x[1], +x[2]];
+    else if (!r.text.length && (x = t.match(/^P(\d+)$/))) r.people = +x[1];
+    else if (!r.text.length && SOS_LABEL[t]) r.codes.push(t);
+    else r.text.push(t);
+  }
+  r.text = r.text.join(' ');
+  return r;
+}
+function sosTime(t) {
+  if (!t) return null;
+  const now = new Date(); const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), +t[1], +t[2], +t[3]));
+  if (d - now > 2 * 86400e3) d.setUTCMonth(d.getUTCMonth() - 1); // dia de um mês anterior
+  return d;
+}
+
+const CONTACT_TYPES = {
+  sms: { lbl: 'Número (com indicativo, ex.: +239 9xx xxxx)', addr: (n) => n.replace(/[^\d+]/g, '') },
+  iridium: { lbl: 'Número Iridium (ex.: 8816xxxxxxxx)', addr: (n) => n.replace(/\D/g, '') + '@msg.iridium.com' },
+  inmarsat: { lbl: 'Número Inmarsat (ex.: 870xxxxxxxxx)', addr: (n) => n.replace(/\D/g, '') + '@message.inmarsat.com' },
+  thuraya: { lbl: 'Número Thuraya (ex.: 88216xxxxxxx)', addr: () => 'sms@smsr.thuraya.com', subject: (n) => n.replace(/\D/g, '') },
+  email: { lbl: 'Endereço de e‑mail (ex.: endereço do inReach)', addr: (n) => n.trim(), whole: true },
+  // Winlink: e-mail da internet → radioamador por HF. "//WL2K" no assunto deixa passar remetentes não autorizados.
+  winlink: { lbl: 'Indicativo de radioamador (ex.: EA5XXX)', addr: (n) => n.trim().toUpperCase().replace(/[^A-Z0-9\-]/g, '') + '@winlink.org', subject: () => '//WL2K SOS', whole: true },
+  // JS8Call: não há link; copia a linha "<INDICATIVO> MSG <texto>" para colar no JS8Call
+  js8: { lbl: 'Indicativo de radioamador (ex.: EA5XXX)', addr: (n) => n.trim().toUpperCase().replace(/[^A-Z0-9\/]/g, ''), whole: true, radio: true },
+};
+function contactPreview() {
+  const t = CONTACT_TYPES[$('cType').value], n = $('cNum').value;
+  $('cNumLbl').textContent = t.lbl;
+  $('cPreview').textContent = n.trim() ? (($('cType').value === 'sms' ? 'SMS para ' : t.radio ? 'Linha para o JS8Call: ' : 'E‑mail para ') + t.addr(n) + (t.radio ? ' MSG SOS1 …' : '') + (t.subject ? ` · assunto: ${t.subject(n)}` : '')) : '';
+}
+$('cType').addEventListener('change', contactPreview); $('cNum').addEventListener('input', contactPreview);
+
+function sendLink(c, msg) {
+  const t = CONTACT_TYPES[c.type];
+  if (c.type === 'sms') return `sms:${t.addr(c.num)}?&body=${encodeURIComponent(msg)}`; // "?&" funciona em iOS e Android
+  return `mailto:${t.addr(c.num)}?subject=${encodeURIComponent(t.subject ? t.subject(c.num) : 'SOS')}&body=${encodeURIComponent(msg)}`;
+}
+function renderSos() {
+  document.querySelectorAll('#eCodes .chip').forEach((b) => b.classList.toggle('on', sosSel.has(b.dataset.code)));
+  const msg = buildSos(), parts = splitSms(msg);
+  $('eOut').value = parts.join('\n');
+  $('eCount').innerHTML = `${msg.length} caracteres · ${parts.length === 1 ? '<span class="tag ok">1 SMS</span>' : `<span class="tag warn">${parts.length} SMS — encurte o texto para caber num só</span>`}`;
+  $('cList').innerHTML = contacts.length ? contacts.map((c, i) => `<div class="msg"><div class="meta"><span><b>${esc(c.name)}</b></span><span>${esc(c.type)} · ${esc(CONTACT_TYPES[c.type].addr(c.num))}</span></div>
+      ${CONTACT_TYPES[c.type].radio ? `<button class="btn primary" data-js8="${i}">📻 Copiar para o JS8Call</button>`
+        : (CONTACT_TYPES[c.type].whole ? [msg] : parts).map((p, k, all) => `<a class="btn primary" href="${esc(sendLink(c, p))}">${c.type === 'sms' ? '📱 Enviar SMS' : '✉️ Enviar e‑mail'}${all.length > 1 ? ` ${k + 1}/${all.length}` : ''}</a>`).join('')}
+      <button class="btn danger" data-cdel="${i}">Apagar</button></div>`).join('') : '<p class="hint">Sem contactos. Adicione pelo menos um.</p>';
+}
+$('eCodes').addEventListener('click', (e) => {
+  const c = e.target.closest('.chip'); if (!c) return;
+  sosSel.has(c.dataset.code) ? sosSel.delete(c.dataset.code) : sosSel.add(c.dataset.code);
+  store.set('me.sosSel', [...sosSel]); renderSos();
+});
+['ePeople', 'eLoc', 'eText', 'myCall'].forEach((id) => $(id).addEventListener('input', renderSos));
+$('eGps').addEventListener('click', () => {
+  if (!navigator.geolocation) return setStatus($('eStatus'), '❌ GPS indisponível neste aparelho.', 'err');
+  setStatus($('eStatus'), '📍 A obter posição (o GPS funciona sem rede, mas ao ar livre é mais rápido)…');
+  navigator.geolocation.getCurrentPosition((p) => {
+    $('eLoc').value = `${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
+    setStatus($('eStatus'), `📍 Posição obtida (precisão ±${Math.round(p.coords.accuracy)} m).`, 'ok'); renderSos();
+  }, (err) => setStatus($('eStatus'), '❌ ' + err.message, 'err'), { enableHighAccuracy: true, timeout: 60000, maximumAge: 120000 });
+});
+$('cAdd').addEventListener('click', () => {
+  const name = $('cName').value.trim(), num = $('cNum').value.trim();
+  if (!name || !num) return setStatus($('eStatus'), 'Preencha nome e número/endereço.', 'err');
+  contacts.push({ name, type: $('cType').value, num }); store.set('me.contacts', contacts);
+  $('cName').value = $('cNum').value = ''; contactPreview(); renderSos();
+});
+$('cList').addEventListener('click', async (e) => {
+  if (e.target.dataset.js8 != null) {
+    const c = contacts[+e.target.dataset.js8], line = `${CONTACT_TYPES.js8.addr(c.num)} MSG ${buildSos()}`;
+    try { await navigator.clipboard.writeText(line); setStatus($('eStatus'), '📻 Copiado: ' + line, 'ok'); } catch { prompt('Copie para o JS8Call:', line); }
+    return;
+  }
+  const i = e.target.dataset.cdel; if (i == null || !confirm('Apagar contacto?')) return;
+  contacts.splice(+i, 1); store.set('me.contacts', contacts); renderSos();
+});
+async function sosToBundle(msg, from, when) {
+  const id = chk16(msg).toLowerCase() + chk16(msg + '#').toLowerCase();
+  return { v: 1, i: id, f: from, t: '*', s: Math.floor((when || Date.now()) / 1000), d: 0, h: 0, e: 0, m: msg, sos: 1 };
+}
+$('eQueue').addEventListener('click', async () => {
+  const b = await sosToBundle(buildSos(), myCall());
+  if (outbox.some((o) => o.b.i === b.i)) return setStatus($('eStatus'), 'Esta mensagem já está na caixa de saída.', 'info');
+  outbox.unshift({ code: frameToCode(await packFrame(b)), b, created: Date.now() }); save(); renderAll();
+  setStatus($('eStatus'), '✅ Na caixa de saída — pode transmiti‑la por som, Morse ou ficheiro.', 'ok');
+});
+$('eRead').addEventListener('click', async () => {
+  const out = $('eParsed'); out.style.display = 'block';
+  try {
+    const r = parseSos($('eIn').value), when = sosTime(r.time);
+    out.innerHTML = `${r.ok ? '<span class="tag ok">verificação OK</span>' : '<span class="tag warn">⚠️ código não confere — a mensagem pode ter sido alterada ou cortada</span>'}<br>` +
+      `🆘 De <b>${esc(r.from)}</b>${when ? ` · ${when.toLocaleString('pt-PT')}` : ''}<br>` +
+      (r.loc ? `📍 ${r.loc[0]}, ${r.loc[1]} · <a href="geo:${r.loc[0]},${r.loc[1]}" style="color:var(--accent)">abrir no mapa do telemóvel</a> · <a href="https://www.openstreetmap.org/?mlat=${r.loc[0]}&mlon=${r.loc[1]}#map=16/${r.loc[0]}/${r.loc[1]}" target="_blank" rel="noopener" style="color:var(--accent)">OpenStreetMap</a><br>` : '📍 sem localização<br>') +
+      (r.people != null ? `👥 ${r.people} pessoa(s)<br>` : '') +
+      (r.codes.length ? r.codes.map((c) => SOS_LABEL[c]).join(' · ') + '<br>' : '') +
+      (r.text ? `💬 ${esc(r.text)}` : '');
+    const b = await sosToBundle(r.body, r.from, when && +when);
+    if (!inbox.some((x) => x.b.i === b.i)) { inbox.unshift({ code: frameToCode(await packFrame(b)), b, received: Date.now(), via: 'SMS/e‑mail' }); save(); renderAll(); }
+  } catch (e) { out.innerHTML = '❌ ' + esc(e.message); }
+});
+renderSos();
+
+/* =========================================================
+   Relé gratuito (ntfy): armazenar e reencaminhar pela internet
+   Publica: POST <servidor>/<canal> (corpo = código UNI1.…)
+   Recebe:  GET  <servidor>/<canal>/json?poll=1&since=<id|all>
+   Confirma: publica "ACK.<id>.<INDICATIVO>" quando recebe uma mensagem para si
+   ========================================================= */
+let relay = Object.assign({ server: 'https://ntfy.sh', topic: '', auto: false, since: 'all', last: 0 }, store.get('me.relay', {}));
+$('yTopic').value = relay.topic; $('yServer').value = relay.server; $('yAuto').checked = relay.auto;
+const saveRelay = () => store.set('me.relay', relay);
+const validTopic = (t) => /^[-_A-Za-z0-9]{8,64}$/.test(t);
+$('yTopic').addEventListener('input', () => { relay.topic = $('yTopic').value.trim(); relay.since = 'all'; saveRelay(); });
+$('yServer').addEventListener('input', () => { relay.server = $('yServer').value.trim() || 'https://ntfy.sh'; relay.since = 'all'; saveRelay(); });
+$('yAuto').addEventListener('change', () => { relay.auto = $('yAuto').checked; saveRelay(); if (relay.auto) relaySync(false); });
+$('yGen').addEventListener('click', () => {
+  $('yTopic').value = 'uni-' + Array.from(crypto.getRandomValues(new Uint8Array(10)), (x) => x.toString(36).padStart(2, '0')).join('').slice(0, 18);
+  $('yTopic').dispatchEvent(new Event('input'));
+});
+$('yCopy').addEventListener('click', async () => {
+  const t = `Canal do Mensageiro Espacial: ${relay.topic}\nServidor: ${relay.server}`;
+  try { await navigator.clipboard.writeText(t); setStatus($('yStatus'), '📋 Copiado. Envie à família (pessoalmente, SMS, papel…).', 'ok'); } catch { prompt('Copie:', t); }
+});
+const relayUrl = () => relay.server.replace(/\/+$/, '') + '/' + encodeURIComponent(relay.topic);
+async function relayPublish(text) {
+  const r = await fetch(relayUrl(), { method: 'POST', body: text });
+  if (!r.ok) throw new Error('servidor respondeu ' + r.status);
+}
+const RELAY_REPUBLISH = 10 * 3600e3, RELAY_MAX_AGE = 7 * 86400e3;
+let relayBusy = false;
+async function relaySync(manual) {
+  if (relayBusy) return;
+  if (!validTopic(relay.topic)) { if (manual) setStatus($('yStatus'), 'Defina um canal com 8–64 letras, números, - ou _ (ou carregue em Gerar).', 'err'); return; }
+  if (!manual && !navigator.onLine) return;
+  relayBusy = true; let got = 0, sent = 0, acks = 0;
+  try {
+    if (manual) setStatus($('yStatus'), '🔄 A sincronizar…');
+    // 1) Receber
+    const r = await fetch(relayUrl() + '/json?poll=1&since=' + encodeURIComponent(relay.since || 'all'));
+    if (!r.ok) throw new Error('servidor respondeu ' + r.status);
+    const lines = (await r.text()).split('\n').filter(Boolean).slice(-500);
+    for (const line of lines) {
+      let ev; try { ev = JSON.parse(line); } catch { continue; }
+      if (ev.event !== 'message' || typeof ev.message !== 'string') continue;
+      relay.since = ev.id || relay.since;
+      const m = ev.message.trim();
+      if (m.startsWith('ACK.')) {
+        const [, id, who] = m.split('.');
+        const o = outbox.find((x) => x.b.i === id);
+        if (o && !o.delivered) { o.delivered = Date.now(); o.deliveredTo = (who || '?').slice(0, 20); acks++; }
+      } else if (m.startsWith('UNI1.')) {
+        try {
+          const res = await receiveCode(m, 'internet (relé)');
+          if (!res.dup) { got++; if (isForMe(res.b) && res.b.f !== myCall()) await relayPublish(`ACK.${res.b.i}.${myCall().replace(/[^\w-]/g, '')}`); }
+        } catch { /* pacote inválido: ignora */ }
+      }
+    }
+    // 2) Enviar (e republicar até confirmação, porque o servidor público só guarda ~12 h)
+    const now = Date.now();
+    for (const o of outbox) {
+      if (o.delivered) continue;
+      if (o.relayedAt && (now - o.relayedAt < RELAY_REPUBLISH || now - o.created > RELAY_MAX_AGE)) continue;
+      await relayPublish(o.code); o.relayedAt = now; o.relayCount = (o.relayCount || 0) + 1; sent++;
+    }
+    relay.last = now; save(); saveRelay(); renderAll();
+    setStatus($('yStatus'), `✅ Sincronizado: ${got} recebida(s), ${sent} enviada(s), ${acks} confirmação(ões) de entrega.`, 'ok');
+  } catch (e) {
+    save(); saveRelay();
+    setStatus($('yStatus'), (manual ? '❌ ' : '⏳ ') + (e.message === 'Failed to fetch' ? 'Sem ligação ao servidor — fica tudo guardado e tenta de novo quando houver internet.' : e.message), manual ? 'err' : 'info');
+  } finally { relayBusy = false; renderRelayLast(); }
+}
+function renderRelayLast() {
+  const pend = outbox.filter((o) => !o.delivered).length;
+  $('yLast').textContent = (relay.last ? `Última sincronização: ${new Date(relay.last).toLocaleString('pt-PT')}. ` : 'Ainda não sincronizou. ') + `${pend} mensagem(ns) por confirmar.`;
+}
+$('ySync').addEventListener('click', () => relaySync(true));
+window.addEventListener('online', () => relay.auto && relaySync(false));
+setInterval(() => relay.auto && relaySync(false), 60000);
+renderRelayLast();
+if (relay.auto) setTimeout(() => relaySync(false), 1500);
+
+renderAll();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
